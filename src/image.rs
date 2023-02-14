@@ -2,7 +2,7 @@ use crate::{
     device::Device,
     image_base::ImageBase,
     image_properties::{ImageDimensions, ImageProperties, ImageViewProperties},
-    memory::{find_memorytype_index, MemoryAllocator, ALLOCATION_CALLBACK_NONE},
+    memory::{MemoryAllocator, ALLOCATION_CALLBACK_NONE},
 };
 use anyhow::Context;
 use ash::vk;
