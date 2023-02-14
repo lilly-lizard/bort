@@ -105,9 +105,10 @@ impl Drop for Image {
             self.device
                 .inner()
                 .destroy_image_view(self.image_view_handle, ALLOCATION_CALLBACK_NONE);
+
             self.memory_allocator
                 .inner()
-                .destroy_image(self.image_handle, &self.memory_allocation);
+                .destroy_image(self.image_handle, &mut self.memory_allocation);
         }
     }
 }
