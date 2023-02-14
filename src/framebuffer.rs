@@ -1,5 +1,5 @@
 use crate::{
-    device::Device, image::Image, image_base::ImageBase, image_properties::ImageDimensions,
+    device::Device, image_base::ImageBase, image_properties::ImageDimensions,
     memory::ALLOCATION_CALLBACK_NONE, render_pass::RenderPass,
 };
 use anyhow::Context;
@@ -16,7 +16,7 @@ pub struct Framebuffer {
 impl Framebuffer {
     pub fn new(
         render_pass: Arc<RenderPass>,
-        framebuffer_properties: FramebufferProperties,
+        mut framebuffer_properties: FramebufferProperties,
     ) -> anyhow::Result<Self> {
         let framebuffer_info_builder = framebuffer_properties.create_info_builder(&render_pass);
 
@@ -58,34 +58,32 @@ impl Drop for Framebuffer {
 
 pub struct FramebufferProperties {
     pub create_flags: vk::FramebufferCreateFlags,
-    pub attachments: Vec<Arc<Image>>,
+    pub attachments: Vec<Arc<dyn ImageBase>>,
     pub dimensions: ImageDimensions,
+    // because these need to be stored for duration of `FramebufferCreateInfoBuilder`
     attachment_image_view_handles: Vec<vk::ImageView>,
 }
 
 impl FramebufferProperties {
-    pub fn new(
-        create_flags: vk::FramebufferCreateFlags,
-        attachments: Vec<Arc<Image>>,
-        dimensions: ImageDimensions,
-    ) -> Self {
-        let attachment_image_view_handles = attachments
-            .iter()
-            .map(|image| image.image_view_handle())
-            .collect::<Vec<_>>();
-
+    pub fn new(attachments: Vec<Arc<dyn ImageBase>>, dimensions: ImageDimensions) -> Self {
         Self {
-            create_flags,
+            create_flags: vk::FramebufferCreateFlags::empty(),
             attachments,
-            attachment_image_view_handles,
+            attachment_image_view_handles: Vec::new(),
             dimensions,
         }
     }
 
     pub fn create_info_builder(
-        &self,
+        &mut self,
         render_pass: &RenderPass,
     ) -> vk::FramebufferCreateInfoBuilder {
+        self.attachment_image_view_handles = self
+            .attachments
+            .iter()
+            .map(|image| image.image_view_handle())
+            .collect::<Vec<_>>();
+
         vk::FramebufferCreateInfo::builder()
             .flags(self.create_flags)
             .render_pass(render_pass.handle())
