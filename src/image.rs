@@ -1,7 +1,9 @@
 use crate::{
     device::Device,
     image_base::ImageBase,
-    image_properties::{ImageDimensions, ImageProperties, ImageViewProperties},
+    image_properties::{
+        transient_image_info, ImageDimensions, ImageProperties, ImageViewProperties,
+    },
     memory::{MemoryAllocator, ALLOCATION_CALLBACK_NONE},
 };
 use anyhow::Context;
@@ -60,6 +62,25 @@ impl Image {
 
             device,
         })
+    }
+
+    /// Create a transient, lazily allocated image.
+    pub fn new_tranient(
+        device: Arc<Device>,
+        memory_allocator: Arc<MemoryAllocator>,
+        dimensions: ImageDimensions,
+        format: vk::Format,
+        additional_usage: vk::ImageUsageFlags,
+    ) -> anyhow::Result<Self> {
+        let (image_properties, image_view_properties, allocation_info) =
+            transient_image_info(dimensions, format, additional_usage);
+        Self::new(
+            device,
+            memory_allocator,
+            image_properties,
+            image_view_properties,
+            allocation_info,
+        )
     }
 
     // Getters

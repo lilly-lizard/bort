@@ -1,4 +1,30 @@
-use ash::vk;
+use ash::vk::{self, MemoryPropertyFlags};
+use vk_mem::{AllocationCreateInfo, MemoryUsage};
+
+// Presets
+
+/// Properties for a transient, lazily allocated image.
+pub fn transient_image_info(
+    dimensions: ImageDimensions,
+    format: vk::Format,
+    additional_usage: vk::ImageUsageFlags,
+) -> (ImageProperties, ImageViewProperties, AllocationCreateInfo) {
+    let image_properties = ImageProperties {
+        dimensions,
+        format,
+        usage: vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | additional_usage,
+        ..ImageProperties::default()
+    };
+    let image_view_properties = ImageViewProperties::from_image_properties(&image_properties);
+
+    let allocation_info = AllocationCreateInfo {
+        usage: MemoryUsage::GpuLazy,
+        required_flags: MemoryPropertyFlags::LAZILY_ALLOCATED | MemoryPropertyFlags::DEVICE_LOCAL,
+        ..AllocationCreateInfo::default()
+    };
+
+    (image_properties, image_view_properties, allocation_info)
+}
 
 // Image Properties
 
@@ -71,6 +97,17 @@ impl ImageProperties {
 
         builder
     }
+
+    pub fn subresource_range(&self) -> vk::ImageSubresourceRange {
+        let aspect_mask = aspect_mask_from_format(self.format);
+        vk::ImageSubresourceRange {
+            aspect_mask,
+            base_mip_level: 0,
+            level_count: self.mip_levels,
+            base_array_layer: 0,
+            layer_count: self.dimensions.array_layers(),
+        }
+    }
 }
 
 // Image View Properties
@@ -100,17 +137,10 @@ impl Default for ImageViewProperties {
 }
 
 impl ImageViewProperties {
-    pub fn from_image_properties(image_properties: ImageProperties) -> Self {
+    pub fn from_image_properties(image_properties: &ImageProperties) -> Self {
         let format = image_properties.format;
         let view_type = image_properties.dimensions.default_image_view_type();
-        let aspect_mask = aspect_mask_from_format(format);
-        let subresource_range = vk::ImageSubresourceRange {
-            aspect_mask,
-            base_mip_level: 0,
-            level_count: image_properties.mip_levels,
-            base_array_layer: 0,
-            layer_count: image_properties.dimensions.array_layers(),
-        };
+        let subresource_range = image_properties.subresource_range();
 
         Self {
             format,
