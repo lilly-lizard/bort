@@ -4,6 +4,7 @@ use ash::vk;
 use std::sync::Arc;
 use vk_mem::AllocatorCreateInfo;
 
+// so it's easy to find all allocation callback args, just in case I want to use them in the future.
 pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None;
 
 // Memory Allocator
@@ -33,6 +34,7 @@ impl MemoryAllocator {
         &self.inner
     }
 
+    #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.device
     }

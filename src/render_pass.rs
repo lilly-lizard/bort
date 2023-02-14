@@ -68,6 +68,7 @@ impl RenderPass {
         &self.properties
     }
 
+    #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.device
     }

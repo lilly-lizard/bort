@@ -1,4 +1,4 @@
-use ash::vk::{self, MemoryPropertyFlags};
+use ash::vk;
 use vk_mem::{AllocationCreateInfo, MemoryUsage};
 
 // Presets
@@ -19,7 +19,8 @@ pub fn transient_image_info(
 
     let allocation_info = AllocationCreateInfo {
         usage: MemoryUsage::GpuLazy,
-        required_flags: MemoryPropertyFlags::LAZILY_ALLOCATED | MemoryPropertyFlags::DEVICE_LOCAL,
+        required_flags: vk::MemoryPropertyFlags::LAZILY_ALLOCATED
+            | vk::MemoryPropertyFlags::DEVICE_LOCAL,
         ..AllocationCreateInfo::default()
     };
 
@@ -31,6 +32,7 @@ pub fn transient_image_info(
 /// WARNING `default()` values for `format`, `dimensions` and `usage` are nothing!
 #[derive(Debug, Clone)]
 pub struct ImageProperties {
+    pub create_flags: vk::ImageCreateFlags,
     pub format: vk::Format,
     pub dimensions: ImageDimensions,
     pub mip_levels: u32,
@@ -40,7 +42,6 @@ pub struct ImageProperties {
     pub sharing_mode: vk::SharingMode,
     pub queue_family_indices: Vec<u32>,
     pub initial_layout: vk::ImageLayout,
-    pub image_create_flags: vk::ImageCreateFlags,
 }
 
 impl Default for ImageProperties {
@@ -52,7 +53,7 @@ impl Default for ImageProperties {
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             queue_family_indices: Vec::new(),
             initial_layout: vk::ImageLayout::GENERAL,
-            image_create_flags: vk::ImageCreateFlags::empty(),
+            create_flags: vk::ImageCreateFlags::empty(),
 
             // nonsense defaults. make sure you override these!
             format: vk::Format::default(),
@@ -80,7 +81,7 @@ impl ImageProperties {
 
     pub fn create_info_builder(&self) -> vk::ImageCreateInfoBuilder {
         let mut builder = vk::ImageCreateInfo::builder()
-            .flags(self.image_create_flags)
+            .flags(self.create_flags)
             .image_type(self.dimensions.image_type())
             .format(self.format)
             .extent(self.dimensions.extent_3d())
@@ -115,18 +116,18 @@ impl ImageProperties {
 /// WARNING `default()` values for `format`, `view_type` are nothing!
 #[derive(Debug, Copy, Clone)]
 pub struct ImageViewProperties {
+    pub create_flags: vk::ImageViewCreateFlags,
     pub view_type: vk::ImageViewType,
     pub component_mapping: vk::ComponentMapping,
     pub format: vk::Format,
     pub subresource_range: vk::ImageSubresourceRange,
-    pub image_view_create_flags: vk::ImageViewCreateFlags,
 }
 
 impl Default for ImageViewProperties {
     fn default() -> Self {
         Self {
             component_mapping: default_component_mapping(),
-            image_view_create_flags: vk::ImageViewCreateFlags::empty(),
+            create_flags: vk::ImageViewCreateFlags::empty(),
             subresource_range: default_subresource_range(vk::ImageAspectFlags::COLOR),
 
             // nonsense defaults. make sure you override these!
@@ -152,7 +153,7 @@ impl ImageViewProperties {
 
     pub fn create_info_builder(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfoBuilder {
         vk::ImageViewCreateInfo::builder()
-            .flags(self.image_view_create_flags)
+            .flags(self.create_flags)
             .image(image_handle)
             .view_type(self.view_type)
             .format(self.format)

@@ -18,30 +18,25 @@ pub struct SwapchainImage {
     dimensions: ImageDimensions,
 
     // dependencies
-    device: Arc<Device>,
     swapchain: Arc<Swapchain>,
 }
 
 impl SwapchainImage {
-    pub fn from_swapchain(
-        device: Arc<Device>,
-        swapchain: Arc<Swapchain>,
-    ) -> anyhow::Result<Vec<Self>> {
+    pub fn from_swapchain(swapchain: Arc<Swapchain>) -> anyhow::Result<Vec<Self>> {
         swapchain
             .get_swapchain_images()
             .context("getting swapchain images")?
             .into_iter()
-            .map(|image_handle| {
-                Self::from_image_handle(device.clone(), swapchain.clone(), image_handle)
-            })
+            .map(|image_handle| Self::from_image_handle(swapchain.clone(), image_handle))
             .collect::<anyhow::Result<Vec<_>>>()
     }
 
     fn from_image_handle(
-        device: Arc<Device>,
         swapchain: Arc<Swapchain>,
         image_handle: vk::Image,
     ) -> anyhow::Result<Self> {
+        let device = swapchain.device();
+
         let format = swapchain.properties().surface_format.format;
         let component_mapping = default_component_mapping();
 
@@ -79,7 +74,6 @@ impl SwapchainImage {
             image_view_properties,
             dimensions: swapchain.properties().dimensions(),
 
-            device,
             swapchain,
         })
     }
@@ -106,8 +100,9 @@ impl SwapchainImage {
         self.image_view_properties.subresource_range.layer_count
     }
 
+    #[inline]
     pub fn device(&self) -> &Arc<Device> {
-        &self.device
+        &self.swapchain.device()
     }
 
     pub fn swapchain(&self) -> &Arc<Swapchain> {
@@ -137,7 +132,7 @@ impl Drop for SwapchainImage {
     fn drop(&mut self) {
         // note we shouldn't destroy the swapchain images. that'll be handled by the `Swapchain`.
         unsafe {
-            self.device
+            self.device()
                 .inner()
                 .destroy_image_view(self.image_view_handle, ALLOCATION_CALLBACK_NONE);
         }

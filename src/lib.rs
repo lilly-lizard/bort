@@ -1,6 +1,7 @@
 pub mod common;
 pub mod debug_callback;
 pub mod device;
+pub mod framebuffer;
 pub mod image;
 pub mod image_base;
 pub mod image_properties;

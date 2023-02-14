@@ -18,21 +18,21 @@ pub struct Image {
     image_view_handle: vk::ImageView,
     image_view_properties: ImageViewProperties,
 
-    memory_allocator: Arc<MemoryAllocator>,
     memory_allocation: vk_mem::Allocation,
 
     // dependencies
-    device: Arc<Device>,
+    memory_allocator: Arc<MemoryAllocator>,
 }
 
 impl Image {
     pub fn new(
-        device: Arc<Device>,
         memory_allocator: Arc<MemoryAllocator>,
         image_properties: ImageProperties,
         image_view_properties: ImageViewProperties,
         memory_info: AllocationCreateInfo,
     ) -> anyhow::Result<Self> {
+        let device = memory_allocator.device().clone();
+
         let image_info = image_properties.create_info_builder().build();
 
         let (image_handle, memory_allocation) = unsafe {
@@ -53,20 +53,15 @@ impl Image {
         Ok(Self {
             image_handle,
             image_properties,
-
             image_view_handle,
             image_view_properties,
-
-            memory_allocator,
             memory_allocation,
-
-            device,
+            memory_allocator,
         })
     }
 
     /// Create a transient, lazily allocated image.
     pub fn new_tranient(
-        device: Arc<Device>,
         memory_allocator: Arc<MemoryAllocator>,
         dimensions: ImageDimensions,
         format: vk::Format,
@@ -75,7 +70,6 @@ impl Image {
         let (image_properties, image_view_properties, allocation_info) =
             transient_image_info(dimensions, format, additional_usage);
         Self::new(
-            device,
             memory_allocator,
             image_properties,
             image_view_properties,
@@ -97,8 +91,9 @@ impl Image {
         &self.memory_allocation
     }
 
+    #[inline]
     pub fn device(&self) -> &Arc<Device> {
-        &self.device
+        &self.memory_allocator.device()
     }
 }
 
@@ -123,7 +118,7 @@ impl ImageBase for Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            self.device
+            self.device()
                 .inner()
                 .destroy_image_view(self.image_view_handle, ALLOCATION_CALLBACK_NONE);
 
