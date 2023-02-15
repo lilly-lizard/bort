@@ -2,10 +2,10 @@ use crate::{
     common::is_format_srgb, device::Device, image_base::extent_2d_from_width_height,
     image_properties::ImageDimensions, memory::ALLOCATION_CALLBACK_NONE, surface::Surface,
 };
-use anyhow::Context;
 use ash::{extensions::khr, prelude::VkResult, vk};
 use std::{
     cmp::{max, min},
+    error, fmt,
     sync::Arc,
 };
 
@@ -40,12 +40,12 @@ impl Swapchain {
         composite_alpha: vk::CompositeAlphaFlagsKHR,
         image_usage: vk::ImageUsageFlags,
         window_dimensions: [u32; 2],
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, SwapchainError> {
         let swapchain_loader = khr::Swapchain::new(device.instance().inner(), device.inner());
 
         let surface_capabilities = surface
             .get_physical_device_surface_capabilities(device.physical_device())
-            .context("get_physical_device_surface_capabilities")?;
+            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfaceCapabilities(e))?;
 
         let image_count = max(
             min(preferred_image_count, surface_capabilities.max_image_count),
@@ -62,7 +62,7 @@ impl Swapchain {
 
         let present_modes = surface
             .get_physical_device_surface_present_modes(device.physical_device())
-            .context("get_physical_device_surface_present_modes")?;
+            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfacePresentModes(e))?;
         let present_mode = present_modes
             .into_iter()
             .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
@@ -97,7 +97,7 @@ impl Swapchain {
             swapchain_loader
                 .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
         }
-        .context("creating swapchain")?;
+        .map_err(|e| SwapchainError::Creation(e))?;
 
         Ok(Self {
             handle,
@@ -264,4 +264,39 @@ pub fn get_first_srgb_surface_format(
         .find(|vk::SurfaceFormatKHR { format, .. }| is_format_srgb(*format))
         // otherwise just go with the first format
         .unwrap_or(surface_formats[0])
+}
+
+#[derive(Debug, Clone)]
+pub enum SwapchainError {
+    GetPhysicalDeviceSurfaceCapabilities(vk::Result),
+    GetPhysicalDeviceSurfacePresentModes(vk::Result),
+    Creation(vk::Result),
+}
+
+impl fmt::Display for SwapchainError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::GetPhysicalDeviceSurfaceCapabilities(e) => write!(
+                f,
+                "call to vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed: {}",
+                e
+            ),
+            Self::GetPhysicalDeviceSurfacePresentModes(e) => write!(
+                f,
+                "call to vkGetPhysicalDeviceSurfacePresentModesKHR failed: {}",
+                e
+            ),
+            Self::Creation(e) => write!(f, "failed to create swapchain: {}", e),
+        }
+    }
+}
+
+impl error::Error for SwapchainError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::GetPhysicalDeviceSurfaceCapabilities(e) => Some(e),
+            Self::GetPhysicalDeviceSurfacePresentModes(e) => Some(e),
+            Self::Creation(e) => Some(e),
+        }
+    }
 }
