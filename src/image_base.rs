@@ -24,30 +24,3 @@ pub fn extent_2d_from_width_height(dimensions: [u32; 2]) -> vk::Extent2D {
         height: dimensions[1],
     }
 }
-
-// Image Raw
-
-pub struct ImageRaw {
-    pub image_handle: vk::Image,
-    pub image_view_handle: vk::ImageView,
-    pub image_view_properties: ImageViewProperties,
-    pub dimensions: ImageDimensions,
-}
-
-impl ImageBase for ImageRaw {
-    fn image_handle(&self) -> vk::Image {
-        self.image_handle
-    }
-
-    fn image_view_handle(&self) -> vk::ImageView {
-        self.image_view_handle
-    }
-
-    fn dimensions(&self) -> ImageDimensions {
-        self.dimensions
-    }
-
-    fn image_view_properties(&self) -> ImageViewProperties {
-        self.image_view_properties
-    }
-}
