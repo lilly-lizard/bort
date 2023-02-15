@@ -8,14 +8,13 @@ pub fn transient_image_info(
     dimensions: ImageDimensions,
     format: vk::Format,
     additional_usage: vk::ImageUsageFlags,
-) -> (ImageProperties, ImageViewProperties, AllocationCreateInfo) {
+) -> (ImageProperties, AllocationCreateInfo) {
     let image_properties = ImageProperties {
         dimensions,
         format,
         usage: vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | additional_usage,
         ..ImageProperties::default()
     };
-    let image_view_properties = ImageViewProperties::from_image_properties(&image_properties);
 
     let allocation_info = AllocationCreateInfo {
         usage: MemoryUsage::GpuLazy,
@@ -24,7 +23,7 @@ pub fn transient_image_info(
         ..AllocationCreateInfo::default()
     };
 
-    (image_properties, image_view_properties, allocation_info)
+    (image_properties, allocation_info)
 }
 
 // Image Properties
@@ -108,57 +107,6 @@ impl ImageProperties {
             base_array_layer: 0,
             layer_count: self.dimensions.array_layers(),
         }
-    }
-}
-
-// Image View Properties
-
-/// WARNING `default()` values for `format`, `view_type` are nothing!
-#[derive(Debug, Copy, Clone)]
-pub struct ImageViewProperties {
-    pub create_flags: vk::ImageViewCreateFlags,
-    pub view_type: vk::ImageViewType,
-    pub component_mapping: vk::ComponentMapping,
-    pub format: vk::Format,
-    pub subresource_range: vk::ImageSubresourceRange,
-}
-
-impl Default for ImageViewProperties {
-    fn default() -> Self {
-        Self {
-            component_mapping: default_component_mapping(),
-            create_flags: vk::ImageViewCreateFlags::empty(),
-            subresource_range: default_subresource_range(vk::ImageAspectFlags::COLOR),
-
-            // nonsense defaults. make sure you override these!
-            format: vk::Format::default(),
-            view_type: vk::ImageViewType::default(),
-        }
-    }
-}
-
-impl ImageViewProperties {
-    pub fn from_image_properties(image_properties: &ImageProperties) -> Self {
-        let format = image_properties.format;
-        let view_type = image_properties.dimensions.default_image_view_type();
-        let subresource_range = image_properties.subresource_range();
-
-        Self {
-            format,
-            subresource_range,
-            view_type,
-            ..Self::default()
-        }
-    }
-
-    pub fn create_info_builder(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfoBuilder {
-        vk::ImageViewCreateInfo::builder()
-            .flags(self.create_flags)
-            .image(image_handle)
-            .view_type(self.view_type)
-            .format(self.format)
-            .components(self.component_mapping)
-            .subresource_range(self.subresource_range)
     }
 }
 
@@ -270,26 +218,14 @@ impl Default for ImageDimensions {
     }
 }
 
+pub fn extent_2d_from_width_height(dimensions: [u32; 2]) -> vk::Extent2D {
+    vk::Extent2D {
+        width: dimensions[0],
+        height: dimensions[1],
+    }
+}
+
 // Helper Functions
-
-pub fn default_component_mapping() -> vk::ComponentMapping {
-    vk::ComponentMapping {
-        r: vk::ComponentSwizzle::R,
-        g: vk::ComponentSwizzle::G,
-        b: vk::ComponentSwizzle::B,
-        a: vk::ComponentSwizzle::A,
-    }
-}
-
-pub fn default_subresource_range(aspect_mask: vk::ImageAspectFlags) -> vk::ImageSubresourceRange {
-    vk::ImageSubresourceRange {
-        aspect_mask,
-        base_mip_level: 0,
-        level_count: 1,
-        base_array_layer: 0,
-        layer_count: 1,
-    }
-}
 
 /// Doesn't support planes/metadata.
 pub fn aspect_mask_from_format(format: vk::Format) -> vk::ImageAspectFlags {
