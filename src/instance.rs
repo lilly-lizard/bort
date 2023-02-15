@@ -1,10 +1,13 @@
 use crate::{common::string_to_c_string_vec, memory::ALLOCATION_CALLBACK_NONE};
-use anyhow::Context;
 use ash::{extensions::ext::DebugUtils, vk, Entry};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use raw_window_handle::RawDisplayHandle;
-use std::ffi::CString;
+use std::{
+    error,
+    ffi::{CString, NulError},
+    fmt,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ApiVersion {
@@ -40,8 +43,9 @@ impl Instance {
         enable_debug_validation: bool,
         additional_layer_names: impl IntoIterator<Item = String>,
         additional_extension_names: impl IntoIterator<Item = String>,
-    ) -> anyhow::Result<Self> {
-        let app_name = CString::new(app_name).context("converting app name to c string")?;
+    ) -> Result<Self, InstanceError> {
+        let app_name =
+            CString::new(app_name).map_err(|e| InstanceError::AppNameStringConversion(e))?;
         let appinfo = vk::ApplicationInfo::builder()
             .application_name(&app_name)
             .application_version(0)
@@ -55,13 +59,16 @@ impl Instance {
             ));
 
         let mut layer_names_raw = string_to_c_string_vec(additional_layer_names)
-            .context("converting layer names to c strings")?;
+            .map_err(|e| InstanceError::LayerStringConversion(e))?;
         let mut extension_names_raw = string_to_c_string_vec(additional_extension_names)
-            .context("converting extension names to c strings")?;
+            .map_err(|e| InstanceError::ExtensionStringConversion(e))?;
 
-        let display_extension_names = ash_window::enumerate_required_extensions(display_handle)
-            .context("querying required display extensions")?;
-        extension_names_raw.extend_from_slice(display_extension_names);
+        // in this case, error just means no extensions.
+        if let Ok(display_extension_names) =
+            ash_window::enumerate_required_extensions(display_handle)
+        {
+            extension_names_raw.extend_from_slice(display_extension_names);
+        }
 
         let validation_layer_name =
             CString::new("VK_LAYER_KHRONOS_validation").expect("no nulls in str");
@@ -80,11 +87,8 @@ impl Instance {
             .enabled_layer_names(&layer_names_raw)
             .enabled_extension_names(&extension_names_raw);
 
-        let instance = unsafe {
-            entry
-                .create_instance(&create_info, ALLOCATION_CALLBACK_NONE)
-                .context("creating vulkan instance")?
-        };
+        let instance = unsafe { entry.create_instance(&create_info, ALLOCATION_CALLBACK_NONE) }
+            .map_err(|e| InstanceError::Creation(e))?;
 
         Ok(Self {
             inner: instance,
@@ -156,6 +160,48 @@ impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
             self.inner.destroy_instance(ALLOCATION_CALLBACK_NONE);
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum InstanceError {
+    AppNameStringConversion(NulError),
+    ExtensionStringConversion(NulError),
+    LayerStringConversion(NulError),
+    Creation(vk::Result),
+}
+
+impl fmt::Display for InstanceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AppNameStringConversion(e) => {
+                write!(f, "failed to convert app name string to c string: {}", e)
+            }
+            Self::ExtensionStringConversion(e) => {
+                write!(
+                    f,
+                    "failed to convert extension name string to c string: {}",
+                    e
+                )
+            }
+            Self::LayerStringConversion(e) => {
+                write!(f, "failed to convert layer name string to c string: {}", e)
+            }
+            Self::Creation(e) => {
+                write!(f, "failed to create device {}", e)
+            }
+        }
+    }
+}
+
+impl error::Error for InstanceError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::AppNameStringConversion(e) => Some(e),
+            Self::ExtensionStringConversion(e) => Some(e),
+            Self::LayerStringConversion(e) => Some(e),
+            Self::Creation(e) => Some(e),
         }
     }
 }
