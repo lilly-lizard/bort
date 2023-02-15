@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
-# error propogation and backtrace management
+# error propogation and backtrace management todo put behind feature flag?
 anyhow = { version = "1.0", features = ["backtrace"] }
 # ash is a lightweight vulkan wrapper
 ash = "0.37.2"
