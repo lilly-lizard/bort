@@ -1,26 +1,42 @@
-use crate::{descriptor_pool::DescriptorPool, device::Device};
+use crate::{
+    descriptor_layout::DescriptorSetLayout, descriptor_pool::DescriptorPool, device::Device,
+};
 use ash::vk;
 use std::sync::Arc;
 
 pub struct DescriptorSet {
     handle: vk::DescriptorSet,
-    properties: DescriptorSetProperties,
+    layout: Arc<DescriptorSetLayout>,
 
     // dependencies
     descriptor_pool: Arc<DescriptorPool>,
 }
 
 impl DescriptorSet {
+    /// Safetey: make sure `handle` was allocated from `descriptor_pool` using `layout`.
+    pub unsafe fn from_handle(
+        handle: vk::DescriptorSet,
+        layout: Arc<DescriptorSetLayout>,
+        descriptor_pool: Arc<DescriptorPool>,
+    ) -> Self {
+        Self {
+            handle,
+            layout,
+            descriptor_pool,
+        }
+    }
+
     // Getters
 
     pub fn handle(&self) -> vk::DescriptorSet {
         self.handle
     }
 
-    pub fn properties(&self) -> &DescriptorSetProperties {
-        &self.properties
+    pub fn layout(&self) -> &Arc<DescriptorSetLayout> {
+        &self.layout
     }
 
+    #[inline]
     pub fn descriptor_pool(&self) -> &Arc<DescriptorPool> {
         &self.descriptor_pool
     }
@@ -30,6 +46,3 @@ impl DescriptorSet {
         self.descriptor_pool.device()
     }
 }
-
-#[derive(Clone)]
-pub struct DescriptorSetProperties {}

@@ -1,4 +1,7 @@
-use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE};
+use crate::{
+    descriptor_layout::DescriptorSetLayout, descriptor_set::DescriptorSet, device::Device,
+    memory::ALLOCATION_CALLBACK_NONE,
+};
 use anyhow::Context;
 use ash::vk;
 use std::sync::Arc;
@@ -25,6 +28,50 @@ impl DescriptorPool {
             properties,
             device,
         })
+    }
+
+    pub fn allocate_descriptor_set(
+        self: &Arc<Self>,
+        layout: Arc<DescriptorSetLayout>,
+    ) -> anyhow::Result<DescriptorSet> {
+        let layout_handles = [layout.handle()];
+        let create_info = vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(self.handle)
+            .set_layouts(&layout_handles);
+
+        let descriptor_set_handle =
+            unsafe { self.device().inner().allocate_descriptor_sets(&create_info) }
+                .context("creating single descriptor set")?[0];
+
+        Ok(unsafe { DescriptorSet::from_handle(descriptor_set_handle, layout, self.clone()) })
+    }
+
+    pub fn allocate_descriptor_sets(
+        self: &Arc<Self>,
+        layouts: Vec<Arc<DescriptorSetLayout>>,
+    ) -> anyhow::Result<Vec<DescriptorSet>> {
+        let layout_handles = layouts.iter().map(|l| l.handle()).collect::<Vec<_>>();
+        let create_info = vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(self.handle)
+            .set_layouts(layout_handles.as_slice());
+
+        let descriptor_set_handles =
+            unsafe { self.device().inner().allocate_descriptor_sets(&create_info) }
+                .context("creating single descriptor set")?;
+
+        let mut descriptor_sets = Vec::<DescriptorSet>::new();
+        for i in 0..layouts.len() {
+            let descriptor_set = unsafe {
+                DescriptorSet::from_handle(
+                    descriptor_set_handles[i],
+                    layouts[i].clone(),
+                    self.clone(),
+                )
+            };
+            descriptor_sets.push(descriptor_set);
+        }
+
+        Ok(descriptor_sets)
     }
 
     // Getters
