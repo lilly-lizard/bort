@@ -2,6 +2,7 @@ use crate::{descriptor_pool::DescriptorPool, device::Device};
 use ash::vk;
 use std::sync::Arc;
 
+/// Note: no destructor needed. Just drop pool.
 pub struct DescriptorSet {
     handle: vk::DescriptorSet,
     properties: DescriptorSetProperties,
