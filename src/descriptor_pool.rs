@@ -2,8 +2,7 @@ use crate::{
     descriptor_layout::DescriptorSetLayout, descriptor_set::DescriptorSet, device::Device,
     memory::ALLOCATION_CALLBACK_NONE,
 };
-use anyhow::Context;
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
 pub struct DescriptorPool {
@@ -15,13 +14,12 @@ pub struct DescriptorPool {
 }
 
 impl DescriptorPool {
-    pub fn new(device: Arc<Device>, properties: DescriptorPoolProperties) -> anyhow::Result<Self> {
+    pub fn new(device: Arc<Device>, properties: DescriptorPoolProperties) -> VkResult<Self> {
         let handle = unsafe {
             device
                 .inner()
                 .create_descriptor_pool(&properties.create_info_builder(), ALLOCATION_CALLBACK_NONE)
-        }
-        .context("creating descriptor set pool")?;
+        }?;
 
         Ok(Self {
             handle,
@@ -33,15 +31,14 @@ impl DescriptorPool {
     pub fn allocate_descriptor_set(
         self: &Arc<Self>,
         layout: Arc<DescriptorSetLayout>,
-    ) -> anyhow::Result<DescriptorSet> {
+    ) -> VkResult<DescriptorSet> {
         let layout_handles = [layout.handle()];
         let create_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.handle)
             .set_layouts(&layout_handles);
 
         let descriptor_set_handle =
-            unsafe { self.device().inner().allocate_descriptor_sets(&create_info) }
-                .context("creating single descriptor set")?[0];
+            unsafe { self.device().inner().allocate_descriptor_sets(&create_info) }?[0];
 
         Ok(unsafe { DescriptorSet::from_handle(descriptor_set_handle, layout, self.clone()) })
     }
@@ -49,15 +46,14 @@ impl DescriptorPool {
     pub fn allocate_descriptor_sets(
         self: &Arc<Self>,
         layouts: Vec<Arc<DescriptorSetLayout>>,
-    ) -> anyhow::Result<Vec<DescriptorSet>> {
+    ) -> VkResult<Vec<DescriptorSet>> {
         let layout_handles = layouts.iter().map(|l| l.handle()).collect::<Vec<_>>();
         let create_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.handle)
             .set_layouts(layout_handles.as_slice());
 
         let descriptor_set_handles =
-            unsafe { self.device().inner().allocate_descriptor_sets(&create_info) }
-                .context("creating single descriptor set")?;
+            unsafe { self.device().inner().allocate_descriptor_sets(&create_info) }?;
 
         let mut descriptor_sets = Vec::<DescriptorSet>::new();
         for i in 0..layouts.len() {

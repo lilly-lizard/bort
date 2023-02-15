@@ -1,6 +1,5 @@
 use crate::device::Device;
-use anyhow::Context;
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 use vk_mem::AllocatorCreateInfo;
 
@@ -17,13 +16,13 @@ pub struct MemoryAllocator {
 }
 
 impl MemoryAllocator {
-    pub fn new(device: Arc<Device>) -> anyhow::Result<Self> {
+    pub fn new(device: Arc<Device>) -> VkResult<Self> {
         let allocator_info = AllocatorCreateInfo::new(
             device.instance().inner(),
             device.inner(),
             device.physical_device().handle(),
         );
-        let inner = vk_mem::Allocator::new(allocator_info).context("creating vma allocator")?;
+        let inner = vk_mem::Allocator::new(allocator_info)?;
 
         Ok(Self { inner, device })
     }

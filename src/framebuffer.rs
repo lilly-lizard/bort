@@ -2,8 +2,7 @@ use crate::{
     device::Device, image_base::ImageBase, image_properties::ImageDimensions,
     memory::ALLOCATION_CALLBACK_NONE, render_pass::RenderPass,
 };
-use anyhow::Context;
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
 pub struct Framebuffer {
@@ -17,7 +16,7 @@ impl Framebuffer {
     pub fn new(
         render_pass: Arc<RenderPass>,
         mut framebuffer_properties: FramebufferProperties,
-    ) -> anyhow::Result<Self> {
+    ) -> VkResult<Self> {
         let framebuffer_info_builder = framebuffer_properties.create_info_builder(&render_pass);
 
         let handle = unsafe {
@@ -25,8 +24,7 @@ impl Framebuffer {
                 .device()
                 .inner()
                 .create_framebuffer(&framebuffer_info_builder, ALLOCATION_CALLBACK_NONE)
-        }
-        .context("creating framebuffer")?;
+        }?;
 
         Ok(Self {
             handle,

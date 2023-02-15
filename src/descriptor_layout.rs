@@ -1,6 +1,5 @@
 use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE};
-use anyhow::Context;
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
 pub struct DescriptorSetLayout {
@@ -16,14 +15,13 @@ impl DescriptorSetLayout {
     pub fn new(
         device: Arc<Device>,
         mut properties: DescriptorSetLayoutProperties,
-    ) -> anyhow::Result<Self> {
+    ) -> VkResult<Self> {
         let handle = unsafe {
             device.inner().create_descriptor_set_layout(
                 &properties.create_info_builder(),
                 ALLOCATION_CALLBACK_NONE,
             )
-        }
-        .context("creating descriptor set layout")?;
+        }?;
 
         Ok(Self {
             handle,

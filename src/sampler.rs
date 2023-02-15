@@ -1,6 +1,5 @@
 use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE};
-use anyhow::Context;
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
 pub struct Sampler {
@@ -12,13 +11,12 @@ pub struct Sampler {
 }
 
 impl Sampler {
-    pub fn new(device: Arc<Device>, properties: SamplerProperties) -> anyhow::Result<Self> {
+    pub fn new(device: Arc<Device>, properties: SamplerProperties) -> VkResult<Self> {
         let handle = unsafe {
             device
                 .inner()
                 .create_sampler(&properties.create_info_builder(), ALLOCATION_CALLBACK_NONE)
-        }
-        .context("creating sampler")?;
+        }?;
 
         Ok(Self {
             handle,
