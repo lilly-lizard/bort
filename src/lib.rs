@@ -1,5 +1,7 @@
 pub mod common;
 pub mod debug_callback;
+pub mod descriptor_pool;
+pub mod descriptor_set;
 pub mod device;
 pub mod framebuffer;
 pub mod image;
@@ -8,6 +10,7 @@ pub mod image_properties;
 pub mod instance;
 pub mod memory;
 pub mod physical_device;
+pub mod pipeline;
 pub mod queue;
 pub mod render_pass;
 pub mod surface;
