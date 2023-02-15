@@ -7,9 +7,8 @@ use crate::{
     memory::ALLOCATION_CALLBACK_NONE,
     swapchain::Swapchain,
 };
-use anyhow::Context;
 use ash::vk;
-use std::sync::Arc;
+use std::{error, fmt, sync::Arc};
 
 pub struct SwapchainImage {
     image_handle: vk::Image,
@@ -22,19 +21,19 @@ pub struct SwapchainImage {
 }
 
 impl SwapchainImage {
-    pub fn from_swapchain(swapchain: Arc<Swapchain>) -> anyhow::Result<Vec<Self>> {
+    pub fn from_swapchain(swapchain: Arc<Swapchain>) -> Result<Vec<Self>, SwapchainImageError> {
         swapchain
             .get_swapchain_images()
-            .context("getting swapchain images")?
+            .map_err(|e| SwapchainImageError::GetSwapchainImages(e))?
             .into_iter()
             .map(|image_handle| Self::from_image_handle(swapchain.clone(), image_handle))
-            .collect::<anyhow::Result<Vec<_>>>()
+            .collect::<Result<Vec<_>, _>>()
     }
 
     fn from_image_handle(
         swapchain: Arc<Swapchain>,
         image_handle: vk::Image,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, SwapchainImageError> {
         let device = swapchain.device();
 
         let format = swapchain.properties().surface_format.format;
@@ -66,7 +65,7 @@ impl SwapchainImage {
                 .inner()
                 .create_image_view(&image_view_create_info_builder, ALLOCATION_CALLBACK_NONE)
         }
-        .context("create_image_view")?;
+        .map_err(|e| SwapchainImageError::CreateImageView(e))?;
 
         Ok(Self {
             image_handle,
@@ -135,6 +134,32 @@ impl Drop for SwapchainImage {
             self.device()
                 .inner()
                 .destroy_image_view(self.image_view_handle, ALLOCATION_CALLBACK_NONE);
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum SwapchainImageError {
+    CreateImageView(vk::Result),
+    GetSwapchainImages(vk::Result),
+}
+
+impl fmt::Display for SwapchainImageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CreateImageView(e) => write!(f, "failed to create image view: {}", e),
+            Self::GetSwapchainImages(e) => {
+                write!(f, "call to vkGetSwapchainImagesKHR failed: {}", e)
+            }
+        }
+    }
+}
+
+impl error::Error for SwapchainImageError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::CreateImageView(e) => Some(e),
+            Self::GetSwapchainImages(e) => Some(e),
         }
     }
 }
