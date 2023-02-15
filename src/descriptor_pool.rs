@@ -37,6 +37,7 @@ impl DescriptorPool {
         &self.properties
     }
 
+    #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.device
     }

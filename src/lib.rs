@@ -1,5 +1,6 @@
 pub mod common;
 pub mod debug_callback;
+pub mod descriptor_layout;
 pub mod descriptor_pool;
 pub mod descriptor_set;
 pub mod device;
@@ -13,6 +14,7 @@ pub mod physical_device;
 pub mod pipeline;
 pub mod queue;
 pub mod render_pass;
+pub mod sampler;
 pub mod surface;
 pub mod swapchain;
 pub mod swapchain_image;
