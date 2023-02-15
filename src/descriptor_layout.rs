@@ -62,7 +62,7 @@ impl Drop for DescriptorSetLayout {
 pub struct DescriptorSetLayoutProperties {
     pub create_flags: vk::DescriptorSetLayoutCreateFlags,
     pub bindings: Vec<DescriptorSetLayoutBinding>,
-    // because these need to be stored for duration of `FramebufferCreateInfoBuilder`
+    // because these need to be stored for the lifetime duration of self
     bindings_vk: Vec<vk::DescriptorSetLayoutBinding>,
 }
 

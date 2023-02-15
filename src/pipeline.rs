@@ -1,17 +1,13 @@
-use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE};
+use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline_layout::PipelineLayout};
 use ash::vk;
 use std::sync::Arc;
 
+// Pipeline
+
 pub trait Pipeline {
     fn handle(&self) -> vk::Pipeline;
-    fn pipeline_layout_handle(&self) -> vk::PipelineLayout;
-    fn pipeline_layout_properties(&self) -> &PipelineLayoutProperties;
+    fn pipeline_layout(&self) -> &Arc<PipelineLayout>;
     fn device(&self) -> &Arc<Device>;
-}
-
-#[derive(Clone)]
-pub struct PipelineLayoutProperties {
-    pub create_flags: vk::PipelineLayoutCreateFlags,
 }
 
 // Graphics Pipeline
@@ -20,11 +16,8 @@ pub struct GraphicsPipeline {
     handle: vk::Pipeline,
     properties: GraphicsPipelineProperties,
 
-    pipeline_layout_handle: vk::PipelineLayout,
-    pipeline_layout_properties: PipelineLayoutProperties,
-
     // dependencies
-    device: Arc<Device>,
+    pipeline_layout: Arc<PipelineLayout>,
 }
 
 impl GraphicsPipeline {
@@ -38,24 +31,20 @@ impl Pipeline for GraphicsPipeline {
         self.handle
     }
 
-    fn pipeline_layout_handle(&self) -> vk::PipelineLayout {
-        self.pipeline_layout_handle
-    }
-
-    fn pipeline_layout_properties(&self) -> &PipelineLayoutProperties {
-        &self.pipeline_layout_properties
+    fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
+        &self.pipeline_layout
     }
 
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.device
+        &self.pipeline_layout.device()
     }
 }
 
 impl Drop for GraphicsPipeline {
     fn drop(&mut self) {
         unsafe {
-            self.device
+            self.device()
                 .inner()
                 .destroy_pipeline(self.handle, ALLOCATION_CALLBACK_NONE)
         }
@@ -73,11 +62,8 @@ pub struct ComputePipeline {
     handle: vk::Pipeline,
     properties: ComputePipelineProperties,
 
-    pipeline_layout_handle: vk::PipelineLayout,
-    pipeline_layout_properties: PipelineLayoutProperties,
-
     // dependencies
-    device: Arc<Device>,
+    pipeline_layout: Arc<PipelineLayout>,
 }
 
 impl ComputePipeline {
@@ -91,24 +77,20 @@ impl Pipeline for ComputePipeline {
         self.handle
     }
 
-    fn pipeline_layout_handle(&self) -> vk::PipelineLayout {
-        self.pipeline_layout_handle
-    }
-
-    fn pipeline_layout_properties(&self) -> &PipelineLayoutProperties {
-        &self.pipeline_layout_properties
+    fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
+        &self.pipeline_layout
     }
 
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.device
+        &self.pipeline_layout.device()
     }
 }
 
 impl Drop for ComputePipeline {
     fn drop(&mut self) {
         unsafe {
-            self.device
+            self.device()
                 .inner()
                 .destroy_pipeline(self.handle, ALLOCATION_CALLBACK_NONE)
         }
@@ -118,4 +100,10 @@ impl Drop for ComputePipeline {
 #[derive(Clone)]
 pub struct ComputePipelineProperties {
     pub create_flags: vk::PipelineCreateFlags,
+}
+
+impl ComputePipelineProperties {
+    pub fn create_info_builder(&self) -> vk::ComputePipelineCreateInfoBuilder {
+        vk::ComputePipelineCreateInfo::builder()
+    }
 }

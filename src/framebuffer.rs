@@ -60,7 +60,7 @@ pub struct FramebufferProperties {
     pub create_flags: vk::FramebufferCreateFlags,
     pub attachments: Vec<Arc<dyn ImageBase>>,
     pub dimensions: ImageDimensions,
-    // because these need to be stored for duration of `FramebufferCreateInfoBuilder`
+    // because these need to be stored for the lifetime duration of self
     attachment_image_view_handles: Vec<vk::ImageView>,
 }
 
