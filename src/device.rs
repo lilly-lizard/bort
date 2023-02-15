@@ -4,11 +4,10 @@ use crate::{
     memory::ALLOCATION_CALLBACK_NONE,
     physical_device::PhysicalDevice,
 };
-use anyhow::Context;
 use ash::vk;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
-use std::sync::Arc;
+use std::{error, ffi::NulError, fmt, sync::Arc};
 
 pub struct Device {
     inner: ash::Device,
@@ -27,13 +26,13 @@ impl Device {
         mut features_1_2: vk::PhysicalDeviceVulkan12Features,
         extension_names: impl IntoIterator<Item = String>,
         layer_names: impl IntoIterator<Item = String>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
         let extension_names_raw = string_to_c_string_vec(extension_names)
-            .context("converting extension names to c strings")?;
-        let layer_names_raw =
-            string_to_c_string_vec(layer_names).context("converting layer names to c strings")?;
+            .map_err(|e| DeviceError::ExtensionStringConversion(e))?;
+        let layer_names_raw = string_to_c_string_vec(layer_names)
+            .map_err(|e| DeviceError::LayerStringConversion(e))?;
 
         let mut device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(queue_create_infos)
@@ -63,7 +62,7 @@ impl Device {
                 ALLOCATION_CALLBACK_NONE,
             )
         }
-        .context("creating vulkan device")?;
+        .map_err(|vk_res| DeviceError::Creation(vk_res))?;
 
         Ok(Self {
             inner,
@@ -71,8 +70,9 @@ impl Device {
         })
     }
 
-    pub fn wait_idle(&self) -> anyhow::Result<()> {
-        unsafe { self.inner.device_wait_idle().context("vkDeviceWaitIdle") }
+    pub fn wait_idle(&self) -> Result<(), DeviceError> {
+        let res = unsafe { self.inner.device_wait_idle() };
+        res.map_err(|vk_res| DeviceError::WaitIdle(vk_res))
     }
 
     // Getters
@@ -95,6 +95,44 @@ impl Drop for Device {
         self.wait_idle().expect("vkDeviceWaitIdle");
         unsafe {
             self.inner.destroy_device(ALLOCATION_CALLBACK_NONE);
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum DeviceError {
+    ExtensionStringConversion(NulError),
+    LayerStringConversion(NulError),
+    Creation(vk::Result),
+    WaitIdle(vk::Result),
+}
+
+impl fmt::Display for DeviceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ExtensionStringConversion(e) => {
+                write!(
+                    f,
+                    "failed to convert extension name string to c string: {}",
+                    e
+                )
+            }
+            Self::LayerStringConversion(e) => {
+                write!(f, "failed to convert layer name string to c string: {}", e)
+            }
+            Self::Creation(e) => write!(f, "failed to create device: {}", e),
+            Self::WaitIdle(e) => write!(f, "vkDeviceWaitIdle call failed: {}", e),
+        }
+    }
+}
+
+impl error::Error for DeviceError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::ExtensionStringConversion(e) => Some(e),
+            Self::LayerStringConversion(e) => Some(e),
+            Self::Creation(e) => Some(e),
+            Self::WaitIdle(e) => Some(e),
         }
     }
 }
