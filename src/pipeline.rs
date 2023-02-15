@@ -32,6 +32,7 @@ impl Pipeline {
         &self.pipeline_layout_properties
     }
 
+    #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.device
     }

@@ -113,9 +113,7 @@ impl Instance {
         }
 
         let mut features_1_1 = vk::PhysicalDeviceVulkan11Features::default();
-        let mut features = vk::PhysicalDeviceFeatures2::builder()
-            .push_next(&mut features_1_1)
-            .build();
+        let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_1);
         unsafe {
             self.inner
                 .get_physical_device_features2(physical_device_handle, &mut features)
@@ -134,9 +132,7 @@ impl Instance {
         }
 
         let mut features_1_2 = vk::PhysicalDeviceVulkan12Features::default();
-        let mut features = vk::PhysicalDeviceFeatures2::builder()
-            .push_next(&mut features_1_2)
-            .build();
+        let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_2);
         unsafe {
             self.inner
                 .get_physical_device_features2(physical_device_handle, &mut features)

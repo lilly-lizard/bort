@@ -30,7 +30,7 @@ impl RenderPass {
         let subpasses: Vec<Subpass> = subpasses.into_iter().collect();
         let subpass_descriptions: Vec<vk::SubpassDescription> = subpasses
             .iter()
-            .map(|subpass| unsafe { subpass.subpass_description() })
+            .map(|subpass| subpass.subpass_description_builder().build())
             .collect();
 
         let subpass_dependencies: Vec<vk::SubpassDependency> =
@@ -110,10 +110,7 @@ impl Subpass {
         }
     }
 
-    /// Safety: `vk::SubpassDescription` contains pointers to members of `self`. Make sure the
-    /// contents of `self` don't get messed with or go out of scope while this `vk::SubpassDescription`
-    /// is in scope!
-    pub unsafe fn subpass_description(&self) -> vk::SubpassDescription {
+    pub fn subpass_description_builder(&self) -> vk::SubpassDescriptionBuilder {
         let mut subpass_description_builder =
             vk::SubpassDescription::builder().pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
 
@@ -128,6 +125,6 @@ impl Subpass {
         subpass_description_builder =
             subpass_description_builder.depth_stencil_attachment(&self.depth_attachment);
 
-        subpass_description_builder.build()
+        subpass_description_builder
     }
 }

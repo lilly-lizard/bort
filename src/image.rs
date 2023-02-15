@@ -33,7 +33,7 @@ impl Image {
     ) -> anyhow::Result<Self> {
         let device = memory_allocator.device().clone();
 
-        let image_info = image_properties.create_info_builder().build();
+        let image_info = image_properties.create_info_builder();
 
         let (image_handle, memory_allocation) = unsafe {
             memory_allocator

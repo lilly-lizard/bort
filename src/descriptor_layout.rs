@@ -42,6 +42,7 @@ impl DescriptorSetLayout {
         &self.properties
     }
 
+    #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.device
     }
@@ -66,6 +67,17 @@ pub struct DescriptorSetLayoutProperties {
 }
 
 impl DescriptorSetLayoutProperties {
+    pub fn new(
+        create_flags: vk::DescriptorSetLayoutCreateFlags,
+        bindings: Vec<DescriptorSetLayoutBinding>,
+    ) -> Self {
+        Self {
+            create_flags,
+            bindings,
+            bindings_vk: Vec::new(),
+        }
+    }
+
     pub fn create_info_builder(&mut self) -> vk::DescriptorSetLayoutCreateInfoBuilder {
         self.bindings_vk = self
             .bindings
