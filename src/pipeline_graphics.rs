@@ -1,9 +1,9 @@
 use crate::{
     device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline::PipelineAccess,
-    pipeline_cache::PipelineCache, pipeline_layout::PipelineLayout,
+    pipeline_cache::PipelineCache, pipeline_layout::PipelineLayout, render_pass::RenderPass,
 };
 use ash::{prelude::VkResult, vk};
-use std::sync::Arc;
+use std::{ffi::CString, sync::Arc};
 
 pub struct GraphicsPipeline {
     handle: vk::Pipeline,
@@ -16,23 +16,26 @@ pub struct GraphicsPipeline {
 
 impl GraphicsPipeline {
     pub fn new(
-        device: Arc<Device>,
-        mut properties: GraphicsPipelineProperties,
         pipeline_layout: Arc<PipelineLayout>,
-        pipeline_cache: &Option<PipelineCache>,
+        mut properties: GraphicsPipelineProperties,
+        render_pass: &RenderPass,
+        subpass_index: u32,
+        pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
+        let create_info_builder = properties
+            .create_info_builder()
+            .render_pass(render_pass.handle())
+            .subpass(subpass_index)
+            .layout(pipeline_layout.handle());
+
         let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
             pipeline_cache.handle()
         } else {
             vk::PipelineCache::null()
         };
 
-        let create_info_builder = properties
-            .create_info_builder()
-            .layout(pipeline_layout.handle());
-
         let handles = unsafe {
-            device.inner().create_graphics_pipelines(
+            pipeline_layout.device().inner().create_graphics_pipelines(
                 cache_handle,
                 &[create_info_builder.build()],
                 ALLOCATION_CALLBACK_NONE,
@@ -46,6 +49,18 @@ impl GraphicsPipeline {
             properties,
             pipeline_layout,
         })
+    }
+
+    pub unsafe fn from_handle(
+        handle: vk::Pipeline,
+        properties: GraphicsPipelineProperties,
+        pipeline_layout: Arc<PipelineLayout>,
+    ) -> Self {
+        Self {
+            handle,
+            properties,
+            pipeline_layout,
+        }
     }
 
     // Getters
@@ -83,20 +98,104 @@ impl Drop for GraphicsPipeline {
 #[derive(Default)]
 pub struct GraphicsPipelineProperties {
     pub flags: vk::PipelineCreateFlags,
+    pub shader_stages: Vec<ShaderStage>,
     pub vertex_input_state: VertexInputState,
+    pub input_assembly_state: InputAssemblyState,
+    pub tessellation_state: TessellationState,
+    pub viewport_state: ViewportState,
+    pub rasterization_state: RasterizationState,
+    pub multisample_state: MultisampleState,
+    pub depth_stencil_state: DepthStencilState,
+    pub color_blend_state: ColorBlendState,
+    pub dynamic_state: DynamicState,
+
     // lifetime members
+    shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo>,
     vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfo,
+    input_assembly_state_vk: vk::PipelineInputAssemblyStateCreateInfo,
+    tessellation_state_vk: vk::PipelineTessellationStateCreateInfo,
+    viewport_state_vk: vk::PipelineViewportStateCreateInfo,
+    rasterization_state_vk: vk::PipelineRasterizationStateCreateInfo,
+    multisample_state_vk: vk::PipelineMultisampleStateCreateInfo,
+    depth_stencil_state_vk: vk::PipelineDepthStencilStateCreateInfo,
+    color_blend_state_vk: vk::PipelineColorBlendStateCreateInfo,
+    dynamic_state_vk: vk::PipelineDynamicStateCreateInfo,
 }
 
 impl GraphicsPipelineProperties {
+    /// Note: this doesn't populate:
+    /// - `layout`
+    /// - `render_pass`
+    /// - `subpass`
+    /// - `base_pipeline_handle`
+    /// - `base_pipeline_index`
     pub fn create_info_builder(&mut self) -> vk::GraphicsPipelineCreateInfoBuilder {
+        self.shader_stages_vk = self
+            .shader_stages
+            .iter()
+            .map(|stage| stage.build(vk::PipelineShaderStageCreateInfo::builder()))
+            .collect();
         self.vertex_input_state_vk = self
             .vertex_input_state
             .build(vk::PipelineVertexInputStateCreateInfo::builder());
+        self.input_assembly_state_vk = self
+            .input_assembly_state
+            .build(vk::PipelineInputAssemblyStateCreateInfo::builder());
+        self.tessellation_state_vk = self
+            .tessellation_state
+            .build(vk::PipelineTessellationStateCreateInfo::builder());
+        self.viewport_state_vk = self
+            .viewport_state
+            .build(vk::PipelineViewportStateCreateInfo::builder());
+        self.rasterization_state_vk = self
+            .rasterization_state
+            .build(vk::PipelineRasterizationStateCreateInfo::builder());
+        self.multisample_state_vk = self
+            .multisample_state
+            .build(vk::PipelineMultisampleStateCreateInfo::builder());
+        self.depth_stencil_state_vk = self
+            .depth_stencil_state
+            .build(vk::PipelineDepthStencilStateCreateInfo::builder());
+        self.color_blend_state_vk = self
+            .color_blend_state
+            .build(vk::PipelineColorBlendStateCreateInfo::builder());
+        self.dynamic_state_vk = self
+            .dynamic_state
+            .build(vk::PipelineDynamicStateCreateInfo::builder());
 
         vk::GraphicsPipelineCreateInfo::builder()
             .flags(self.flags)
+            .stages(self.shader_stages_vk.as_slice())
             .vertex_input_state(&self.vertex_input_state_vk)
+            .input_assembly_state(&self.input_assembly_state_vk)
+            .tessellation_state(&self.tessellation_state_vk)
+            .viewport_state(&self.viewport_state_vk)
+            .rasterization_state(&self.rasterization_state_vk)
+            .multisample_state(&self.multisample_state_vk)
+            .depth_stencil_state(&self.depth_stencil_state_vk)
+            .color_blend_state(&self.color_blend_state_vk)
+            .dynamic_state(&self.dynamic_state_vk)
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct ShaderStage {
+    pub flags: vk::PipelineShaderStageCreateFlags,
+    pub stage: vk::ShaderStageFlags,
+    pub module_handle: vk::ShaderModule,
+    pub entry_point: CString,
+    // todo spec constants...
+}
+impl ShaderStage {
+    pub fn build(
+        &self,
+        builder: vk::PipelineShaderStageCreateInfoBuilder,
+    ) -> vk::PipelineShaderStageCreateInfo {
+        builder
+            .flags(self.flags)
+            .module(self.module_handle)
+            .name(self.entry_point.as_c_str())
+            .build()
     }
 }
 
@@ -126,11 +225,15 @@ pub struct InputAssemblyState {
     pub primitive_restart_enable: bool,
 }
 impl InputAssemblyState {
-    pub fn create_info_builder(&self) -> vk::PipelineInputAssemblyStateCreateInfoBuilder {
-        vk::PipelineInputAssemblyStateCreateInfo::builder()
+    pub fn build(
+        &self,
+        builder: vk::PipelineInputAssemblyStateCreateInfoBuilder,
+    ) -> vk::PipelineInputAssemblyStateCreateInfo {
+        builder
             .flags(self.flags)
             .topology(self.topology)
             .primitive_restart_enable(self.primitive_restart_enable)
+            .build()
     }
 }
 
@@ -140,10 +243,14 @@ pub struct TessellationState {
     pub patch_control_points: u32,
 }
 impl TessellationState {
-    pub fn create_info_builder(&self) -> vk::PipelineTessellationStateCreateInfoBuilder {
-        vk::PipelineTessellationStateCreateInfo::builder()
+    pub fn build(
+        &self,
+        builder: vk::PipelineTessellationStateCreateInfoBuilder,
+    ) -> vk::PipelineTessellationStateCreateInfo {
+        builder
             .flags(self.flags)
             .patch_control_points(self.patch_control_points)
+            .build()
     }
 }
 
@@ -154,11 +261,15 @@ pub struct ViewportState {
     pub scissors: Vec<vk::Rect2D>,
 }
 impl ViewportState {
-    pub fn create_info_builder(&self) -> vk::PipelineViewportStateCreateInfoBuilder {
-        vk::PipelineViewportStateCreateInfo::builder()
+    pub fn build(
+        &self,
+        builder: vk::PipelineViewportStateCreateInfoBuilder,
+    ) -> vk::PipelineViewportStateCreateInfo {
+        builder
             .flags(self.flags)
             .viewports(self.viewports.as_slice())
             .scissors(self.scissors.as_slice())
+            .build()
     }
 }
 
@@ -177,8 +288,11 @@ pub struct RasterizationState {
     pub line_width: f32,
 }
 impl RasterizationState {
-    pub fn create_info_builder(&self) -> vk::PipelineRasterizationStateCreateInfoBuilder {
-        vk::PipelineRasterizationStateCreateInfo::builder()
+    pub fn build(
+        &self,
+        builder: vk::PipelineRasterizationStateCreateInfoBuilder,
+    ) -> vk::PipelineRasterizationStateCreateInfo {
+        builder
             .flags(self.flags)
             .depth_clamp_enable(self.depth_clamp_enable)
             .rasterizer_discard_enable(self.rasterizer_discard_enable)
@@ -190,6 +304,7 @@ impl RasterizationState {
             .depth_bias_clamp(self.depth_bias_clamp)
             .depth_bias_slope_factor(self.depth_bias_slope_factor)
             .line_width(self.line_width)
+            .build()
     }
 }
 
@@ -204,8 +319,11 @@ pub struct MultisampleState {
     pub alpha_to_one_enable: bool,
 }
 impl MultisampleState {
-    pub fn create_info_builder(&self) -> vk::PipelineMultisampleStateCreateInfoBuilder {
-        vk::PipelineMultisampleStateCreateInfo::builder()
+    pub fn build(
+        &self,
+        builder: vk::PipelineMultisampleStateCreateInfoBuilder,
+    ) -> vk::PipelineMultisampleStateCreateInfo {
+        builder
             .flags(self.flags)
             .rasterization_samples(self.rasterization_samples)
             .sample_shading_enable(self.sample_shading_enable)
@@ -213,6 +331,7 @@ impl MultisampleState {
             .sample_mask(self.sample_mask.as_slice())
             .alpha_to_coverage_enable(self.alpha_to_coverage_enable)
             .alpha_to_one_enable(self.alpha_to_one_enable)
+            .build()
     }
 }
 
@@ -230,8 +349,11 @@ pub struct DepthStencilState {
     pub max_depth_bounds: f32,
 }
 impl DepthStencilState {
-    pub fn create_info_builder(&self) -> vk::PipelineDepthStencilStateCreateInfoBuilder {
-        vk::PipelineDepthStencilStateCreateInfo::builder()
+    pub fn build(
+        &self,
+        builder: vk::PipelineDepthStencilStateCreateInfoBuilder,
+    ) -> vk::PipelineDepthStencilStateCreateInfo {
+        builder
             .flags(self.flags)
             .depth_test_enable(self.depth_test_enable)
             .depth_write_enable(self.depth_write_enable)
@@ -242,8 +364,10 @@ impl DepthStencilState {
             .back(self.back)
             .min_depth_bounds(self.min_depth_bounds)
             .max_depth_bounds(self.max_depth_bounds)
+            .build()
     }
 }
+#[derive(Clone, Default)]
 
 pub struct ColorBlendState {
     pub flags: vk::PipelineColorBlendStateCreateFlags,
@@ -253,12 +377,33 @@ pub struct ColorBlendState {
     pub blend_constants: [f32; 4],
 }
 impl ColorBlendState {
-    pub fn create_info_builder(&self) -> vk::PipelineColorBlendStateCreateInfoBuilder {
-        vk::PipelineColorBlendStateCreateInfo::builder()
+    pub fn build(
+        &self,
+        builder: vk::PipelineColorBlendStateCreateInfoBuilder,
+    ) -> vk::PipelineColorBlendStateCreateInfo {
+        builder
             .flags(self.flags)
             .logic_op_enable(self.logic_op_enable)
             .logic_op(self.logic_op)
             .attachments(self.attachments.as_slice())
             .blend_constants(self.blend_constants)
+            .build()
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct DynamicState {
+    pub flags: vk::PipelineDynamicStateCreateFlags,
+    pub dynamic_states: Vec<vk::DynamicState>,
+}
+impl DynamicState {
+    pub fn build(
+        &self,
+        builder: vk::PipelineDynamicStateCreateInfoBuilder,
+    ) -> vk::PipelineDynamicStateCreateInfo {
+        builder
+            .flags(self.flags)
+            .dynamic_states(self.dynamic_states.as_slice())
+            .build()
     }
 }

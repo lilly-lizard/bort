@@ -7,7 +7,7 @@ use std::{
 };
 
 pub struct Shader {
-    handle: vk::ShaderModule,
+    module_handle: vk::ShaderModule,
 
     // dependencies
     device: Arc<Device>,
@@ -38,20 +38,23 @@ impl Shader {
         device: Arc<Device>,
         create_info: vk::ShaderModuleCreateInfoBuilder,
     ) -> Result<Self, ShaderError> {
-        let handle = unsafe {
+        let module_handle = unsafe {
             device
                 .inner()
                 .create_shader_module(&create_info, ALLOCATION_CALLBACK_NONE)
         }
         .map_err(|e| ShaderError::Creation(e))?;
 
-        Ok(Self { handle, device })
+        Ok(Self {
+            module_handle,
+            device,
+        })
     }
 
     // Getters
 
-    pub fn handle(&self) -> vk::ShaderModule {
-        self.handle
+    pub fn module_handle(&self) -> vk::ShaderModule {
+        self.module_handle
     }
 
     pub fn device(&self) -> &Arc<Device> {
@@ -64,7 +67,7 @@ impl Drop for Shader {
         unsafe {
             self.device
                 .inner()
-                .destroy_shader_module(self.handle, ALLOCATION_CALLBACK_NONE);
+                .destroy_shader_module(self.module_handle, ALLOCATION_CALLBACK_NONE);
         }
     }
 }
