@@ -1,7 +1,5 @@
 use crate::{common::string_to_c_string_vec, memory::ALLOCATION_CALLBACK_NONE};
 use ash::{extensions::ext::DebugUtils, vk, Entry};
-#[allow(unused_imports)]
-use log::{debug, error, info, trace, warn};
 use raw_window_handle::RawDisplayHandle;
 use std::{
     error,
@@ -78,9 +76,6 @@ impl Instance {
         if enable_debug_validation {
             extension_names_raw.push(DebugUtils::name().as_ptr());
         }
-
-        trace!("enabling instance extensions: {:?}", extension_names_raw);
-        trace!("enabling vulkan layers: {:?}", layer_names_raw);
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&appinfo)

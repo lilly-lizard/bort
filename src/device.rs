@@ -5,8 +5,6 @@ use crate::{
     physical_device::PhysicalDevice,
 };
 use ash::vk;
-#[allow(unused_imports)]
-use log::{debug, error, info, trace, warn};
 use std::{error, ffi::NulError, fmt, sync::Arc};
 
 pub struct Device {

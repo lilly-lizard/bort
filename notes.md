@@ -1,3 +1,3 @@
 # TODO
 
-- separate image and image view
+- instance and device properties
