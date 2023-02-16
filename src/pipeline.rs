@@ -18,6 +18,7 @@ pub struct GraphicsPipeline {
 
     // dependencies
     pipeline_layout: Arc<PipelineLayout>,
+    // note: we don't need to store references to `ShaderModule` or `PipelineCache` as per https://registry.khronos.org/vulkan/specs/1.0/html/vkspec.html#fundamentals-objectmodel-lifetime
 }
 
 impl GraphicsPipeline {
@@ -64,6 +65,7 @@ pub struct ComputePipeline {
 
     // dependencies
     pipeline_layout: Arc<PipelineLayout>,
+    // note: we don't need to store references to `ShaderModule` or `PipelineCache` as per https://registry.khronos.org/vulkan/specs/1.0/html/vkspec.html#fundamentals-objectmodel-lifetime
 }
 
 impl ComputePipeline {
