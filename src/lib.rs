@@ -13,6 +13,7 @@ pub mod memory;
 pub mod physical_device;
 pub mod pipeline;
 pub mod pipeline_cache;
+pub mod pipeline_graphics;
 pub mod pipeline_layout;
 pub mod queue;
 pub mod render_pass;
