@@ -5,19 +5,19 @@ use crate::{
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
-pub struct GraphicsPipeline<'a> {
+pub struct GraphicsPipeline {
     handle: vk::Pipeline,
-    properties: GraphicsPipelineProperties<'a>,
+    properties: GraphicsPipelineProperties,
 
     // dependencies
     pipeline_layout: Arc<PipelineLayout>,
     // note: we don't need to store references to `ShaderModule` or `PipelineCache` as per https://registry.khronos.org/vulkan/specs/1.0/html/vkspec.html#fundamentals-objectmodel-lifetime
 }
 
-impl<'a> GraphicsPipeline<'a> {
+impl GraphicsPipeline {
     pub fn new(
         device: Arc<Device>,
-        mut properties: GraphicsPipelineProperties<'a>,
+        mut properties: GraphicsPipelineProperties,
         pipeline_layout: Arc<PipelineLayout>,
         pipeline_cache: &Option<PipelineCache>,
     ) -> VkResult<Self> {
@@ -27,25 +27,23 @@ impl<'a> GraphicsPipeline<'a> {
             vk::PipelineCache::null()
         };
 
-        let handles = {
-            let create_info_builder = properties
-                .create_info_builder()
-                .layout(pipeline_layout.handle());
+        let create_info_builder = properties
+            .create_info_builder()
+            .layout(pipeline_layout.handle());
 
-            unsafe {
-                device.inner().create_graphics_pipelines(
-                    cache_handle,
-                    &[vk::GraphicsPipelineCreateInfo::builder().build()],
-                    ALLOCATION_CALLBACK_NONE,
-                )
-            }
-            .map_err(|(_pipelines, err_code)| err_code)?
-        };
+        let handles = unsafe {
+            device.inner().create_graphics_pipelines(
+                cache_handle,
+                &[create_info_builder.build()],
+                ALLOCATION_CALLBACK_NONE,
+            )
+        }
+        .map_err(|(_pipelines, err_code)| err_code)?;
         let handle = handles[0];
 
         Ok(Self {
             handle,
-            properties: GraphicsPipelineProperties::default(),
+            properties,
             pipeline_layout,
         })
     }
@@ -57,7 +55,7 @@ impl<'a> GraphicsPipeline<'a> {
     }
 }
 
-impl<'a> PipelineAccess for GraphicsPipeline<'a> {
+impl PipelineAccess for GraphicsPipeline {
     fn handle(&self) -> vk::Pipeline {
         self.handle
     }
@@ -72,7 +70,7 @@ impl<'a> PipelineAccess for GraphicsPipeline<'a> {
     }
 }
 
-impl<'a> Drop for GraphicsPipeline<'a> {
+impl Drop for GraphicsPipeline {
     fn drop(&mut self) {
         unsafe {
             self.device()
@@ -83,46 +81,45 @@ impl<'a> Drop for GraphicsPipeline<'a> {
 }
 
 #[derive(Default)]
-pub struct GraphicsPipelineProperties<'a> {
+pub struct GraphicsPipelineProperties {
     pub flags: vk::PipelineCreateFlags,
-    pub vertex_input_state: VertexInputState<'a>,
+    pub vertex_input_state: VertexInputState,
+    // lifetime members
+    vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfo,
 }
 
-impl<'a> GraphicsPipelineProperties<'a> {
-    pub fn create_info_builder(&'a mut self) -> vk::GraphicsPipelineCreateInfoBuilder {
+impl GraphicsPipelineProperties {
+    pub fn create_info_builder(&mut self) -> vk::GraphicsPipelineCreateInfoBuilder {
+        self.vertex_input_state_vk = self
+            .vertex_input_state
+            .build(vk::PipelineVertexInputStateCreateInfo::builder());
+
         vk::GraphicsPipelineCreateInfo::builder()
             .flags(self.flags)
-            .vertex_input_state(self.vertex_input_state.create_info_builder())
+            .vertex_input_state(&self.vertex_input_state_vk)
     }
 }
 
-pub struct VertexInputState<'a> {
+#[derive(Clone, Default)]
+pub struct VertexInputState {
     pub flags: vk::PipelineVertexInputStateCreateFlags,
     pub vertex_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
     pub vertex_attribute_descriptions: Vec<vk::VertexInputAttributeDescription>,
-    // lifetime members
-    builder: vk::PipelineVertexInputStateCreateInfoBuilder<'a>,
 }
-impl<'a> VertexInputState<'a> {
-    pub fn create_info_builder(&'a mut self) -> &vk::PipelineVertexInputStateCreateInfoBuilder {
-        self.builder = vk::PipelineVertexInputStateCreateInfo::builder()
+impl VertexInputState {
+    pub fn build(
+        &self,
+        builder: vk::PipelineVertexInputStateCreateInfoBuilder,
+    ) -> vk::PipelineVertexInputStateCreateInfo {
+        builder
             .flags(self.flags)
             .vertex_binding_descriptions(self.vertex_binding_descriptions.as_slice())
-            .vertex_attribute_descriptions(self.vertex_attribute_descriptions.as_slice());
-        &self.builder
-    }
-}
-impl<'a> Default for VertexInputState<'a> {
-    fn default() -> Self {
-        Self {
-            flags: vk::PipelineVertexInputStateCreateFlags::empty(),
-            vertex_binding_descriptions: Vec::new(),
-            vertex_attribute_descriptions: Vec::new(),
-            builder: vk::PipelineVertexInputStateCreateInfo::builder(),
-        }
+            .vertex_attribute_descriptions(self.vertex_attribute_descriptions.as_slice())
+            .build()
     }
 }
 
+#[derive(Clone, Default)]
 pub struct InputAssemblyState {
     pub flags: vk::PipelineInputAssemblyStateCreateFlags,
     pub topology: vk::PrimitiveTopology,
@@ -134,15 +131,6 @@ impl InputAssemblyState {
             .flags(self.flags)
             .topology(self.topology)
             .primitive_restart_enable(self.primitive_restart_enable)
-    }
-}
-impl Default for InputAssemblyState {
-    fn default() -> Self {
-        Self {
-            flags: vk::PipelineInputAssemblyStateCreateFlags::empty(),
-            topology: vk::PrimitiveTopology::TRIANGLE_LIST,
-            primitive_restart_enable: false,
-        }
     }
 }
 
