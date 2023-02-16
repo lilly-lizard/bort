@@ -7,7 +7,7 @@ use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 use vk_mem::{Alloc, AllocationCreateInfo};
 
-pub trait ImageBase {
+pub trait ImageAccess {
     fn handle(&self) -> vk::Image;
     fn dimensions(&self) -> ImageDimensions;
     fn device(&self) -> &Arc<Device>;
@@ -70,7 +70,7 @@ impl Image {
     }
 }
 
-impl ImageBase for Image {
+impl ImageAccess for Image {
     fn handle(&self) -> vk::Image {
         self.handle
     }

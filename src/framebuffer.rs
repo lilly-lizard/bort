@@ -1,5 +1,5 @@
 use crate::{
-    device::Device, image::ImageBase, image_properties::ImageDimensions, image_view::ImageView,
+    device::Device, image_properties::ImageDimensions, image_view::ImageViewAccess,
     memory::ALLOCATION_CALLBACK_NONE, render_pass::RenderPass,
 };
 use ash::{prelude::VkResult, vk};
@@ -56,17 +56,14 @@ impl Drop for Framebuffer {
 
 pub struct FramebufferProperties {
     pub create_flags: vk::FramebufferCreateFlags,
-    pub attachments: Vec<Arc<ImageView<dyn ImageBase>>>,
+    pub attachments: Vec<Arc<dyn ImageViewAccess>>,
     pub dimensions: ImageDimensions,
     // because these need to be stored for the lifetime duration of self
     attachment_image_view_handles: Vec<vk::ImageView>,
 }
 
 impl FramebufferProperties {
-    pub fn new(
-        attachments: Vec<Arc<ImageView<dyn ImageBase>>>,
-        dimensions: ImageDimensions,
-    ) -> Self {
+    pub fn new(attachments: Vec<Arc<dyn ImageViewAccess>>, dimensions: ImageDimensions) -> Self {
         Self {
             create_flags: vk::FramebufferCreateFlags::empty(),
             attachments,

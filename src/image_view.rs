@@ -1,11 +1,17 @@
 use crate::{
-    device::Device, image::ImageBase, image_properties::ImageProperties,
+    device::Device, image::ImageAccess, image_properties::ImageProperties,
     memory::ALLOCATION_CALLBACK_NONE,
 };
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
-pub struct ImageView<I: ImageBase + ?Sized> {
+pub trait ImageViewAccess {
+    fn handle(&self) -> vk::ImageView;
+    fn image_access(&self) -> Arc<dyn ImageAccess>;
+    fn device(&self) -> &Arc<Device>;
+}
+
+pub struct ImageView<I: ImageAccess + 'static> {
     handle: vk::ImageView,
     properties: ImageViewProperties,
 
@@ -13,7 +19,7 @@ pub struct ImageView<I: ImageBase + ?Sized> {
     image: Arc<I>,
 }
 
-impl<I: ImageBase + ?Sized> ImageView<I> {
+impl<I: ImageAccess> ImageView<I> {
     pub fn new(image: Arc<I>, properties: ImageViewProperties) -> VkResult<Self> {
         let handle = unsafe {
             image.device().inner().create_image_view(
@@ -31,10 +37,6 @@ impl<I: ImageBase + ?Sized> ImageView<I> {
 
     // Getters
 
-    pub fn handle(&self) -> vk::ImageView {
-        self.handle
-    }
-
     pub fn properties(&self) -> &ImageViewProperties {
         &self.properties
     }
@@ -42,14 +44,24 @@ impl<I: ImageBase + ?Sized> ImageView<I> {
     pub fn image(&self) -> &Arc<I> {
         &self.image
     }
+}
+
+impl<I: ImageAccess + 'static> ImageViewAccess for ImageView<I> {
+    fn handle(&self) -> vk::ImageView {
+        self.handle
+    }
+
+    fn image_access(&self) -> Arc<dyn ImageAccess> {
+        self.image.clone()
+    }
 
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         self.image.device()
     }
 }
 
-impl<I: ImageBase + ?Sized> Drop for ImageView<I> {
+impl<I: ImageAccess + 'static> Drop for ImageView<I> {
     fn drop(&mut self) {
         unsafe {
             self.device()

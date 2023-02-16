@@ -1,6 +1,6 @@
 use crate::{
     device::Device,
-    image::ImageBase,
+    image::ImageAccess,
     image_properties::ImageDimensions,
     image_view::{default_component_mapping, default_subresource_range, ImageViewProperties},
     swapchain::Swapchain,
@@ -73,7 +73,7 @@ impl SwapchainImage {
     }
 }
 
-impl ImageBase for SwapchainImage {
+impl ImageAccess for SwapchainImage {
     fn handle(&self) -> vk::Image {
         self.handle
     }
