@@ -1,5 +1,5 @@
 use crate::{
-    device::Device, image_properties::ImageDimensions, image_view::ImageViewAccess,
+    device::Device, image_access::ImageViewAccess, image_properties::ImageDimensions,
     memory::ALLOCATION_CALLBACK_NONE, render_pass::RenderPass,
 };
 use ash::{prelude::VkResult, vk};

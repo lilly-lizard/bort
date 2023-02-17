@@ -1,15 +1,11 @@
 use crate::{
-    device::Device, image::ImageAccess, image_properties::ImageProperties,
+    device::Device,
+    image_access::{ImageAccess, ImageViewAccess},
+    image_properties::ImageProperties,
     memory::ALLOCATION_CALLBACK_NONE,
 };
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
-
-pub trait ImageViewAccess {
-    fn handle(&self) -> vk::ImageView;
-    fn image_access(&self) -> Arc<dyn ImageAccess>;
-    fn device(&self) -> &Arc<Device>;
-}
 
 pub struct ImageView<I: ImageAccess + 'static> {
     handle: vk::ImageView,
@@ -19,7 +15,7 @@ pub struct ImageView<I: ImageAccess + 'static> {
     image: Arc<I>,
 }
 
-impl<I: ImageAccess> ImageView<I> {
+impl<I: ImageAccess + 'static> ImageView<I> {
     pub fn new(image: Arc<I>, properties: ImageViewProperties) -> VkResult<Self> {
         let handle = unsafe {
             image.device().inner().create_image_view(
@@ -96,7 +92,7 @@ impl Default for ImageViewProperties {
 }
 
 impl ImageViewProperties {
-    pub fn from_image_properties(image_properties: &ImageProperties) -> Self {
+    pub fn from_image_properties_default(image_properties: &ImageProperties) -> Self {
         let format = image_properties.format;
         let view_type = image_properties.dimensions.default_image_view_type();
         let subresource_range = image_properties.subresource_range();

@@ -1,17 +1,12 @@
 use crate::{
     device::Device,
+    image_access::ImageAccess,
     image_properties::{transient_image_info, ImageDimensions, ImageProperties},
     memory::MemoryAllocator,
 };
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 use vk_mem::{Alloc, AllocationCreateInfo};
-
-pub trait ImageAccess {
-    fn handle(&self) -> vk::Image;
-    fn dimensions(&self) -> ImageDimensions;
-    fn device(&self) -> &Arc<Device>;
-}
 
 pub struct Image {
     handle: vk::Image,

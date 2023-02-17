@@ -1,16 +1,9 @@
-use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline_layout::PipelineLayout};
+use crate::{
+    device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline_access::PipelineAccess,
+    pipeline_layout::PipelineLayout,
+};
 use ash::vk;
 use std::sync::Arc;
-
-// Pipeline
-
-pub trait PipelineAccess {
-    fn handle(&self) -> vk::Pipeline;
-    fn pipeline_layout(&self) -> &Arc<PipelineLayout>;
-    fn device(&self) -> &Arc<Device>;
-}
-
-// Compute Pipeline
 
 pub struct ComputePipeline {
     handle: vk::Pipeline,

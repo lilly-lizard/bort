@@ -1,5 +1,5 @@
 use crate::{
-    device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline::PipelineAccess,
+    device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline_access::PipelineAccess,
     pipeline_cache::PipelineCache, pipeline_layout::PipelineLayout, render_pass::RenderPass,
 };
 use ash::{prelude::VkResult, vk};

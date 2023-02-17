@@ -1,6 +1,6 @@
 use crate::{
     device::Device,
-    image::ImageAccess,
+    image_access::ImageAccess,
     image_properties::ImageDimensions,
     image_view::{default_component_mapping, default_subresource_range, ImageViewProperties},
     swapchain::Swapchain,
