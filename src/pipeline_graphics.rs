@@ -220,6 +220,13 @@ pub struct ColorBlendState {
     pub blend_constants: [f32; 4],
 }
 impl ColorBlendState {
+    pub fn new_default(attachments: Vec<vk::PipelineColorBlendAttachmentState>) -> Self {
+        Self {
+            attachments,
+            ..Default::default()
+        }
+    }
+
     pub fn build(
         &self,
         builder: vk::PipelineColorBlendStateCreateInfoBuilder,
@@ -300,6 +307,13 @@ pub struct DynamicState {
     pub dynamic_states: Vec<vk::DynamicState>,
 }
 impl DynamicState {
+    pub fn new_default(dynamic_states: Vec<vk::DynamicState>) -> Self {
+        Self {
+            dynamic_states,
+            ..Default::default()
+        }
+    }
+
     pub fn build(
         &self,
         builder: vk::PipelineDynamicStateCreateInfoBuilder,
