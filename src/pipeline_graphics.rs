@@ -286,7 +286,7 @@ impl InputAssemblyState {
 }
 impl Default for InputAssemblyState {
     fn default() -> Self {
-        Self{
+        Self {
             flags: vk::PipelineInputAssemblyStateCreateFlags::empty(),
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             primitive_restart_enable: false,
@@ -312,9 +312,9 @@ impl TessellationState {
 }
 impl Default for TessellationState {
     fn default() -> Self {
-        Self{
+        Self {
             flags: vk::PipelineTessellationStateCreateFlags::empty(),
-            patch_control_points: ,
+            patch_control_points: 0,
         }
     }
 }
@@ -339,13 +339,13 @@ impl ViewportState {
 }
 impl Default for ViewportState {
     fn default() -> Self {
-        Self{
+        Self {
             flags: vk::PipelineViewportStateCreateFlags::empty(),
             viewports: Vec::new(),
             scissors: Vec::new(),
         }
     }
-} 
+}
 
 #[derive(Clone)]
 pub struct RasterizationState {
@@ -383,23 +383,23 @@ impl RasterizationState {
 }
 impl Default for RasterizationState {
     fn default() -> Self {
-        Self{
+        Self {
             flags: vk::PipelineRasterizationStateCreateFlags::empty(),
             depth_clamp_enable: false,
-            rasterizer_discard_enable: bool,
-            polygon_mode: vk::PolygonMode,
-            cull_mode: vk::CullModeFlags,
-            front_face: vk::FrontFace,
-            depth_bias_enable: bool,
-            depth_bias_constant_factor: f32,
-            depth_bias_clamp: f32,
-            depth_bias_slope_factor: f32,
-            line_width: f32,
+            rasterizer_discard_enable: false,
+            polygon_mode: vk::PolygonMode::FILL,
+            cull_mode: vk::CullModeFlags::NONE,
+            front_face: vk::FrontFace::COUNTER_CLOCKWISE,
+            depth_bias_enable: false,
+            depth_bias_constant_factor: 1.,
+            depth_bias_clamp: 0.,
+            depth_bias_slope_factor: 1.,
+            line_width: 1.,
         }
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct MultisampleState {
     pub flags: vk::PipelineMultisampleStateCreateFlags,
     pub rasterization_samples: vk::SampleCountFlags,
@@ -425,8 +425,21 @@ impl MultisampleState {
             .build()
     }
 }
+impl Default for MultisampleState {
+    fn default() -> Self {
+        Self {
+            flags: vk::PipelineMultisampleStateCreateFlags::empty(),
+            rasterization_samples: vk::SampleCountFlags::TYPE_1,
+            sample_shading_enable: false,
+            min_sample_shading: 1.,
+            sample_mask: Vec::new(),
+            alpha_to_coverage_enable: false,
+            alpha_to_one_enable: false,
+        }
+    }
+}
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct DepthStencilState {
     pub flags: vk::PipelineDepthStencilStateCreateFlags,
     pub depth_test_enable: bool,
@@ -458,8 +471,24 @@ impl DepthStencilState {
             .build()
     }
 }
-#[derive(Clone, Default)]
+impl Default for DepthStencilState {
+    fn default() -> Self {
+        Self {
+            flags: vk::PipelineDepthStencilStateCreateFlags::empty(),
+            depth_test_enable: false,
+            depth_write_enable: false,
+            depth_compare_op: vk::CompareOp::ALWAYS,
+            depth_bounds_test_enable: false,
+            stencil_test_enable: false,
+            front: vk::StencilOpState::default(),
+            back: vk::StencilOpState::default(),
+            min_depth_bounds: 0.,
+            max_depth_bounds: 0.,
+        }
+    }
+}
 
+#[derive(Clone)]
 pub struct ColorBlendState {
     pub flags: vk::PipelineColorBlendStateCreateFlags,
     pub logic_op_enable: bool,
@@ -481,8 +510,19 @@ impl ColorBlendState {
             .build()
     }
 }
+impl Default for ColorBlendState {
+    fn default() -> Self {
+        Self {
+            flags: vk::PipelineColorBlendStateCreateFlags::empty(),
+            logic_op_enable: false,
+            logic_op: vk::LogicOp::CLEAR,
+            attachments: Vec::new(),
+            blend_constants: [0.; 4],
+        }
+    }
+}
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct DynamicState {
     pub flags: vk::PipelineDynamicStateCreateFlags,
     pub dynamic_states: Vec<vk::DynamicState>,
@@ -496,5 +536,13 @@ impl DynamicState {
             .flags(self.flags)
             .dynamic_states(self.dynamic_states.as_slice())
             .build()
+    }
+}
+impl Default for DynamicState {
+    fn default() -> Self {
+        Self {
+            flags: vk::PipelineDynamicStateCreateFlags::empty(),
+            dynamic_states: Vec::new(),
+        }
     }
 }
