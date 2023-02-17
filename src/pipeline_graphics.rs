@@ -123,6 +123,35 @@ pub struct GraphicsPipelineProperties {
 }
 
 impl GraphicsPipelineProperties {
+    pub fn new(
+        flags: vk::PipelineCreateFlags,
+        shader_stages: Vec<ShaderStage>,
+        vertex_input_state: VertexInputState,
+        input_assembly_state: InputAssemblyState,
+        tessellation_state: TessellationState,
+        viewport_state: ViewportState,
+        rasterization_state: RasterizationState,
+        multisample_state: MultisampleState,
+        depth_stencil_state: DepthStencilState,
+        color_blend_state: ColorBlendState,
+        dynamic_state: DynamicState,
+    ) -> Self {
+        Self {
+            flags,
+            shader_stages,
+            vertex_input_state,
+            input_assembly_state,
+            tessellation_state,
+            viewport_state,
+            rasterization_state,
+            multisample_state,
+            depth_stencil_state,
+            color_blend_state,
+            dynamic_state,
+            ..Self::default()
+        }
+    }
+
     /// Note: this doesn't populate:
     /// - `layout`
     /// - `render_pass`
@@ -178,7 +207,7 @@ impl GraphicsPipelineProperties {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ShaderStage {
     pub flags: vk::PipelineShaderStageCreateFlags,
     pub stage: vk::ShaderStageFlags,
@@ -198,8 +227,18 @@ impl ShaderStage {
             .build()
     }
 }
+impl Default for ShaderStage {
+    fn default() -> Self {
+        Self {
+            flags: vk::PipelineShaderStageCreateFlags::empty(),
+            stage: vk::ShaderStageFlags::empty(),
+            module_handle: vk::ShaderModule::default(),
+            entry_point: CString::default(),
+        }
+    }
+}
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct VertexInputState {
     pub flags: vk::PipelineVertexInputStateCreateFlags,
     pub vertex_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
@@ -217,8 +256,17 @@ impl VertexInputState {
             .build()
     }
 }
+impl Default for VertexInputState {
+    fn default() -> Self {
+        Self {
+            flags: vk::PipelineVertexInputStateCreateFlags::empty(),
+            vertex_binding_descriptions: Vec::new(),
+            vertex_attribute_descriptions: Vec::new(),
+        }
+    }
+}
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct InputAssemblyState {
     pub flags: vk::PipelineInputAssemblyStateCreateFlags,
     pub topology: vk::PrimitiveTopology,
@@ -236,8 +284,17 @@ impl InputAssemblyState {
             .build()
     }
 }
+impl Default for InputAssemblyState {
+    fn default() -> Self {
+        Self{
+            flags: vk::PipelineInputAssemblyStateCreateFlags::empty(),
+            topology: vk::PrimitiveTopology::TRIANGLE_LIST,
+            primitive_restart_enable: false,
+        }
+    }
+}
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct TessellationState {
     pub flags: vk::PipelineTessellationStateCreateFlags,
     pub patch_control_points: u32,
@@ -253,8 +310,16 @@ impl TessellationState {
             .build()
     }
 }
+impl Default for TessellationState {
+    fn default() -> Self {
+        Self{
+            flags: vk::PipelineTessellationStateCreateFlags::empty(),
+            patch_control_points: ,
+        }
+    }
+}
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ViewportState {
     pub flags: vk::PipelineViewportStateCreateFlags,
     pub viewports: Vec<vk::Viewport>,
@@ -272,8 +337,17 @@ impl ViewportState {
             .build()
     }
 }
+impl Default for ViewportState {
+    fn default() -> Self {
+        Self{
+            flags: vk::PipelineViewportStateCreateFlags::empty(),
+            viewports: Vec::new(),
+            scissors: Vec::new(),
+        }
+    }
+} 
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct RasterizationState {
     pub flags: vk::PipelineRasterizationStateCreateFlags,
     pub depth_clamp_enable: bool,
@@ -305,6 +379,23 @@ impl RasterizationState {
             .depth_bias_slope_factor(self.depth_bias_slope_factor)
             .line_width(self.line_width)
             .build()
+    }
+}
+impl Default for RasterizationState {
+    fn default() -> Self {
+        Self{
+            flags: vk::PipelineRasterizationStateCreateFlags::empty(),
+            depth_clamp_enable: false,
+            rasterizer_discard_enable: bool,
+            polygon_mode: vk::PolygonMode,
+            cull_mode: vk::CullModeFlags,
+            front_face: vk::FrontFace,
+            depth_bias_enable: bool,
+            depth_bias_constant_factor: f32,
+            depth_bias_clamp: f32,
+            depth_bias_slope_factor: f32,
+            line_width: f32,
+        }
     }
 }
 
