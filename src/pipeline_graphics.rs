@@ -1,9 +1,10 @@
 use crate::{
     device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline_access::PipelineAccess,
     pipeline_cache::PipelineCache, pipeline_layout::PipelineLayout, render_pass::RenderPass,
+    shader_module::ShaderStage,
 };
 use ash::{prelude::VkResult, vk};
-use std::{ffi::CString, sync::Arc};
+use std::sync::Arc;
 
 pub struct GraphicsPipeline {
     handle: vk::Pipeline,
@@ -18,12 +19,19 @@ impl GraphicsPipeline {
     pub fn new(
         pipeline_layout: Arc<PipelineLayout>,
         mut properties: GraphicsPipelineProperties,
+        shader_stages: Vec<ShaderStage>,
         render_pass: &RenderPass,
         subpass_index: u32,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
+        let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = shader_stages
+            .iter()
+            .map(|stage| stage.create_info_builder().build())
+            .collect();
+
         let create_info_builder = properties
             .create_info_builder()
+            .stages(shader_stages_vk.as_slice())
             .render_pass(render_pass.handle())
             .subpass(subpass_index)
             .layout(pipeline_layout.handle());
@@ -97,10 +105,10 @@ impl Drop for GraphicsPipeline {
 
 // Properties
 
+/// Note: doesn't include shader stages
 #[derive(Default)]
 pub struct GraphicsPipelineProperties {
     pub flags: vk::PipelineCreateFlags,
-    pub shader_stages: Vec<ShaderStage>,
     pub vertex_input_state: VertexInputState,
     pub input_assembly_state: InputAssemblyState,
     pub tessellation_state: TessellationState,
@@ -112,7 +120,6 @@ pub struct GraphicsPipelineProperties {
     pub dynamic_state: DynamicState,
 
     // lifetime members
-    shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo>,
     vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfo,
     input_assembly_state_vk: vk::PipelineInputAssemblyStateCreateInfo,
     tessellation_state_vk: vk::PipelineTessellationStateCreateInfo,
@@ -127,7 +134,6 @@ pub struct GraphicsPipelineProperties {
 impl GraphicsPipelineProperties {
     pub fn new(
         flags: vk::PipelineCreateFlags,
-        shader_stages: Vec<ShaderStage>,
         vertex_input_state: VertexInputState,
         input_assembly_state: InputAssemblyState,
         tessellation_state: TessellationState,
@@ -140,7 +146,6 @@ impl GraphicsPipelineProperties {
     ) -> Self {
         Self {
             flags,
-            shader_stages,
             vertex_input_state,
             input_assembly_state,
             tessellation_state,
@@ -158,14 +163,10 @@ impl GraphicsPipelineProperties {
     /// - `layout`
     /// - `render_pass`
     /// - `subpass`
+    /// - `stages`
     /// - `base_pipeline_handle`
     /// - `base_pipeline_index`
     pub fn create_info_builder(&mut self) -> vk::GraphicsPipelineCreateInfoBuilder {
-        self.shader_stages_vk = self
-            .shader_stages
-            .iter()
-            .map(|stage| stage.build(vk::PipelineShaderStageCreateInfo::builder()))
-            .collect();
         self.vertex_input_state_vk = self
             .vertex_input_state
             .build(vk::PipelineVertexInputStateCreateInfo::builder());
@@ -196,7 +197,6 @@ impl GraphicsPipelineProperties {
 
         vk::GraphicsPipelineCreateInfo::builder()
             .flags(self.flags)
-            .stages(self.shader_stages_vk.as_slice())
             .vertex_input_state(&self.vertex_input_state_vk)
             .input_assembly_state(&self.input_assembly_state_vk)
             .tessellation_state(&self.tessellation_state_vk)
@@ -435,37 +435,6 @@ impl Default for RasterizationState {
             depth_bias_clamp: 0.,
             depth_bias_slope_factor: 1.,
             line_width: 1.,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct ShaderStage {
-    pub flags: vk::PipelineShaderStageCreateFlags,
-    pub stage: vk::ShaderStageFlags,
-    pub module_handle: vk::ShaderModule,
-    pub entry_point: CString,
-    // todo spec constants...
-}
-impl ShaderStage {
-    pub fn build(
-        &self,
-        builder: vk::PipelineShaderStageCreateInfoBuilder,
-    ) -> vk::PipelineShaderStageCreateInfo {
-        builder
-            .flags(self.flags)
-            .module(self.module_handle)
-            .name(self.entry_point.as_c_str())
-            .build()
-    }
-}
-impl Default for ShaderStage {
-    fn default() -> Self {
-        Self {
-            flags: vk::PipelineShaderStageCreateFlags::empty(),
-            stage: vk::ShaderStageFlags::empty(),
-            module_handle: vk::ShaderModule::default(),
-            entry_point: CString::default(),
         }
     }
 }

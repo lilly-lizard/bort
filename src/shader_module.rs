@@ -1,7 +1,9 @@
 use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE};
 use ash::{util::read_spv, vk};
 use std::{
-    error, fmt, fs,
+    error,
+    ffi::CString,
+    fmt, fs,
     io::{self, Cursor},
     sync::Arc,
 };
@@ -95,5 +97,39 @@ impl error::Error for ShaderError {
             Self::SpirVDecode(e) => Some(e),
             Self::Creation(e) => Some(e),
         }
+    }
+}
+
+// Shader Stage
+
+// Note: this isn't part of `GraphicsPipelineProperties` because we only need to ensure
+// the `ShaderModule` lifetime lasts during pipeline creation. Not needed after that.
+#[derive(Clone)]
+pub struct ShaderStage {
+    pub flags: vk::PipelineShaderStageCreateFlags,
+    pub stage: vk::ShaderStageFlags,
+    pub module: Arc<ShaderModule>,
+    pub entry_point: CString,
+    // todo spec constants...
+}
+impl ShaderStage {
+    pub fn new(
+        stage: vk::ShaderStageFlags,
+        module: Arc<ShaderModule>,
+        entry_point: CString,
+    ) -> Self {
+        Self {
+            flags: vk::PipelineShaderStageCreateFlags::empty(),
+            stage,
+            module,
+            entry_point,
+        }
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineShaderStageCreateInfoBuilder {
+        vk::PipelineShaderStageCreateInfo::builder()
+            .flags(self.flags)
+            .module(self.module.handle())
+            .name(self.entry_point.as_c_str())
     }
 }
