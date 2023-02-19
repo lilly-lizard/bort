@@ -19,13 +19,13 @@ impl GraphicsPipeline {
     pub fn new(
         pipeline_layout: Arc<PipelineLayout>,
         mut properties: GraphicsPipelineProperties,
-        shader_stages: Vec<ShaderStage>,
+        shader_stages: impl IntoIterator<Item = ShaderStage>,
         render_pass: &RenderPass,
         subpass_index: u32,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
         let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = shader_stages
-            .iter()
+            .into_iter()
             .map(|stage| stage.create_info_builder().build())
             .collect();
 
@@ -57,18 +57,6 @@ impl GraphicsPipeline {
             properties,
             pipeline_layout,
         })
-    }
-
-    pub unsafe fn from_handle(
-        handle: vk::Pipeline,
-        properties: GraphicsPipelineProperties,
-        pipeline_layout: Arc<PipelineLayout>,
-    ) -> Self {
-        Self {
-            handle,
-            properties,
-            pipeline_layout,
-        }
     }
 
     // Getters

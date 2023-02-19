@@ -1,8 +1,8 @@
 use crate::{
     device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline_access::PipelineAccess,
-    pipeline_layout::PipelineLayout,
+    pipeline_cache::PipelineCache, pipeline_layout::PipelineLayout, shader_module::ShaderStage,
 };
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
 pub struct ComputePipeline {
@@ -15,6 +15,42 @@ pub struct ComputePipeline {
 }
 
 impl ComputePipeline {
+    pub fn new(
+        pipeline_layout: Arc<PipelineLayout>,
+        properties: ComputePipelineProperties,
+        shader_stage: &ShaderStage,
+        pipeline_cache: Option<&PipelineCache>,
+    ) -> VkResult<Self> {
+        let shader_stage_vk = shader_stage.create_info_builder().build();
+
+        let create_info_builder = properties
+            .create_info_builder()
+            .stage(shader_stage_vk)
+            .layout(pipeline_layout.handle());
+
+        let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
+            pipeline_cache.handle()
+        } else {
+            vk::PipelineCache::null()
+        };
+
+        let handles = unsafe {
+            pipeline_layout.device().inner().create_compute_pipelines(
+                cache_handle,
+                &[create_info_builder.build()],
+                ALLOCATION_CALLBACK_NONE,
+            )
+        }
+        .map_err(|(_pipelines, err_code)| err_code)?;
+        let handle = handles[0];
+
+        Ok(Self {
+            handle,
+            properties,
+            pipeline_layout,
+        })
+    }
+
     pub fn properties(&self) -> &ComputePipelineProperties {
         &self.properties
     }
