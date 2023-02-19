@@ -1,7 +1,7 @@
 use crate::{
     descriptor_layout::DescriptorSetLayout, descriptor_pool::DescriptorPool, device::Device,
 };
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
 /// Note: no destructor needed. Just drop pool.
@@ -14,8 +14,15 @@ pub struct DescriptorSet {
 }
 
 impl DescriptorSet {
+    pub fn new(
+        layout: Arc<DescriptorSetLayout>,
+        descriptor_pool: Arc<DescriptorPool>,
+    ) -> VkResult<Self> {
+        descriptor_pool.allocate_descriptor_set(layout)
+    }
+
     /// Safetey: make sure `handle` was allocated from `descriptor_pool` using `layout`.
-    pub unsafe fn from_handle(
+    pub(crate) unsafe fn from_handle(
         handle: vk::DescriptorSet,
         layout: Arc<DescriptorSetLayout>,
         descriptor_pool: Arc<DescriptorPool>,

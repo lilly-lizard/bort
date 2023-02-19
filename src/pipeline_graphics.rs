@@ -119,7 +119,7 @@ pub struct GraphicsPipelineProperties {
     pub color_blend_state: ColorBlendState,
     pub dynamic_state: DynamicState,
 
-    // lifetime members
+    // because these need to be stored for the lifetime duration of self todo can't partial initialize because of these!!
     vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfo,
     input_assembly_state_vk: vk::PipelineInputAssemblyStateCreateInfo,
     tessellation_state_vk: vk::PipelineTessellationStateCreateInfo,

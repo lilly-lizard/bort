@@ -96,7 +96,7 @@ impl Drop for DescriptorPool {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct DescriptorPoolProperties {
     pub create_flags: vk::DescriptorPoolCreateFlags,
     pub max_sets: u32,
