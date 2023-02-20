@@ -202,7 +202,7 @@ impl SwapchainProperties {
         surface_handle: vk::SurfaceKHR,
         old_swapchain_handle: vk::SwapchainKHR,
     ) -> vk::SwapchainCreateInfoKHRBuilder {
-        let mut builder = vk::SwapchainCreateInfoKHR::builder()
+        vk::SwapchainCreateInfoKHR::builder()
             .flags(self.create_flags)
             .surface(surface_handle)
             .min_image_count(self.image_count)
@@ -216,12 +216,8 @@ impl SwapchainProperties {
             .composite_alpha(self.composite_alpha)
             .present_mode(self.present_mode)
             .clipped(self.clipping_enabled)
-            .old_swapchain(old_swapchain_handle);
-        if self.queue_family_indices.len() > 0 {
-            builder = builder.queue_family_indices(self.queue_family_indices.as_slice());
-        }
-
-        builder
+            .old_swapchain(old_swapchain_handle)
+            .queue_family_indices(self.queue_family_indices.as_slice())
     }
 
     pub fn dimensions(&self) -> ImageDimensions {

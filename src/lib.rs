@@ -1,3 +1,4 @@
+pub mod buffer;
 pub mod common;
 pub mod debug_callback;
 pub mod descriptor_layout;

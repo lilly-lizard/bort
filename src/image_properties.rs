@@ -79,7 +79,7 @@ impl ImageProperties {
     }
 
     pub fn create_info_builder(&self) -> vk::ImageCreateInfoBuilder {
-        let mut builder = vk::ImageCreateInfo::builder()
+        vk::ImageCreateInfo::builder()
             .flags(self.create_flags)
             .image_type(self.dimensions.image_type())
             .format(self.format)
@@ -90,12 +90,8 @@ impl ImageProperties {
             .tiling(self.tiling)
             .usage(self.usage)
             .sharing_mode(self.sharing_mode)
-            .initial_layout(self.initial_layout);
-        if self.queue_family_indices.len() > 0 {
-            builder = builder.queue_family_indices(self.queue_family_indices.as_slice());
-        }
-
-        builder
+            .initial_layout(self.initial_layout)
+            .queue_family_indices(self.queue_family_indices.as_slice())
     }
 
     pub fn subresource_range(&self) -> vk::ImageSubresourceRange {
