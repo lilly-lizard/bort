@@ -34,7 +34,7 @@ impl Buffer {
 
     // Getters
 
-    fn handle(&self) -> vk::Buffer {
+    pub fn handle(&self) -> vk::Buffer {
         self.handle
     }
 
@@ -51,12 +51,12 @@ impl Buffer {
     }
 
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    pub fn device(&self) -> &Arc<Device> {
         &self.memory_allocator.device()
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct BufferProperties {
     pub create_flags: vk::BufferCreateFlags,
     pub size: vk::DeviceSize,

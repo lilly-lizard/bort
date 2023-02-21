@@ -65,12 +65,9 @@ pub struct DescriptorSetLayoutProperties {
 }
 
 impl DescriptorSetLayoutProperties {
-    pub fn new(
-        create_flags: vk::DescriptorSetLayoutCreateFlags,
-        bindings: Vec<DescriptorSetLayoutBinding>,
-    ) -> Self {
+    pub fn new(bindings: Vec<DescriptorSetLayoutBinding>) -> Self {
         Self {
-            create_flags,
+            create_flags: vk::DescriptorSetLayoutCreateFlags::empty(),
             bindings,
             bindings_vk: Vec::new(),
         }
