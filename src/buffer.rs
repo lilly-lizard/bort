@@ -50,6 +50,10 @@ impl Buffer {
         &self.memory_allocation
     }
 
+    pub fn memory_allocation_mut(&mut self) -> &mut vk_mem::Allocation {
+        &mut self.memory_allocation
+    }
+
     #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.memory_allocator.device()
