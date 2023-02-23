@@ -1,6 +1,6 @@
 use crate::{device::Device, memory::MemoryAllocator};
 use ash::{prelude::VkResult, vk};
-use std::sync::Arc;
+use std::{error, fmt, mem, ptr, sync::Arc};
 use vk_mem::{Alloc, AllocationCreateInfo};
 
 pub struct Buffer {
@@ -17,15 +17,29 @@ pub struct Buffer {
 impl Buffer {
     pub fn new(
         memory_allocator: Arc<MemoryAllocator>,
-        mut buffer_properties: BufferProperties,
-        memory_info: AllocationCreateInfo,
+        buffer_properties: BufferProperties,
+        allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, memory_allocation) = unsafe {
             memory_allocator
                 .inner()
-                .create_buffer(&buffer_properties.create_info_builder(), &memory_info)
+                .create_buffer(&buffer_properties.create_info_builder(), &allocation_info)
         }?;
 
+        Ok(Self::with_handle_and_allocation(
+            memory_allocator,
+            buffer_properties,
+            handle,
+            memory_allocation,
+        ))
+    }
+
+    pub fn with_handle_and_allocation(
+        memory_allocator: Arc<MemoryAllocator>,
+        mut buffer_properties: BufferProperties,
+        handle: vk::Buffer,
+        memory_allocation: vk_mem::Allocation,
+    ) -> Self {
         let memory_info = memory_allocator
             .inner()
             .get_allocation_info(&memory_allocation);
@@ -40,13 +54,64 @@ impl Buffer {
         debug_assert!(memory_info.memory_type < physical_device_mem_props.memory_type_count);
         let memory_type = physical_device_mem_props.memory_types[memory_info.memory_type as usize];
 
-        Ok(Self {
+        Self {
             handle,
             buffer_properties,
             memory_allocation,
             memory_type,
             memory_allocator,
-        })
+        }
+    }
+
+    /// Writes `data` to the buffer memory at `buffer_offset` bytes from the start of it. If
+    /// memory isn't [host coherent](ash::vk::MemoryPropertyFlags::HOST_COHERENT), flushes the
+    /// memory before unmapping.
+    pub fn write_struct<T>(&mut self, data: T, buffer_offset: usize) -> Result<(), BufferError> {
+        let mapped_memory = unsafe { self.map_memory() }?;
+
+        let data_size = mem::size_of_val(&data);
+        let buffer_size = self.buffer_properties.size as usize;
+        if data_size > buffer_size - buffer_offset {
+            unsafe { self.unmap_memory() };
+            return Err(BufferError::WriteDataSize {
+                data_size,
+                buffer_size,
+                buffer_offset,
+            });
+        }
+
+        let offset_mapped_memory = unsafe { mapped_memory.offset(buffer_offset as isize) };
+        unsafe { ptr::write::<T>(offset_mapped_memory as *mut T, data) };
+
+        if !self
+            .memory_property_flags()
+            .contains(vk::MemoryPropertyFlags::HOST_COHERENT)
+        {
+            self.memory_allocator
+                .inner()
+                .flush_allocation(&self.memory_allocation, 0, data_size)
+                .map_err(|e| {
+                    unsafe { self.unmap_memory() };
+                    BufferError::Flushing(e)
+                })?;
+        }
+
+        unsafe { self.unmap_memory() };
+
+        Ok(())
+    }
+
+    pub unsafe fn map_memory(&mut self) -> Result<*mut u8, BufferError> {
+        self.memory_allocator
+            .inner()
+            .map_memory(&mut self.memory_allocation)
+            .map_err(|e| BufferError::Mapping(e))
+    }
+
+    pub unsafe fn unmap_memory(&mut self) {
+        self.memory_allocator
+            .inner()
+            .unmap_memory(&mut self.memory_allocation)
     }
 
     // Getters
@@ -75,6 +140,7 @@ impl Buffer {
         self.memory_type
     }
 
+    #[inline]
     pub fn memory_property_flags(&self) -> vk::MemoryPropertyFlags {
         self.memory_type.property_flags
     }
@@ -112,5 +178,48 @@ impl BufferProperties {
             .usage(self.usage)
             .sharing_mode(self.sharing_mode)
             .queue_family_indices(self.queue_family_indices.as_slice())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum BufferError {
+    Mapping(vk::Result),
+    WriteDataSize {
+        data_size: usize,
+        buffer_size: usize,
+        buffer_offset: usize,
+    },
+    Flushing(vk::Result),
+}
+
+impl fmt::Display for BufferError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Mapping(e) => {
+                write!(f, "failed map buffer memory: {}", e)
+            }
+            Self::WriteDataSize {
+                data_size,
+                buffer_size,
+                buffer_offset,
+            } => {
+                write!(
+                    f,
+                    "invalid data size to be written: data size = {}, buffer size = {}, buffer offset = {}",
+                    data_size, buffer_size, buffer_offset
+                )
+            }
+            Self::Flushing(e) => write!(f, "failed to flush memory: {}", e),
+        }
+    }
+}
+
+impl error::Error for BufferError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::Mapping(e) => Some(e),
+            Self::WriteDataSize { .. } => None,
+            Self::Flushing(e) => Some(e),
+        }
     }
 }
