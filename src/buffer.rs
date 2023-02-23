@@ -5,8 +5,10 @@ use vk_mem::{Alloc, AllocationCreateInfo};
 
 pub struct Buffer {
     handle: vk::Buffer,
-    properties: BufferProperties,
+    buffer_properties: BufferProperties,
+
     memory_allocation: vk_mem::Allocation,
+    memory_type: vk::MemoryType,
 
     // dependencies
     memory_allocator: Arc<MemoryAllocator>,
@@ -15,19 +17,34 @@ pub struct Buffer {
 impl Buffer {
     pub fn new(
         memory_allocator: Arc<MemoryAllocator>,
-        properties: BufferProperties,
+        mut buffer_properties: BufferProperties,
         memory_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, memory_allocation) = unsafe {
             memory_allocator
                 .inner()
-                .create_buffer(&properties.create_info_builder(), &memory_info)
+                .create_buffer(&buffer_properties.create_info_builder(), &memory_info)
         }?;
+
+        let memory_info = memory_allocator
+            .inner()
+            .get_allocation_info(&memory_allocation);
+
+        buffer_properties.size = memory_info.size; // should be the same, but just in case
+
+        let physical_device_mem_props = memory_allocator
+            .device()
+            .physical_device()
+            .memory_properties();
+
+        debug_assert!(memory_info.memory_type < physical_device_mem_props.memory_type_count);
+        let memory_type = physical_device_mem_props.memory_types[memory_info.memory_type as usize];
 
         Ok(Self {
             handle,
-            properties,
+            buffer_properties,
             memory_allocation,
+            memory_type,
             memory_allocator,
         })
     }
@@ -38,8 +55,8 @@ impl Buffer {
         self.handle
     }
 
-    pub fn properties(&self) -> &BufferProperties {
-        &self.properties
+    pub fn buffer_properties(&self) -> &BufferProperties {
+        &self.buffer_properties
     }
 
     pub fn memory_allocator(&self) -> &Arc<MemoryAllocator> {
@@ -54,9 +71,27 @@ impl Buffer {
         &mut self.memory_allocation
     }
 
+    pub fn memory_type(&self) -> vk::MemoryType {
+        self.memory_type
+    }
+
+    pub fn memory_property_flags(&self) -> vk::MemoryPropertyFlags {
+        self.memory_type.property_flags
+    }
+
     #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.memory_allocator.device()
+    }
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        unsafe {
+            self.memory_allocator
+                .inner()
+                .destroy_buffer(self.handle, &mut self.memory_allocation);
+        }
     }
 }
 

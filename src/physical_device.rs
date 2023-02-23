@@ -103,8 +103,8 @@ impl PhysicalDevice {
         self.handle
     }
 
-    pub fn properties(&self) -> vk::PhysicalDeviceProperties {
-        self.properties
+    pub fn properties(&self) -> &vk::PhysicalDeviceProperties {
+        &self.properties
     }
 
     pub fn name(&self) -> String {
@@ -115,8 +115,8 @@ impl PhysicalDevice {
         &self.queue_family_properties
     }
 
-    pub fn memory_properties(&self) -> vk::PhysicalDeviceMemoryProperties {
-        self.memory_properties
+    pub fn memory_properties(&self) -> &vk::PhysicalDeviceMemoryProperties {
+        &self.memory_properties
     }
 
     pub fn extension_properties(&self) -> &Vec<ExtensionProperties> {
