@@ -12,7 +12,7 @@ pub struct GraphicsPipeline {
 
     // dependencies
     pipeline_layout: Arc<PipelineLayout>,
-    // note: we don't need to store references to `ShaderModule` or `PipelineCache` as per https://registry.khronos.org/vulkan/specs/1.0/html/vkspec.html#fundamentals-objectmodel-lifetime
+    // note: we don't need to store references to `ShaderModule`, `RenderPass` or `PipelineCache` as per https://registry.khronos.org/vulkan/specs/1.0/html/vkspec.html#fundamentals-objectmodel-lifetime
 }
 
 impl GraphicsPipeline {
@@ -21,7 +21,6 @@ impl GraphicsPipeline {
         mut properties: GraphicsPipelineProperties,
         shader_stages: impl IntoIterator<Item = ShaderStage>,
         render_pass: &RenderPass,
-        subpass_index: u32,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
         let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = shader_stages
@@ -33,7 +32,6 @@ impl GraphicsPipeline {
             .create_info_builder()
             .stages(shader_stages_vk.as_slice())
             .render_pass(render_pass.handle())
-            .subpass(subpass_index)
             .layout(pipeline_layout.handle());
 
         let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
@@ -49,7 +47,7 @@ impl GraphicsPipeline {
                 ALLOCATION_CALLBACK_NONE,
             )
         }
-        .map_err(|(_pipelines, err_code)| err_code)?;
+        .map_err(|(_pipelines, err_code)| err_code)?; // note: cbf taking VK_PIPELINE_COMPILE_REQUIRED into account...
         let handle = handles[0];
 
         Ok(Self {
@@ -57,6 +55,64 @@ impl GraphicsPipeline {
             properties,
             pipeline_layout,
         })
+    }
+
+    pub fn batch_create<'a>(
+        device: &Device,
+        per_pipeline_params: impl Iterator<Item = NewPipelineCreateParams<'a>>,
+        pipeline_cache: Option<&PipelineCache>,
+    ) -> VkResult<Vec<Self>> {
+        let mut per_pipeline_params = per_pipeline_params.collect::<Vec<_>>();
+        let create_infos = per_pipeline_params
+            .iter_mut()
+            .map(
+                |NewPipelineCreateParams {
+                     pipeline_layout,
+                     properties,
+                     shader_stages,
+                     render_pass,
+                 }| {
+                    let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = shader_stages
+                        .into_iter()
+                        .map(|stage| stage.create_info_builder().build())
+                        .collect();
+
+                    properties
+                        .create_info_builder()
+                        .stages(shader_stages_vk.as_slice())
+                        .render_pass(render_pass.handle())
+                        .layout(pipeline_layout.handle())
+                        .build()
+                },
+            )
+            .collect::<Vec<_>>();
+
+        let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
+            pipeline_cache.handle()
+        } else {
+            vk::PipelineCache::null()
+        };
+
+        let handles = unsafe {
+            device.inner().create_graphics_pipelines(
+                cache_handle,
+                &create_infos,
+                ALLOCATION_CALLBACK_NONE,
+            )
+        }
+        .map_err(|(_pipelines, err_code)| err_code)?; // note: cbf taking VK_PIPELINE_COMPILE_REQUIRED into account...
+
+        let pipelines = per_pipeline_params
+            .into_iter()
+            .enumerate()
+            .map(|(index, params)| Self {
+                handle: handles[index],
+                properties: params.properties,
+                pipeline_layout: params.pipeline_layout.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        Ok(pipelines)
     }
 
     // Getters
@@ -91,12 +147,20 @@ impl Drop for GraphicsPipeline {
     }
 }
 
+pub struct NewPipelineCreateParams<'a> {
+    pipeline_layout: Arc<PipelineLayout>,
+    properties: GraphicsPipelineProperties,
+    shader_stages: Vec<ShaderStage>,
+    render_pass: &'a RenderPass,
+}
+
 // Properties
 
 /// Note: doesn't include shader stages
 #[derive(Default)]
 pub struct GraphicsPipelineProperties {
     pub flags: vk::PipelineCreateFlags,
+    pub subpass_index: u32,
     pub vertex_input_state: VertexInputState,
     pub input_assembly_state: InputAssemblyState,
     pub tessellation_state: TessellationState,
@@ -122,6 +186,7 @@ pub struct GraphicsPipelineProperties {
 impl GraphicsPipelineProperties {
     pub fn new(
         flags: vk::PipelineCreateFlags,
+        subpass_index: u32,
         vertex_input_state: VertexInputState,
         input_assembly_state: InputAssemblyState,
         tessellation_state: TessellationState,
@@ -134,6 +199,7 @@ impl GraphicsPipelineProperties {
     ) -> Self {
         Self {
             flags,
+            subpass_index,
             vertex_input_state,
             input_assembly_state,
             tessellation_state,
@@ -185,6 +251,7 @@ impl GraphicsPipelineProperties {
 
         vk::GraphicsPipelineCreateInfo::builder()
             .flags(self.flags)
+            .subpass(self.subpass_index)
             .vertex_input_state(&self.vertex_input_state_vk)
             .input_assembly_state(&self.input_assembly_state_vk)
             .tessellation_state(&self.tessellation_state_vk)
