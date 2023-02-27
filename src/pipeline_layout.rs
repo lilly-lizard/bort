@@ -63,12 +63,11 @@ pub struct PipelineLayoutProperties {
 
 impl PipelineLayoutProperties {
     pub fn new(
-        create_flags: vk::PipelineLayoutCreateFlags,
         set_layouts: Vec<Arc<DescriptorSetLayout>>,
         push_constant_ranges: Vec<vk::PushConstantRange>,
     ) -> Self {
         Self {
-            create_flags,
+            create_flags: vk::PipelineLayoutCreateFlags::empty(),
             set_layouts,
             push_constant_ranges,
             set_layouts_vk: Vec::new(),
