@@ -15,8 +15,8 @@ pub struct DescriptorSet {
 
 impl DescriptorSet {
     pub fn new(
-        layout: Arc<DescriptorSetLayout>,
         descriptor_pool: Arc<DescriptorPool>,
+        layout: Arc<DescriptorSetLayout>,
     ) -> VkResult<Self> {
         descriptor_pool.allocate_descriptor_set(layout)
     }
