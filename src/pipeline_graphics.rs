@@ -269,8 +269,7 @@ impl GraphicsPipelineProperties {
 #[derive(Clone)]
 pub struct ColorBlendState {
     pub flags: vk::PipelineColorBlendStateCreateFlags,
-    pub logic_op_enable: bool,
-    pub logic_op: vk::LogicOp,
+    pub logic_op: Option<vk::LogicOp>,
     pub attachments: Vec<vk::PipelineColorBlendAttachmentState>,
     pub blend_constants: [f32; 4],
 }
@@ -288,19 +287,73 @@ impl ColorBlendState {
     ) -> vk::PipelineColorBlendStateCreateInfo {
         builder
             .flags(self.flags)
-            .logic_op_enable(self.logic_op_enable)
-            .logic_op(self.logic_op)
+            .logic_op_enable(self.logic_op.is_some())
+            .logic_op(self.logic_op.unwrap_or(vk::LogicOp::CLEAR))
             .attachments(self.attachments.as_slice())
             .blend_constants(self.blend_constants)
             .build()
+    }
+
+    pub fn blend_state_disabled() -> vk::PipelineColorBlendAttachmentState {
+        vk::PipelineColorBlendAttachmentState {
+            color_write_mask: vk::ColorComponentFlags::RGBA,
+            ..Default::default()
+        }
+    }
+
+    /// Returns `vk::PipelineColorBlendAttachmentState` where the output of the fragment shader is ignored and the
+    /// destination is untouched.
+    pub fn blend_state_ignore_source() -> vk::PipelineColorBlendAttachmentState {
+        vk::PipelineColorBlendAttachmentState {
+            blend_enable: 1,
+            color_blend_op: vk::BlendOp::ADD,
+            src_color_blend_factor: vk::BlendFactor::ZERO,
+            src_alpha_blend_factor: vk::BlendFactor::DST_COLOR,
+            alpha_blend_op: vk::BlendOp::ADD,
+            dst_color_blend_factor: vk::BlendFactor::ZERO,
+            dst_alpha_blend_factor: vk::BlendFactor::DST_COLOR,
+            color_write_mask: vk::ColorComponentFlags::RGBA,
+            ..Default::default()
+        }
+    }
+
+    /// Returns `vk::PipelineColorBlendAttachmentState` where the output will be merged with the existing value
+    /// based on the alpha of the source.
+    pub fn blend_state_alpha() -> vk::PipelineColorBlendAttachmentState {
+        vk::PipelineColorBlendAttachmentState {
+            blend_enable: 1,
+            color_blend_op: vk::BlendOp::ADD,
+            src_color_blend_factor: vk::BlendFactor::SRC_ALPHA,
+            src_alpha_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+            alpha_blend_op: vk::BlendOp::ADD,
+            dst_color_blend_factor: vk::BlendFactor::SRC_ALPHA,
+            dst_alpha_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+            color_write_mask: vk::ColorComponentFlags::RGBA,
+            ..Default::default()
+        }
+    }
+
+    /// Returns `vk::PipelineColorBlendAttachmentState` where the colors are added, and alpha is set to the maximum of
+    /// the two.
+    pub fn blend_state_additive() -> vk::PipelineColorBlendAttachmentState {
+        vk::PipelineColorBlendAttachmentState {
+            blend_enable: 1,
+            color_blend_op: vk::BlendOp::ADD,
+            src_color_blend_factor: vk::BlendFactor::ONE,
+            src_alpha_blend_factor: vk::BlendFactor::ONE,
+            alpha_blend_op: vk::BlendOp::MAX,
+            dst_color_blend_factor: vk::BlendFactor::ONE,
+            dst_alpha_blend_factor: vk::BlendFactor::ONE,
+            color_write_mask: vk::ColorComponentFlags::RGBA,
+            ..Default::default()
+        }
     }
 }
 impl Default for ColorBlendState {
     fn default() -> Self {
         Self {
             flags: vk::PipelineColorBlendStateCreateFlags::empty(),
-            logic_op_enable: false,
-            logic_op: vk::LogicOp::CLEAR,
+            logic_op: None,
             attachments: Vec::new(),
             blend_constants: [0.; 4],
         }
