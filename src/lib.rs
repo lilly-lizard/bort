@@ -1,4 +1,6 @@
 pub mod buffer;
+pub mod command_buffer;
+pub mod command_pool;
 pub mod common;
 pub mod debug_callback;
 pub mod descriptor_layout;
