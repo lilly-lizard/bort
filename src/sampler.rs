@@ -57,14 +57,10 @@ pub struct SamplerProperties {
     pub mag_filter: vk::Filter,
     pub min_filter: vk::Filter,
     pub mipmap_mode: vk::SamplerMipmapMode,
-    pub address_mode_u: vk::SamplerAddressMode,
-    pub address_mode_v: vk::SamplerAddressMode,
-    pub address_mode_w: vk::SamplerAddressMode,
+    pub address_mode: [vk::SamplerAddressMode; 3],
     pub mip_lod_bias: f32,
-    pub anisotropy_enable: bool,
-    pub max_anisotropy: f32,
-    pub compare_enable: bool,
-    pub compare_op: vk::CompareOp,
+    pub max_anisotropy: Option<f32>,
+    pub compare_op: Option<vk::CompareOp>,
     pub min_lod: f32,
     pub max_lod: f32,
     pub border_color: vk::BorderColor,
@@ -78,14 +74,10 @@ impl Default for SamplerProperties {
             mag_filter: vk::Filter::NEAREST,
             min_filter: vk::Filter::NEAREST,
             mipmap_mode: vk::SamplerMipmapMode::NEAREST,
-            address_mode_u: vk::SamplerAddressMode::REPEAT,
-            address_mode_v: vk::SamplerAddressMode::REPEAT,
-            address_mode_w: vk::SamplerAddressMode::REPEAT,
+            address_mode: [vk::SamplerAddressMode::CLAMP_TO_EDGE; 3],
             mip_lod_bias: 0.,
-            anisotropy_enable: false,
-            max_anisotropy: 0.,
-            compare_enable: false,
-            compare_op: vk::CompareOp::NEVER,
+            max_anisotropy: None,
+            compare_op: None,
             min_lod: 0.,
             max_lod: vk::LOD_CLAMP_NONE,
             border_color: vk::BorderColor::FLOAT_TRANSPARENT_BLACK,
@@ -101,14 +93,14 @@ impl SamplerProperties {
             .mag_filter(self.mag_filter)
             .min_filter(self.min_filter)
             .mipmap_mode(self.mipmap_mode)
-            .address_mode_u(self.address_mode_u)
-            .address_mode_v(self.address_mode_v)
-            .address_mode_w(self.address_mode_w)
+            .address_mode_u(self.address_mode[0])
+            .address_mode_v(self.address_mode[1])
+            .address_mode_w(self.address_mode[2])
             .mip_lod_bias(self.mip_lod_bias)
-            .anisotropy_enable(self.anisotropy_enable)
-            .max_anisotropy(self.max_anisotropy)
-            .compare_enable(self.compare_enable)
-            .compare_op(self.compare_op)
+            .anisotropy_enable(self.max_anisotropy.is_some())
+            .max_anisotropy(self.max_anisotropy.unwrap_or(0.))
+            .compare_enable(self.compare_op.is_some())
+            .compare_op(self.compare_op.unwrap_or(vk::CompareOp::NEVER))
             .min_lod(self.min_lod)
             .max_lod(self.max_lod)
             .border_color(self.border_color)
