@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use crate::{command_pool::CommandPool, device::Device};
 use ash::{prelude::VkResult, vk};
+use std::sync::Arc;
 
 pub struct CommandBuffer {
     handle: vk::CommandBuffer,
@@ -12,12 +11,9 @@ pub struct CommandBuffer {
 }
 
 impl CommandBuffer {
+    /// Allocates a single command buffer. To allocate multiple at a time, use `CommandPool::allocate_command_buffers`.
     pub fn new(command_pool: Arc<CommandPool>, level: vk::CommandBufferLevel) -> VkResult<Self> {
-        let allocate_info_builder = vk::CommandBufferAllocateInfo::builder()
-            .command_buffer_count(1)
-            .level(level);
-
-        let mut command_buffers = command_pool.allocate_command_buffers(allocate_info_builder)?;
+        let mut command_buffers = command_pool.allocate_command_buffers(level, 1)?;
         Ok(command_buffers.remove(0))
     }
 
