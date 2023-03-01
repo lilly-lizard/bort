@@ -1,7 +1,7 @@
 use crate::device::Device;
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
-use vk_mem::AllocatorCreateInfo;
+use vk_mem::{AllocationCreateInfo, AllocatorCreateInfo};
 
 /// so it's easy to find all allocation callback args, just in case I want to use them in the future.
 pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None;
@@ -54,4 +54,16 @@ pub fn find_memorytype_index(
                 && memory_type.property_flags & flags == flags
         })
         .map(|(index, _memory_type)| index as _)
+}
+
+/// For allocating memory that can be accessed and mapped from the cpu. Prefered flags include
+/// memory that is host coherent (doesn't require flushing) and device local (fast gpu access)
+pub fn cpu_accessible_allocation_info() -> AllocationCreateInfo {
+    AllocationCreateInfo {
+        flags: vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM,
+        required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE,
+        preferred_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL
+            | vk::MemoryPropertyFlags::HOST_COHERENT,
+        ..Default::default()
+    }
 }
