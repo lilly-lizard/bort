@@ -63,6 +63,7 @@ impl Buffer {
         }
     }
 
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
     pub fn write_struct<T>(&mut self, data: T, buffer_offset: usize) -> Result<(), BufferError> {
         let data_size = mem::size_of_val(&data);
 
@@ -92,6 +93,7 @@ impl Buffer {
         Ok(())
     }
 
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
     pub fn write_iter<I, T>(&mut self, data: I, buffer_offset: usize) -> Result<(), BufferError>
     where
         I: IntoIterator<Item = T>,
@@ -211,13 +213,25 @@ impl Drop for Buffer {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct BufferProperties {
     pub create_flags: vk::BufferCreateFlags,
     pub size: vk::DeviceSize,
     pub usage: vk::BufferUsageFlags,
     pub sharing_mode: vk::SharingMode,
     pub queue_family_indices: Vec<u32>,
+}
+
+impl Default for BufferProperties {
+    fn default() -> Self {
+        Self {
+            create_flags: vk::BufferCreateFlags::empty(),
+            size: 0,
+            usage: vk::BufferUsageFlags::empty(),
+            sharing_mode: vk::SharingMode::EXCLUSIVE,
+            queue_family_indices: Vec::new(),
+        }
+    }
 }
 
 impl BufferProperties {
