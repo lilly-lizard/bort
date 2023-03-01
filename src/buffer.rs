@@ -63,16 +63,11 @@ impl Buffer {
         }
     }
 
-    /// Writes `data` to the buffer memory at `buffer_offset` bytes from the start of it. If
-    /// memory isn't [host coherent](ash::vk::MemoryPropertyFlags::HOST_COHERENT), flushes the
-    /// memory before unmapping.
     pub fn write_struct<T>(&mut self, data: T, buffer_offset: usize) -> Result<(), BufferError> {
-        let mapped_memory = unsafe { self.map_memory() }?;
-
         let data_size = mem::size_of_val(&data);
+
         let buffer_size = self.buffer_properties.size as usize;
         if data_size > buffer_size - buffer_offset {
-            unsafe { self.unmap_memory() };
             return Err(BufferError::WriteDataSize {
                 data_size,
                 buffer_size,
@@ -80,20 +75,56 @@ impl Buffer {
             });
         }
 
-        let offset_mapped_memory = unsafe { mapped_memory.offset(buffer_offset as isize) };
-        unsafe { ptr::write::<T>(offset_mapped_memory as *mut T, data) };
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let offset_mapped_memory =
+            unsafe { mapped_memory.offset(buffer_offset as isize) } as *mut T;
 
-        if !self
-            .memory_property_flags()
-            .contains(vk::MemoryPropertyFlags::HOST_COHERENT)
-        {
-            self.memory_allocator
-                .inner()
-                .flush_allocation(&self.memory_allocation, 0, data_size)
-                .map_err(|e| {
-                    unsafe { self.unmap_memory() };
-                    BufferError::Flushing(e)
-                })?;
+        unsafe { ptr::write::<T>(offset_mapped_memory, data) };
+
+        let flush_res = self.flush_allocation(buffer_offset, data_size);
+        if let Err(e) = flush_res {
+            unsafe { self.unmap_memory() };
+            return Err(e);
+        }
+
+        unsafe { self.unmap_memory() };
+
+        Ok(())
+    }
+
+    pub fn write_iter<I, T>(&mut self, data: I, buffer_offset: usize) -> Result<(), BufferError>
+    where
+        I: IntoIterator<Item = T>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let data = data.into_iter();
+        let item_size = mem::size_of::<T>();
+        let data_size = data.len() * item_size;
+
+        let buffer_size = self.buffer_properties.size as usize;
+        if data_size > buffer_size - buffer_offset {
+            return Err(BufferError::WriteDataSize {
+                data_size,
+                buffer_size,
+                buffer_offset,
+            });
+        }
+
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let mut offset_mapped_memory =
+            unsafe { mapped_memory.offset(buffer_offset as isize) } as *mut T;
+
+        unsafe {
+            for element in data {
+                ptr::write::<T>(offset_mapped_memory, element);
+                offset_mapped_memory = offset_mapped_memory.offset(1);
+            }
+        }
+
+        let flush_res = self.flush_allocation(buffer_offset, data_size);
+        if let Err(e) = flush_res {
+            unsafe { self.unmap_memory() };
+            return Err(e);
         }
 
         unsafe { self.unmap_memory() };
@@ -112,6 +143,25 @@ impl Buffer {
         self.memory_allocator
             .inner()
             .unmap_memory(&mut self.memory_allocation)
+    }
+
+    pub fn flush_allocation(
+        &mut self,
+        buffer_offset: usize,
+        data_size: usize,
+    ) -> Result<(), BufferError> {
+        // don't need to flush if memory is host coherent
+        if !self
+            .memory_property_flags()
+            .contains(vk::MemoryPropertyFlags::HOST_COHERENT)
+        {
+            self.memory_allocator
+                .inner()
+                .flush_allocation(&self.memory_allocation, buffer_offset, data_size)
+                .map_err(|e| BufferError::Flushing(e))?;
+        }
+
+        Ok(())
     }
 
     // Getters
