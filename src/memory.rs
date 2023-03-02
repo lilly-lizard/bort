@@ -1,6 +1,6 @@
 use crate::device::Device;
 use ash::{prelude::VkResult, vk};
-use std::sync::Arc;
+use std::{error, fmt, mem, ptr, sync::Arc};
 use vk_mem::{AllocationCreateInfo, AllocatorCreateInfo};
 
 /// so it's easy to find all allocation callback args, just in case I want to use them in the future.
@@ -39,6 +39,180 @@ impl MemoryAllocator {
     }
 }
 
+// Memory Allocation
+
+/// Note this doesn't impl `Drop`. Destroy this yourself! (See `Buffer` and `Image`)
+pub struct MemoryAllocation {
+    inner: vk_mem::Allocation,
+    memory_type: vk::MemoryType,
+    size: vk::DeviceSize,
+
+    // dependencies
+    memory_allocator: Arc<MemoryAllocator>,
+}
+
+impl MemoryAllocation {
+    pub(crate) fn from_components(
+        inner: vk_mem::Allocation,
+        memory_type: vk::MemoryType,
+        size: vk::DeviceSize,
+        memory_allocator: Arc<MemoryAllocator>,
+    ) -> Self {
+        Self {
+            inner,
+            memory_type,
+            size,
+            memory_allocator,
+        }
+    }
+
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
+    pub fn write_struct<T>(&mut self, data: T, write_offset: usize) -> Result<(), MemoryError> {
+        let data_size = mem::size_of_val(&data);
+
+        let allocation_size = self.size as usize;
+        if data_size > allocation_size - write_offset {
+            return Err(MemoryError::WriteDataSize {
+                data_size,
+                allocation_size,
+                write_offset,
+            });
+        }
+
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let offset_mapped_memory = unsafe { mapped_memory.offset(write_offset as isize) } as *mut T;
+
+        unsafe { ptr::write::<T>(offset_mapped_memory, data) };
+
+        let flush_res = self.flush_allocation(write_offset, data_size);
+        if let Err(e) = flush_res {
+            unsafe { self.unmap_memory() };
+            return Err(e);
+        }
+
+        unsafe { self.unmap_memory() };
+
+        Ok(())
+    }
+
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
+    pub fn write_iter<I, T>(&mut self, data: I, write_offset: usize) -> Result<(), MemoryError>
+    where
+        I: IntoIterator<Item = T>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let data = data.into_iter();
+        let item_size = mem::size_of::<T>();
+        let data_size = data.len() * item_size;
+
+        let allocation_size = self.size as usize;
+        if data_size > allocation_size - write_offset {
+            return Err(MemoryError::WriteDataSize {
+                data_size,
+                allocation_size,
+                write_offset,
+            });
+        }
+
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let mut offset_mapped_memory =
+            unsafe { mapped_memory.offset(write_offset as isize) } as *mut T;
+
+        unsafe {
+            for element in data {
+                ptr::write::<T>(offset_mapped_memory, element);
+                offset_mapped_memory = offset_mapped_memory.offset(1);
+            }
+        }
+
+        let flush_res = self.flush_allocation(write_offset, data_size);
+        if let Err(e) = flush_res {
+            unsafe { self.unmap_memory() };
+            return Err(e);
+        }
+
+        unsafe { self.unmap_memory() };
+
+        Ok(())
+    }
+
+    pub unsafe fn map_memory(&mut self) -> Result<*mut u8, MemoryError> {
+        self.memory_allocator
+            .inner()
+            .map_memory(&mut self.inner)
+            .map_err(|e| MemoryError::Mapping(e))
+    }
+
+    pub unsafe fn unmap_memory(&mut self) {
+        self.memory_allocator.inner().unmap_memory(&mut self.inner)
+    }
+
+    pub fn flush_allocation(
+        &mut self,
+        write_offset: usize,
+        data_size: usize,
+    ) -> Result<(), MemoryError> {
+        // don't need to flush if memory is host coherent
+        if !self
+            .memory_property_flags()
+            .contains(vk::MemoryPropertyFlags::HOST_COHERENT)
+        {
+            self.memory_allocator
+                .inner()
+                .flush_allocation(&self.inner, write_offset, data_size)
+                .map_err(|e| MemoryError::Flushing(e))?;
+        }
+
+        Ok(())
+    }
+
+    // Getters
+
+    #[inline]
+    pub fn inner(&self) -> &vk_mem::Allocation {
+        &self.inner
+    }
+
+    #[inline]
+    pub fn inner_mut(&mut self) -> &mut vk_mem::Allocation {
+        &mut self.inner
+    }
+
+    #[inline]
+    pub fn memory_type(&self) -> vk::MemoryType {
+        self.memory_type
+    }
+
+    #[inline]
+    pub fn memory_allocator(&self) -> &Arc<MemoryAllocator> {
+        &self.memory_allocator
+    }
+
+    #[inline]
+    pub fn memory_property_flags(&self) -> vk::MemoryPropertyFlags {
+        self.memory_type.property_flags
+    }
+
+    #[inline]
+    pub fn device(&self) -> &Arc<Device> {
+        &self.memory_allocator.device()
+    }
+}
+
+// Presets
+
+/// For allocating memory that can be accessed and mapped from the cpu. Prefered flags include
+/// memory that is host coherent (doesn't require flushing) and device local (fast gpu access)
+pub fn cpu_accessible_allocation_info() -> AllocationCreateInfo {
+    AllocationCreateInfo {
+        flags: vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM,
+        required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE,
+        preferred_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL
+            | vk::MemoryPropertyFlags::HOST_COHERENT,
+        ..Default::default()
+    }
+}
+
 // Helper Functions
 
 pub fn find_memorytype_index(
@@ -56,14 +230,45 @@ pub fn find_memorytype_index(
         .map(|(index, _memory_type)| index as _)
 }
 
-/// For allocating memory that can be accessed and mapped from the cpu. Prefered flags include
-/// memory that is host coherent (doesn't require flushing) and device local (fast gpu access)
-pub fn cpu_accessible_allocation_info() -> AllocationCreateInfo {
-    AllocationCreateInfo {
-        flags: vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM,
-        required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE,
-        preferred_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL
-            | vk::MemoryPropertyFlags::HOST_COHERENT,
-        ..Default::default()
+#[derive(Debug, Clone)]
+pub enum MemoryError {
+    Mapping(vk::Result),
+    WriteDataSize {
+        data_size: usize,
+        allocation_size: usize,
+        write_offset: usize,
+    },
+    Flushing(vk::Result),
+}
+
+impl fmt::Display for MemoryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Mapping(e) => {
+                write!(f, "failed map allocation memory: {}", e)
+            }
+            Self::WriteDataSize {
+                data_size,
+                allocation_size,
+                write_offset,
+            } => {
+                write!(
+                    f,
+                    "invalid data size to be written: data size = {}, allocation size = {}, write offset = {}",
+                    data_size, allocation_size, write_offset
+                )
+            }
+            Self::Flushing(e) => write!(f, "failed to flush memory: {}", e),
+        }
+    }
+}
+
+impl error::Error for MemoryError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::Mapping(e) => Some(e),
+            Self::WriteDataSize { .. } => None,
+            Self::Flushing(e) => Some(e),
+        }
     }
 }
