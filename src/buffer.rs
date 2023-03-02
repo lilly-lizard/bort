@@ -3,7 +3,7 @@ use crate::{
     memory::{MemoryAllocation, MemoryAllocator, MemoryError},
 };
 use ash::{prelude::VkResult, vk};
-use std::{error, fmt, sync::Arc};
+use std::sync::Arc;
 use vk_mem::{Alloc, AllocationCreateInfo};
 
 pub struct Buffer {
@@ -34,30 +34,12 @@ impl Buffer {
 
     fn from_handle_and_allocation(
         memory_allocator: Arc<MemoryAllocator>,
-        mut buffer_properties: BufferProperties,
+        buffer_properties: BufferProperties,
         handle: vk::Buffer,
         vma_allocation: vk_mem::Allocation,
     ) -> Self {
-        let memory_info = memory_allocator
-            .inner()
-            .get_allocation_info(&vma_allocation);
-
-        buffer_properties.size = memory_info.size; // should be the same, but just in case
-
-        let physical_device_mem_props = memory_allocator
-            .device()
-            .physical_device()
-            .memory_properties();
-
-        debug_assert!(memory_info.memory_type < physical_device_mem_props.memory_type_count);
-        let memory_type = physical_device_mem_props.memory_types[memory_info.memory_type as usize];
-
-        let memory_allocation = MemoryAllocation::from_components(
-            vma_allocation,
-            memory_type,
-            buffer_properties.size,
-            memory_allocator,
-        );
+        let memory_allocation =
+            MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);
 
         Self {
             handle,
@@ -66,40 +48,40 @@ impl Buffer {
         }
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
-    pub fn write_struct<T>(&mut self, data: T, buffer_offset: usize) -> Result<(), MemoryError> {
-        self.memory_allocation.write_struct(data, buffer_offset)
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    pub fn write_struct<T>(&mut self, data: T, mem_offset: usize) -> Result<(), MemoryError> {
+        self.memory_allocation.write_struct(data, mem_offset)
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
-    pub fn write_iter<I, T>(&mut self, data: I, buffer_offset: usize) -> Result<(), MemoryError>
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    pub fn write_iter<I, T>(&mut self, data: I, mem_offset: usize) -> Result<(), MemoryError>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
     {
-        self.memory_allocation.write_iter(data, buffer_offset)
+        self.memory_allocation.write_iter(data, mem_offset)
     }
 
     // Getters
 
+    #[inline]
     pub fn handle(&self) -> vk::Buffer {
         self.handle
     }
 
+    #[inline]
     pub fn buffer_properties(&self) -> &BufferProperties {
         &self.buffer_properties
     }
 
+    #[inline]
     pub fn memory_allocator(&self) -> &Arc<MemoryAllocator> {
         &self.memory_allocation.memory_allocator()
     }
 
+    #[inline]
     pub fn memory_allocation(&self) -> &MemoryAllocation {
         &self.memory_allocation
-    }
-
-    pub fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation {
-        &mut self.memory_allocation
     }
 
     #[inline]

@@ -52,12 +52,22 @@ pub struct MemoryAllocation {
 }
 
 impl MemoryAllocation {
-    pub(crate) fn from_components(
+    pub(crate) fn from_vma_allocation(
         inner: vk_mem::Allocation,
-        memory_type: vk::MemoryType,
-        size: vk::DeviceSize,
         memory_allocator: Arc<MemoryAllocator>,
     ) -> Self {
+        let memory_info = memory_allocator.inner().get_allocation_info(&inner);
+
+        let size = memory_info.size;
+
+        let physical_device_mem_props = memory_allocator
+            .device()
+            .physical_device()
+            .memory_properties();
+
+        debug_assert!(memory_info.memory_type < physical_device_mem_props.memory_type_count);
+        let memory_type = physical_device_mem_props.memory_types[memory_info.memory_type as usize];
+
         Self {
             inner,
             memory_type,
@@ -66,7 +76,7 @@ impl MemoryAllocation {
         }
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
     pub fn write_struct<T>(&mut self, data: T, write_offset: usize) -> Result<(), MemoryError> {
         let data_size = mem::size_of_val(&data);
 
@@ -95,7 +105,7 @@ impl MemoryAllocation {
         Ok(())
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fial
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
     pub fn write_iter<I, T>(&mut self, data: I, write_offset: usize) -> Result<(), MemoryError>
     where
         I: IntoIterator<Item = T>,
