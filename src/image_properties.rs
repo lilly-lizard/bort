@@ -1,5 +1,5 @@
 use ash::vk;
-use vk_mem::AllocationCreateInfo;
+use bort_vma::AllocationCreateInfo;
 
 // Presets
 

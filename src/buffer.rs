@@ -3,8 +3,8 @@ use crate::{
     memory::{MemoryAllocation, MemoryAllocator, MemoryError},
 };
 use ash::{prelude::VkResult, vk};
+use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
-use vk_mem::{Alloc, AllocationCreateInfo};
 
 pub struct Buffer {
     handle: vk::Buffer,
@@ -36,7 +36,7 @@ impl Buffer {
         memory_allocator: Arc<MemoryAllocator>,
         buffer_properties: BufferProperties,
         handle: vk::Buffer,
-        vma_allocation: vk_mem::Allocation,
+        vma_allocation: bort_vma::Allocation,
     ) -> Self {
         let memory_allocation =
             MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);

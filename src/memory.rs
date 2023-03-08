@@ -1,7 +1,7 @@
 use crate::device::Device;
 use ash::{prelude::VkResult, vk};
+use bort_vma::{AllocationCreateInfo, AllocatorCreateInfo};
 use std::{error, fmt, mem, ptr, sync::Arc};
-use vk_mem::{AllocationCreateInfo, AllocatorCreateInfo};
 
 /// so it's easy to find all allocation callback args, just in case I want to use them in the future.
 pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None;
@@ -9,7 +9,7 @@ pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None
 // Memory Allocator
 
 pub struct MemoryAllocator {
-    inner: vk_mem::Allocator,
+    inner: bort_vma::Allocator,
 
     // dependencies
     device: Arc<Device>,
@@ -22,14 +22,14 @@ impl MemoryAllocator {
             device.inner(),
             device.physical_device().handle(),
         );
-        let inner = vk_mem::Allocator::new(allocator_info)?;
+        let inner = bort_vma::Allocator::new(allocator_info)?;
 
         Ok(Self { inner, device })
     }
 
     // Getters
 
-    pub fn inner(&self) -> &vk_mem::Allocator {
+    pub fn inner(&self) -> &bort_vma::Allocator {
         &self.inner
     }
 
@@ -39,11 +39,19 @@ impl MemoryAllocator {
     }
 }
 
+impl Drop for MemoryAllocator {
+    fn drop(&mut self) {
+        unsafe {
+            self.inner.destroy_allocator();
+        }
+    }
+}
+
 // Memory Allocation
 
 /// Note this doesn't impl `Drop`. Destroy this yourself! (See `Buffer` and `Image`)
 pub struct MemoryAllocation {
-    inner: vk_mem::Allocation,
+    inner: bort_vma::Allocation,
     memory_type: vk::MemoryType,
     size: vk::DeviceSize,
 
@@ -53,7 +61,7 @@ pub struct MemoryAllocation {
 
 impl MemoryAllocation {
     pub(crate) fn from_vma_allocation(
-        inner: vk_mem::Allocation,
+        inner: bort_vma::Allocation,
         memory_allocator: Arc<MemoryAllocator>,
     ) -> Self {
         let memory_info = memory_allocator.inner().get_allocation_info(&inner);
@@ -179,12 +187,12 @@ impl MemoryAllocation {
     // Getters
 
     #[inline]
-    pub fn inner(&self) -> &vk_mem::Allocation {
+    pub fn inner(&self) -> &bort_vma::Allocation {
         &self.inner
     }
 
     #[inline]
-    pub fn inner_mut(&mut self) -> &mut vk_mem::Allocation {
+    pub fn inner_mut(&mut self) -> &mut bort_vma::Allocation {
         &mut self.inner
     }
 
@@ -215,7 +223,7 @@ impl MemoryAllocation {
 /// memory that is host coherent (doesn't require flushing) and device local (fast gpu access)
 pub fn cpu_accessible_allocation_info() -> AllocationCreateInfo {
     AllocationCreateInfo {
-        flags: vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM,
+        flags: bort_vma::AllocationCreateFlags::HOST_ACCESS_RANDOM,
         required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE,
         preferred_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL
             | vk::MemoryPropertyFlags::HOST_COHERENT,

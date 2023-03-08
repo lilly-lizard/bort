@@ -5,8 +5,8 @@ use crate::{
     memory::{MemoryAllocation, MemoryAllocator, MemoryError},
 };
 use ash::{prelude::VkResult, vk};
+use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
-use vk_mem::{Alloc, AllocationCreateInfo};
 
 pub struct Image {
     handle: vk::Image,
