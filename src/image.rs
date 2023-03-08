@@ -36,6 +36,30 @@ impl Image {
         })
     }
 
+    pub fn new_from_create_info(
+        memory_allocator: Arc<MemoryAllocator>,
+        image_create_info_builder: vk::ImageCreateInfoBuilder,
+        allocation_info: AllocationCreateInfo,
+    ) -> VkResult<Self> {
+        let image_create_info = image_create_info_builder.build();
+        let image_properties = ImageProperties::from(&image_create_info);
+
+        let (handle, vma_allocation) = unsafe {
+            memory_allocator
+                .inner()
+                .create_image(&image_create_info, &allocation_info)
+        }?;
+
+        let memory_allocation =
+            MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);
+
+        Ok(Self {
+            handle,
+            image_properties,
+            memory_allocation,
+        })
+    }
+
     /// Create a transient, lazily allocated image.
     pub fn new_tranient(
         memory_allocator: Arc<MemoryAllocator>,

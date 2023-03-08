@@ -32,6 +32,28 @@ impl Buffer {
         ))
     }
 
+    pub fn new_from_create_info(
+        memory_allocator: Arc<MemoryAllocator>,
+        buffer_create_info_builder: vk::BufferCreateInfoBuilder,
+        allocation_info: AllocationCreateInfo,
+    ) -> VkResult<Self> {
+        let buffer_create_info = buffer_create_info_builder.build();
+        let buffer_properties = BufferProperties::from(&buffer_create_info);
+
+        let (handle, vma_allocation) = unsafe {
+            memory_allocator
+                .inner()
+                .create_buffer(&buffer_create_info, &allocation_info)
+        }?;
+
+        Ok(Self::from_handle_and_allocation(
+            memory_allocator,
+            buffer_properties,
+            handle,
+            vma_allocation,
+        ))
+    }
+
     fn from_handle_and_allocation(
         memory_allocator: Arc<MemoryAllocator>,
         buffer_properties: BufferProperties,
@@ -118,6 +140,24 @@ impl Default for BufferProperties {
             usage: vk::BufferUsageFlags::empty(),
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             queue_family_indices: Vec::new(),
+        }
+    }
+}
+
+impl From<&vk::BufferCreateInfo> for BufferProperties {
+    fn from(value: &vk::BufferCreateInfo) -> Self {
+        let mut queue_family_indices = Vec::<u32>::new();
+        for i in 0..value.queue_family_index_count {
+            let queue_family_index = unsafe { *value.p_queue_family_indices.offset(i as isize) };
+            queue_family_indices.push(queue_family_index);
+        }
+
+        Self {
+            create_flags: value.flags,
+            size: value.size,
+            usage: value.usage,
+            sharing_mode: value.sharing_mode,
+            queue_family_indices: queue_family_indices,
         }
     }
 }
