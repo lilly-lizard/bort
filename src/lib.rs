@@ -23,6 +23,7 @@ pub mod pipeline_layout;
 pub mod queue;
 pub mod render_pass;
 pub mod sampler;
+pub mod semaphore;
 pub mod shader_module;
 pub mod surface;
 pub mod swapchain;
