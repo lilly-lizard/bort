@@ -136,3 +136,12 @@ pub fn default_subresource_range(aspect_mask: vk::ImageAspectFlags) -> vk::Image
         layer_count: 1,
     }
 }
+
+pub fn default_subresource_layers(aspect_mask: vk::ImageAspectFlags) -> vk::ImageSubresourceLayers {
+    vk::ImageSubresourceLayers {
+        aspect_mask,
+        mip_level: 0,
+        base_array_layer: 0,
+        layer_count: 1,
+    }
+}

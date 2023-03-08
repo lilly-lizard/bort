@@ -1,5 +1,5 @@
 use ash::vk;
-use vk_mem::{AllocationCreateInfo, MemoryUsage};
+use vk_mem::AllocationCreateInfo;
 
 // Presets
 
@@ -17,7 +17,7 @@ pub fn transient_image_info(
     };
 
     let allocation_info = AllocationCreateInfo {
-        usage: MemoryUsage::GpuLazy,
+        //usage: MemoryUsage::GpuLazy,
         required_flags: vk::MemoryPropertyFlags::LAZILY_ALLOCATED
             | vk::MemoryPropertyFlags::DEVICE_LOCAL,
         ..AllocationCreateInfo::default()
@@ -127,6 +127,29 @@ pub enum ImageDimensions {
 }
 
 impl ImageDimensions {
+    pub fn new_1d(width: u32) -> Self {
+        Self::Dim1d {
+            width,
+            array_layers: 1,
+        }
+    }
+
+    pub fn new_2d(width: u32, height: u32) -> Self {
+        Self::Dim2d {
+            width,
+            height,
+            array_layers: 1,
+        }
+    }
+
+    pub fn new_3d(width: u32, height: u32, depth: u32) -> Self {
+        Self::Dim3d {
+            width,
+            height,
+            depth,
+        }
+    }
+
     pub fn width(&self) -> u32 {
         match *self {
             ImageDimensions::Dim1d { width, .. } => width,

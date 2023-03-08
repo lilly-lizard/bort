@@ -18,12 +18,12 @@ impl Image {
     pub fn new(
         memory_allocator: Arc<MemoryAllocator>,
         image_properties: ImageProperties,
-        memory_info: AllocationCreateInfo,
+        allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, vma_allocation) = unsafe {
             memory_allocator
                 .inner()
-                .create_image(&image_properties.create_info_builder(), &memory_info)
+                .create_image(&image_properties.create_info_builder(), &allocation_info)
         }?;
 
         let memory_allocation =
@@ -66,7 +66,7 @@ impl Image {
     // Getters
 
     #[inline]
-    pub fn image_properties(&self) -> &ImageProperties {
+    pub fn properties(&self) -> &ImageProperties {
         &self.image_properties
     }
 
