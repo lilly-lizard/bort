@@ -2,6 +2,7 @@
 
 - make all getters inline for consistency (don't know where the chains will be)
 - properties from create_info_builder
+- is pnext chain accessible during creation?
 - write descriptor sets
 - spec constants
 - instance and device properties
