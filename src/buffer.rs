@@ -11,18 +11,18 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         buffer_properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, vma_allocation) = unsafe {
-            memory_allocator
-                .inner()
+            alloc_access
+                .vma_allocator()
                 .create_buffer(&buffer_properties.create_info_builder(), &allocation_info)
         }?;
 
         Ok(Self::from_handle_and_allocation(
-            memory_allocator,
+            alloc_access,
             buffer_properties,
             handle,
             vma_allocation,
@@ -30,7 +30,7 @@ impl Buffer {
     }
 
     pub fn new_from_create_info(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -38,13 +38,13 @@ impl Buffer {
         let buffer_properties = BufferProperties::from(&buffer_create_info);
 
         let (handle, vma_allocation) = unsafe {
-            memory_allocator
-                .inner()
+            alloc_access
+                .vma_allocator()
                 .create_buffer(&buffer_create_info, &allocation_info)
         }?;
 
         Ok(Self::from_handle_and_allocation(
-            memory_allocator,
+            alloc_access,
             buffer_properties,
             handle,
             vma_allocation,
@@ -52,13 +52,12 @@ impl Buffer {
     }
 
     fn from_handle_and_allocation(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         buffer_properties: BufferProperties,
         handle: vk::Buffer,
         vma_allocation: bort_vma::Allocation,
     ) -> Self {
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);
+        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
 
         Self {
             handle,

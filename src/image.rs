@@ -14,18 +14,17 @@ pub struct Image {
 
 impl Image {
     pub fn new(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         image_properties: ImageProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, vma_allocation) = unsafe {
-            memory_allocator
-                .inner()
+            alloc_access
+                .vma_allocator()
                 .create_image(&image_properties.create_info_builder(), &allocation_info)
         }?;
 
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);
+        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
 
         Ok(Self {
             handle,
@@ -35,7 +34,7 @@ impl Image {
     }
 
     pub fn new_from_create_info(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         image_create_info_builder: vk::ImageCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -43,13 +42,12 @@ impl Image {
         let image_properties = ImageProperties::from(&image_create_info);
 
         let (handle, vma_allocation) = unsafe {
-            memory_allocator
-                .inner()
+            alloc_access
+                .vma_allocator()
                 .create_image(&image_create_info, &allocation_info)
         }?;
 
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);
+        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
 
         Ok(Self {
             handle,
