@@ -1,9 +1,6 @@
 use crate::{
-    common::is_format_srgb,
-    device::Device,
-    image_properties::{extent_2d_from_width_height, ImageDimensions},
-    memory::ALLOCATION_CALLBACK_NONE,
-    surface::Surface,
+    extent_2d_from_width_height, is_format_srgb, Device, ImageDimensions, Surface,
+    ALLOCATION_CALLBACK_NONE,
 };
 use ash::{extensions::khr, prelude::VkResult, vk};
 use std::{

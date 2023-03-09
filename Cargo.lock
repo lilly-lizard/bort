@@ -40,8 +40,17 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
+ "bort-vma",
  "raw-window-handle",
- "vk-mem",
+]
+
+[[package]]
+name = "bort-vma"
+version = "0.2.3"
+dependencies = [
+ "ash",
+ "bitflags",
+ "cc",
 ]
 
 [[package]]
@@ -202,15 +211,6 @@ dependencies = [
  "core-graphics",
  "objc",
  "raw-window-handle",
-]
-
-[[package]]
-name = "vk-mem"
-version = "0.2.3"
-dependencies = [
- "ash",
- "bitflags",
- "cc",
 ]
 
 [[package]]

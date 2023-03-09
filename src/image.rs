@@ -1,12 +1,10 @@
 use crate::{
-    device::Device,
-    image_access::ImageAccess,
-    image_properties::{transient_image_info, ImageDimensions, ImageProperties},
-    memory::{MemoryAllocation, MemoryAllocator, MemoryError},
+    transient_image_info, AllocAccess, Device, ImageAccess, ImageDimensions, ImageProperties,
+    MemoryAllocation, MemoryAllocator, MemoryError,
 };
 use ash::{prelude::VkResult, vk};
+use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
-use vk_mem::{Alloc, AllocationCreateInfo};
 
 pub struct Image {
     handle: vk::Image,
@@ -16,18 +14,40 @@ pub struct Image {
 
 impl Image {
     pub fn new(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         image_properties: ImageProperties,
-        memory_info: AllocationCreateInfo,
+        allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, vma_allocation) = unsafe {
-            memory_allocator
-                .inner()
-                .create_image(&image_properties.create_info_builder(), &memory_info)
+            alloc_access
+                .vma_allocator()
+                .create_image(&image_properties.create_info_builder(), &allocation_info)
         }?;
 
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);
+        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
+
+        Ok(Self {
+            handle,
+            image_properties,
+            memory_allocation,
+        })
+    }
+
+    pub fn new_from_create_info(
+        alloc_access: Arc<dyn AllocAccess>,
+        image_create_info_builder: vk::ImageCreateInfoBuilder,
+        allocation_info: AllocationCreateInfo,
+    ) -> VkResult<Self> {
+        let image_create_info = image_create_info_builder.build();
+        let image_properties = ImageProperties::from(&image_create_info);
+
+        let (handle, vma_allocation) = unsafe {
+            alloc_access
+                .vma_allocator()
+                .create_image(&image_create_info, &allocation_info)
+        }?;
+
+        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
 
         Ok(Self {
             handle,
@@ -66,13 +86,13 @@ impl Image {
     // Getters
 
     #[inline]
-    pub fn image_properties(&self) -> &ImageProperties {
+    pub fn properties(&self) -> &ImageProperties {
         &self.image_properties
     }
 
     #[inline]
-    pub fn memory_allocator(&self) -> &Arc<MemoryAllocator> {
-        &self.memory_allocation.memory_allocator()
+    pub fn alloc_access(&self) -> &Arc<dyn AllocAccess> {
+        &self.memory_allocation.alloc_access()
     }
 
     #[inline]
@@ -101,9 +121,9 @@ impl ImageAccess for Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            self.memory_allocator()
+            self.alloc_access()
                 .clone()
-                .inner()
+                .vma_allocator()
                 .destroy_image(self.handle, self.memory_allocation.inner_mut());
         }
     }

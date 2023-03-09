@@ -1,9 +1,4 @@
-use crate::{
-    device::Device,
-    image_access::{ImageAccess, ImageViewAccess},
-    image_properties::ImageProperties,
-    memory::ALLOCATION_CALLBACK_NONE,
-};
+use crate::{Device, ImageAccess, ImageProperties, ImageViewAccess, ALLOCATION_CALLBACK_NONE};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -132,6 +127,15 @@ pub fn default_subresource_range(aspect_mask: vk::ImageAspectFlags) -> vk::Image
         aspect_mask,
         base_mip_level: 0,
         level_count: 1,
+        base_array_layer: 0,
+        layer_count: 1,
+    }
+}
+
+pub fn default_subresource_layers(aspect_mask: vk::ImageAspectFlags) -> vk::ImageSubresourceLayers {
+    vk::ImageSubresourceLayers {
+        aspect_mask,
+        mip_level: 0,
         base_array_layer: 0,
         layer_count: 1,
     }

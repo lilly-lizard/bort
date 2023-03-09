@@ -1,5 +1,5 @@
-use crate::device::Device;
-use ash::vk;
+use crate::Device;
+use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
 pub struct Queue {
@@ -20,6 +20,20 @@ impl Queue {
             family_index,
             queue_index,
             device,
+        }
+    }
+
+    pub fn submit(
+        &self,
+        submit_infos: &[vk::SubmitInfo],
+        fence_handle: Option<vk::Fence>,
+    ) -> VkResult<()> {
+        unsafe {
+            self.device.inner().queue_submit(
+                self.handle,
+                submit_infos,
+                fence_handle.unwrap_or_default(),
+            )
         }
     }
 

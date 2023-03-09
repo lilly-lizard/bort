@@ -1,6 +1,4 @@
-use crate::{
-    descriptor_layout::DescriptorSetLayout, device::Device, memory::ALLOCATION_CALLBACK_NONE,
-};
+use crate::{DescriptorSetLayout, Device, ALLOCATION_CALLBACK_NONE};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 

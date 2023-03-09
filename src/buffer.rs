@@ -1,10 +1,7 @@
-use crate::{
-    device::Device,
-    memory::{MemoryAllocation, MemoryAllocator, MemoryError},
-};
+use crate::{AllocAccess, Device, MemoryAllocation, MemoryError};
 use ash::{prelude::VkResult, vk};
+use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
-use vk_mem::{Alloc, AllocationCreateInfo};
 
 pub struct Buffer {
     handle: vk::Buffer,
@@ -14,18 +11,40 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         buffer_properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, vma_allocation) = unsafe {
-            memory_allocator
-                .inner()
+            alloc_access
+                .vma_allocator()
                 .create_buffer(&buffer_properties.create_info_builder(), &allocation_info)
         }?;
 
         Ok(Self::from_handle_and_allocation(
-            memory_allocator,
+            alloc_access,
+            buffer_properties,
+            handle,
+            vma_allocation,
+        ))
+    }
+
+    pub fn new_from_create_info(
+        alloc_access: Arc<dyn AllocAccess>,
+        buffer_create_info_builder: vk::BufferCreateInfoBuilder,
+        allocation_info: AllocationCreateInfo,
+    ) -> VkResult<Self> {
+        let buffer_create_info = buffer_create_info_builder.build();
+        let buffer_properties = BufferProperties::from(&buffer_create_info);
+
+        let (handle, vma_allocation) = unsafe {
+            alloc_access
+                .vma_allocator()
+                .create_buffer(&buffer_create_info, &allocation_info)
+        }?;
+
+        Ok(Self::from_handle_and_allocation(
+            alloc_access,
             buffer_properties,
             handle,
             vma_allocation,
@@ -33,13 +52,12 @@ impl Buffer {
     }
 
     fn from_handle_and_allocation(
-        memory_allocator: Arc<MemoryAllocator>,
+        alloc_access: Arc<dyn AllocAccess>,
         buffer_properties: BufferProperties,
         handle: vk::Buffer,
-        vma_allocation: vk_mem::Allocation,
+        vma_allocation: bort_vma::Allocation,
     ) -> Self {
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(vma_allocation, memory_allocator);
+        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
 
         Self {
             handle,
@@ -75,8 +93,8 @@ impl Buffer {
     }
 
     #[inline]
-    pub fn memory_allocator(&self) -> &Arc<MemoryAllocator> {
-        &self.memory_allocation.memory_allocator()
+    pub fn alloc_access(&self) -> &Arc<dyn AllocAccess> {
+        &self.memory_allocation.alloc_access()
     }
 
     #[inline]
@@ -86,16 +104,16 @@ impl Buffer {
 
     #[inline]
     pub fn device(&self) -> &Arc<Device> {
-        &self.memory_allocator().device()
+        &self.alloc_access().device()
     }
 }
 
 impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe {
-            self.memory_allocator()
+            self.alloc_access()
                 .clone()
-                .inner()
+                .vma_allocator()
                 .destroy_buffer(self.handle, self.memory_allocation.inner_mut());
         }
     }
@@ -118,6 +136,24 @@ impl Default for BufferProperties {
             usage: vk::BufferUsageFlags::empty(),
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             queue_family_indices: Vec::new(),
+        }
+    }
+}
+
+impl From<&vk::BufferCreateInfo> for BufferProperties {
+    fn from(value: &vk::BufferCreateInfo) -> Self {
+        let mut queue_family_indices = Vec::<u32>::new();
+        for i in 0..value.queue_family_index_count {
+            let queue_family_index = unsafe { *value.p_queue_family_indices.offset(i as isize) };
+            queue_family_indices.push(queue_family_index);
+        }
+
+        Self {
+            create_flags: value.flags,
+            size: value.size,
+            usage: value.usage,
+            sharing_mode: value.sharing_mode,
+            queue_family_indices: queue_family_indices,
         }
     }
 }

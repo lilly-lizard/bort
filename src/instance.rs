@@ -1,4 +1,4 @@
-use crate::{common::string_to_c_string_vec, memory::ALLOCATION_CALLBACK_NONE};
+use crate::{string_to_c_string_vec, ALLOCATION_CALLBACK_NONE};
 use ash::{extensions::ext::DebugUtils, vk, Entry};
 use raw_window_handle::RawDisplayHandle;
 use std::{
@@ -142,10 +142,14 @@ impl Instance {
 
     // Getters
 
+    /// Access the `ash::Instance` struct that `self` contains. Allows you to access vulkan instance
+    /// functions.
+    #[inline]
     pub fn inner(&self) -> &ash::Instance {
         &self.inner
     }
 
+    #[inline]
     pub fn api_version(&self) -> ApiVersion {
         self.api_version
     }

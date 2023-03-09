@@ -1,7 +1,6 @@
 use crate::{
-    device::Device, memory::ALLOCATION_CALLBACK_NONE, pipeline_access::PipelineAccess,
-    pipeline_cache::PipelineCache, pipeline_layout::PipelineLayout, render_pass::RenderPass,
-    shader_module::ShaderStage,
+    Device, PipelineAccess, PipelineCache, PipelineLayout, RenderPass, ShaderStage,
+    ALLOCATION_CALLBACK_NONE,
 };
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;

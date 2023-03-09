@@ -1,69 +1,38 @@
 use crate::device::Device;
-use ash::{prelude::VkResult, vk};
+use ash::vk;
+use bort_vma::AllocationCreateInfo;
 use std::{error, fmt, mem, ptr, sync::Arc};
-use vk_mem::{AllocationCreateInfo, AllocatorCreateInfo};
 
-/// so it's easy to find all allocation callback args, just in case I want to use them in the future.
-pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None;
-
-// Memory Allocator
-
-pub struct MemoryAllocator {
-    inner: vk_mem::Allocator,
-
-    // dependencies
-    device: Arc<Device>,
-}
-
-impl MemoryAllocator {
-    pub fn new(device: Arc<Device>) -> VkResult<Self> {
-        let allocator_info = AllocatorCreateInfo::new(
-            device.instance().inner(),
-            device.inner(),
-            device.physical_device().handle(),
-        );
-        let inner = vk_mem::Allocator::new(allocator_info)?;
-
-        Ok(Self { inner, device })
-    }
-
-    // Getters
-
-    pub fn inner(&self) -> &vk_mem::Allocator {
-        &self.inner
-    }
+pub trait AllocAccess {
+    fn vma_alloc_ref(&self) -> &dyn bort_vma::Alloc;
+    fn device(&self) -> &Arc<Device>;
 
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
-        &self.device
+    fn vma_allocator(&self) -> &bort_vma::Allocator {
+        self.vma_alloc_ref().allocator()
     }
 }
-
-// Memory Allocation
 
 /// Note this doesn't impl `Drop`. Destroy this yourself! (See `Buffer` and `Image`)
 pub struct MemoryAllocation {
-    inner: vk_mem::Allocation,
+    inner: bort_vma::Allocation,
     memory_type: vk::MemoryType,
     size: vk::DeviceSize,
 
     // dependencies
-    memory_allocator: Arc<MemoryAllocator>,
+    alloc_access: Arc<dyn AllocAccess>,
 }
 
 impl MemoryAllocation {
     pub(crate) fn from_vma_allocation(
-        inner: vk_mem::Allocation,
-        memory_allocator: Arc<MemoryAllocator>,
+        inner: bort_vma::Allocation,
+        alloc_access: Arc<dyn AllocAccess>,
     ) -> Self {
-        let memory_info = memory_allocator.inner().get_allocation_info(&inner);
+        let memory_info = alloc_access.vma_allocator().get_allocation_info(&inner);
 
         let size = memory_info.size;
 
-        let physical_device_mem_props = memory_allocator
-            .device()
-            .physical_device()
-            .memory_properties();
+        let physical_device_mem_props = alloc_access.device().physical_device().memory_properties();
 
         debug_assert!(memory_info.memory_type < physical_device_mem_props.memory_type_count);
         let memory_type = physical_device_mem_props.memory_types[memory_info.memory_type as usize];
@@ -72,7 +41,7 @@ impl MemoryAllocation {
             inner,
             memory_type,
             size,
-            memory_allocator,
+            alloc_access,
         }
     }
 
@@ -147,14 +116,16 @@ impl MemoryAllocation {
     }
 
     pub unsafe fn map_memory(&mut self) -> Result<*mut u8, MemoryError> {
-        self.memory_allocator
-            .inner()
+        self.alloc_access
+            .vma_allocator()
             .map_memory(&mut self.inner)
             .map_err(|e| MemoryError::Mapping(e))
     }
 
     pub unsafe fn unmap_memory(&mut self) {
-        self.memory_allocator.inner().unmap_memory(&mut self.inner)
+        self.alloc_access
+            .vma_allocator()
+            .unmap_memory(&mut self.inner)
     }
 
     pub fn flush_allocation(
@@ -167,8 +138,8 @@ impl MemoryAllocation {
             .memory_property_flags()
             .contains(vk::MemoryPropertyFlags::HOST_COHERENT)
         {
-            self.memory_allocator
-                .inner()
+            self.alloc_access
+                .vma_allocator()
                 .flush_allocation(&self.inner, write_offset, data_size)
                 .map_err(|e| MemoryError::Flushing(e))?;
         }
@@ -178,13 +149,14 @@ impl MemoryAllocation {
 
     // Getters
 
+    /// Access the `bort_vma::Allocation` handle that `self` contains.
     #[inline]
-    pub fn inner(&self) -> &vk_mem::Allocation {
+    pub fn inner(&self) -> &bort_vma::Allocation {
         &self.inner
     }
 
     #[inline]
-    pub fn inner_mut(&mut self) -> &mut vk_mem::Allocation {
+    pub fn inner_mut(&mut self) -> &mut bort_vma::Allocation {
         &mut self.inner
     }
 
@@ -194,8 +166,8 @@ impl MemoryAllocation {
     }
 
     #[inline]
-    pub fn memory_allocator(&self) -> &Arc<MemoryAllocator> {
-        &self.memory_allocator
+    pub fn alloc_access(&self) -> &Arc<dyn AllocAccess> {
+        &self.alloc_access
     }
 
     #[inline]
@@ -205,7 +177,7 @@ impl MemoryAllocation {
 
     #[inline]
     pub fn device(&self) -> &Arc<Device> {
-        &self.memory_allocator.device()
+        &self.alloc_access.device()
     }
 }
 
@@ -215,7 +187,7 @@ impl MemoryAllocation {
 /// memory that is host coherent (doesn't require flushing) and device local (fast gpu access)
 pub fn cpu_accessible_allocation_info() -> AllocationCreateInfo {
     AllocationCreateInfo {
-        flags: vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM,
+        flags: bort_vma::AllocationCreateFlags::HOST_ACCESS_RANDOM,
         required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE,
         preferred_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL
             | vk::MemoryPropertyFlags::HOST_COHERENT,
@@ -223,22 +195,7 @@ pub fn cpu_accessible_allocation_info() -> AllocationCreateInfo {
     }
 }
 
-// Helper Functions
-
-pub fn find_memorytype_index(
-    memory_req: &vk::MemoryRequirements,
-    memory_prop: &vk::PhysicalDeviceMemoryProperties,
-    flags: vk::MemoryPropertyFlags,
-) -> Option<u32> {
-    memory_prop.memory_types[..memory_prop.memory_type_count as _]
-        .iter()
-        .enumerate()
-        .find(|(index, memory_type)| {
-            (1 << index) & memory_req.memory_type_bits != 0
-                && memory_type.property_flags & flags == flags
-        })
-        .map(|(index, _memory_type)| index as _)
-}
+// Memory Error
 
 #[derive(Debug, Clone)]
 pub enum MemoryError {
