@@ -1,6 +1,6 @@
 use crate::{
-    transient_image_info, Device, ImageAccess, ImageDimensions, ImageProperties, MemoryAllocation,
-    MemoryAllocator, MemoryError,
+    transient_image_info, AllocAccess, Device, ImageAccess, ImageDimensions, ImageProperties,
+    MemoryAllocation, MemoryAllocator, MemoryError,
 };
 use ash::{prelude::VkResult, vk};
 use bort_vma::{Alloc, AllocationCreateInfo};
@@ -93,8 +93,8 @@ impl Image {
     }
 
     #[inline]
-    pub fn memory_allocator(&self) -> &Arc<MemoryAllocator> {
-        &self.memory_allocation.memory_allocator()
+    pub fn alloc_access(&self) -> &Arc<dyn AllocAccess> {
+        &self.memory_allocation.alloc_access()
     }
 
     #[inline]
@@ -123,9 +123,9 @@ impl ImageAccess for Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            self.memory_allocator()
+            self.alloc_access()
                 .clone()
-                .inner()
+                .vma_allocator()
                 .destroy_image(self.handle, self.memory_allocation.inner_mut());
         }
     }
