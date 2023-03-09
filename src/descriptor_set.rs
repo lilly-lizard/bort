@@ -1,4 +1,4 @@
-use crate::{DescriptorPool, DescriptorSetLayout, Device};
+use crate::{DescriptorPool, DescriptorSetLayout, Device, DeviceOwned};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -46,9 +46,11 @@ impl DescriptorSet {
     pub fn descriptor_pool(&self) -> &Arc<DescriptorPool> {
         &self.descriptor_pool
     }
+}
 
+impl DeviceOwned for DescriptorSet {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         self.descriptor_pool.device()
     }
 }

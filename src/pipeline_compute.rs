@@ -1,5 +1,6 @@
 use crate::{
-    Device, PipelineAccess, PipelineCache, PipelineLayout, ShaderStage, ALLOCATION_CALLBACK_NONE,
+    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, ShaderStage,
+    ALLOCATION_CALLBACK_NONE,
 };
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
@@ -63,7 +64,9 @@ impl PipelineAccess for ComputePipeline {
     fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
         &self.pipeline_layout
     }
+}
 
+impl DeviceOwned for ComputePipeline {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.pipeline_layout.device()

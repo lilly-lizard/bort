@@ -1,4 +1,4 @@
-use crate::{Device, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
 use ash::prelude::VkResult;
 use ash::vk;
 use std::sync::Arc;
@@ -29,9 +29,11 @@ impl Semaphore {
     pub fn handle(&self) -> vk::Semaphore {
         self.handle
     }
+}
 
+impl DeviceOwned for Semaphore {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         &self.device
     }
 }

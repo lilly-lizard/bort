@@ -1,11 +1,10 @@
-use crate::device::Device;
+use crate::{device::Device, DeviceOwned};
 use ash::vk;
 use bort_vma::AllocationCreateInfo;
 use std::{error, fmt, mem, ptr, sync::Arc};
 
-pub trait AllocAccess {
+pub trait AllocAccess: DeviceOwned {
     fn vma_alloc_ref(&self) -> &dyn bort_vma::Alloc;
-    fn device(&self) -> &Arc<Device>;
 
     #[inline]
     fn vma_allocator(&self) -> &bort_vma::Allocator {
@@ -174,9 +173,11 @@ impl MemoryAllocation {
     pub fn memory_property_flags(&self) -> vk::MemoryPropertyFlags {
         self.memory_type.property_flags
     }
+}
 
+impl DeviceOwned for MemoryAllocation {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         &self.alloc_access.device()
     }
 }

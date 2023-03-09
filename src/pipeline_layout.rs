@@ -1,4 +1,4 @@
-use crate::{DescriptorSetLayout, Device, ALLOCATION_CALLBACK_NONE};
+use crate::{DescriptorSetLayout, Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -34,8 +34,11 @@ impl PipelineLayout {
     pub fn properties(&self) -> &PipelineLayoutProperties {
         &self.properties
     }
+}
 
-    pub fn device(&self) -> &Arc<Device> {
+impl DeviceOwned for PipelineLayout {
+    #[inline]
+    fn device(&self) -> &Arc<Device> {
         &self.device
     }
 }

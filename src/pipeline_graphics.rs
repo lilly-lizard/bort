@@ -1,5 +1,5 @@
 use crate::{
-    Device, PipelineAccess, PipelineCache, PipelineLayout, RenderPass, ShaderStage,
+    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, RenderPass, ShaderStage,
     ALLOCATION_CALLBACK_NONE,
 };
 use ash::{prelude::VkResult, vk};
@@ -129,7 +129,9 @@ impl PipelineAccess for GraphicsPipeline {
     fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
         &self.pipeline_layout
     }
+}
 
+impl DeviceOwned for GraphicsPipeline {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.pipeline_layout.device()

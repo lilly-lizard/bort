@@ -1,6 +1,6 @@
 use crate::{
-    default_component_mapping, default_subresource_range, Device, ImageAccess, ImageDimensions,
-    ImageViewProperties, Swapchain,
+    default_component_mapping, default_subresource_range, Device, DeviceOwned, ImageAccess,
+    ImageDimensions, ImageViewProperties, Swapchain,
 };
 use ash::vk;
 use std::{error, fmt, sync::Arc};
@@ -78,7 +78,9 @@ impl ImageAccess for SwapchainImage {
     fn dimensions(&self) -> ImageDimensions {
         self.dimensions
     }
+}
 
+impl DeviceOwned for SwapchainImage {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.swapchain.device()

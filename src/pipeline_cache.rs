@@ -1,4 +1,4 @@
-use crate::{Device, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -28,8 +28,11 @@ impl PipelineCache {
     pub fn handle(&self) -> vk::PipelineCache {
         self.handle
     }
+}
 
-    pub fn device(&self) -> &Arc<Device> {
+impl DeviceOwned for PipelineCache {
+    #[inline]
+    fn device(&self) -> &Arc<Device> {
         &self.device
     }
 }

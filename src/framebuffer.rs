@@ -1,5 +1,6 @@
 use crate::{
-    render_pass::RenderPass, Device, ImageDimensions, ImageViewAccess, ALLOCATION_CALLBACK_NONE,
+    render_pass::RenderPass, Device, DeviceOwned, ImageDimensions, ImageViewAccess,
+    ALLOCATION_CALLBACK_NONE,
 };
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
@@ -36,9 +37,11 @@ impl Framebuffer {
     pub fn handle(&self) -> vk::Framebuffer {
         self.handle
     }
+}
 
+impl DeviceOwned for Framebuffer {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         &self.render_pass.device()
     }
 }

@@ -1,4 +1,4 @@
-use crate::{device::Device, AllocAccess};
+use crate::{device::Device, AllocAccess, DeviceOwned};
 use ash::prelude::VkResult;
 use bort_vma::AllocatorCreateInfo;
 use std::sync::Arc;
@@ -41,11 +41,6 @@ impl MemoryAllocator {
     pub(crate) fn inner_arc(&self) -> &Arc<bort_vma::Allocator> {
         &self.inner
     }
-
-    #[inline]
-    pub fn device(&self) -> &Arc<Device> {
-        &self.device
-    }
 }
 
 impl AllocAccess for MemoryAllocator {
@@ -53,7 +48,9 @@ impl AllocAccess for MemoryAllocator {
     fn vma_alloc_ref(&self) -> &dyn bort_vma::Alloc {
         self.inner.as_ref()
     }
+}
 
+impl DeviceOwned for MemoryAllocator {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.device

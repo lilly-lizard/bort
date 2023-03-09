@@ -1,4 +1,4 @@
-use crate::Device;
+use crate::{Device, DeviceOwned};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -50,9 +50,11 @@ impl Queue {
     pub fn queue_index(&self) -> u32 {
         self.queue_index
     }
+}
 
+impl DeviceOwned for Queue {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         &self.device
     }
 }

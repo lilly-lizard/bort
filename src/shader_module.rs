@@ -1,4 +1,4 @@
-use crate::{Device, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
 use ash::{util::read_spv, vk};
 use std::{
     error,
@@ -55,8 +55,11 @@ impl ShaderModule {
     pub fn handle(&self) -> vk::ShaderModule {
         self.handle
     }
+}
 
-    pub fn device(&self) -> &Arc<Device> {
+impl DeviceOwned for ShaderModule {
+    #[inline]
+    fn device(&self) -> &Arc<Device> {
         &self.device
     }
 }

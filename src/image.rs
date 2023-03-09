@@ -1,6 +1,6 @@
 use crate::{
-    transient_image_info, AllocAccess, Device, ImageAccess, ImageDimensions, ImageProperties,
-    MemoryAllocation, MemoryAllocator, MemoryError,
+    transient_image_info, AllocAccess, Device, DeviceOwned, ImageAccess, ImageDimensions,
+    ImageProperties, MemoryAllocation, MemoryAllocator, MemoryError,
 };
 use ash::{prelude::VkResult, vk};
 use bort_vma::{Alloc, AllocationCreateInfo};
@@ -111,7 +111,9 @@ impl ImageAccess for Image {
     fn dimensions(&self) -> ImageDimensions {
         self.image_properties.dimensions
     }
+}
 
+impl DeviceOwned for Image {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.memory_allocation.device()

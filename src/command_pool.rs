@@ -1,4 +1,4 @@
-use crate::{CommandBuffer, Device, ALLOCATION_CALLBACK_NONE};
+use crate::{CommandBuffer, Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -91,9 +91,11 @@ impl CommandPool {
     pub fn properties(&self) -> CommandPoolProperties {
         self.properties
     }
+}
 
+impl DeviceOwned for CommandPool {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         &self.device
     }
 }

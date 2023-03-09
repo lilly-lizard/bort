@@ -1,5 +1,5 @@
 use crate::{
-    extent_2d_from_width_height, is_format_srgb, Device, ImageDimensions, Surface,
+    extent_2d_from_width_height, is_format_srgb, Device, DeviceOwned, ImageDimensions, Surface,
     ALLOCATION_CALLBACK_NONE,
 };
 use ash::{extensions::khr, prelude::VkResult, vk};
@@ -127,13 +127,15 @@ impl Swapchain {
         &self.properties
     }
 
-    #[inline]
-    pub fn device(&self) -> &Arc<Device> {
-        &self.device
-    }
-
     pub fn surface(&self) -> &Arc<Surface> {
         &self.surface
+    }
+}
+
+impl DeviceOwned for Swapchain {
+    #[inline]
+    fn device(&self) -> &Arc<Device> {
+        &self.device
     }
 }
 

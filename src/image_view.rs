@@ -1,4 +1,6 @@
-use crate::{Device, ImageAccess, ImageProperties, ImageViewAccess, ALLOCATION_CALLBACK_NONE};
+use crate::{
+    Device, DeviceOwned, ImageAccess, ImageProperties, ImageViewAccess, ALLOCATION_CALLBACK_NONE,
+};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -45,7 +47,9 @@ impl<I: ImageAccess + 'static> ImageViewAccess for ImageView<I> {
     fn image_access(&self) -> Arc<dyn ImageAccess> {
         self.image.clone()
     }
+}
 
+impl<I: ImageAccess + 'static> DeviceOwned for ImageView<I> {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         self.image.device()
