@@ -1,8 +1,6 @@
 use crate::{
-    device::Device,
-    image_access::ImageAccess,
-    image_properties::{transient_image_info, ImageDimensions, ImageProperties},
-    memory::{MemoryAllocation, MemoryAllocator, MemoryError},
+    transient_image_info, Device, ImageAccess, ImageDimensions, ImageProperties, MemoryAllocation,
+    MemoryAllocator, MemoryError,
 };
 use ash::{prelude::VkResult, vk};
 use bort_vma::{Alloc, AllocationCreateInfo};

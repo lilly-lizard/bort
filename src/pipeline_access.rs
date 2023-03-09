@@ -1,4 +1,4 @@
-use crate::{device::Device, pipeline_layout::PipelineLayout};
+use crate::{Device, PipelineLayout};
 use ash::vk;
 use std::sync::Arc;
 

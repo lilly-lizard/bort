@@ -1,7 +1,4 @@
-use crate::{
-    device::Device,
-    memory::{MemoryAllocation, MemoryAllocator, MemoryError},
-};
+use crate::{Device, MemoryAllocation, MemoryAllocator, MemoryError};
 use ash::{prelude::VkResult, vk};
 use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;

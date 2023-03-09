@@ -1,7 +1,4 @@
-use crate::{
-    common::c_string_to_string,
-    instance::{ApiVersion, Instance},
-};
+use crate::{c_string_to_string, ApiVersion, Instance};
 use ash::vk::{self, api_version_major, api_version_minor};
 use std::{error, fmt, str::Utf8Error, sync::Arc};
 

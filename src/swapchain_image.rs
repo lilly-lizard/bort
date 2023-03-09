@@ -1,9 +1,6 @@
 use crate::{
-    device::Device,
-    image_access::ImageAccess,
-    image_properties::ImageDimensions,
-    image_view::{default_component_mapping, default_subresource_range, ImageViewProperties},
-    swapchain::Swapchain,
+    default_component_mapping, default_subresource_range, Device, ImageAccess, ImageDimensions,
+    ImageViewProperties, Swapchain,
 };
 use ash::vk;
 use std::{error, fmt, sync::Arc};

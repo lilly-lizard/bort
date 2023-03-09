@@ -1,4 +1,4 @@
-use crate::{device::Device, image_properties::ImageDimensions};
+use crate::{Device, ImageDimensions};
 use ash::vk;
 use std::sync::Arc;
 

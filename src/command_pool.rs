@@ -1,4 +1,4 @@
-use crate::{command_buffer::CommandBuffer, device::Device, memory::ALLOCATION_CALLBACK_NONE};
+use crate::{CommandBuffer, Device, ALLOCATION_CALLBACK_NONE};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 

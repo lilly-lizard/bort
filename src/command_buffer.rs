@@ -1,4 +1,4 @@
-use crate::{command_pool::CommandPool, device::Device};
+use crate::{CommandPool, Device};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 

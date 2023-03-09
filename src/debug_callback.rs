@@ -1,4 +1,4 @@
-use crate::{instance::Instance, memory::ALLOCATION_CALLBACK_NONE};
+use crate::{Instance, ALLOCATION_CALLBACK_NONE};
 use ash::{extensions::ext::DebugUtils, prelude::VkResult, vk, Entry};
 use std::sync::Arc;
 

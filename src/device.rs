@@ -1,8 +1,5 @@
 use crate::{
-    common::string_to_c_string_vec,
-    instance::{ApiVersion, Instance},
-    memory::ALLOCATION_CALLBACK_NONE,
-    physical_device::PhysicalDevice,
+    string_to_c_string_vec, ApiVersion, Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE,
 };
 use ash::vk;
 use std::{error, ffi::NulError, fmt, sync::Arc};
@@ -75,14 +72,19 @@ impl Device {
 
     // Getters
 
+    /// Access the `ash::Device` struct that `self` contains. Allows you to access vulkan device
+    /// functions.
+    #[inline]
     pub fn inner(&self) -> &ash::Device {
         &self.inner
     }
 
+    #[inline]
     pub fn physical_device(&self) -> &Arc<PhysicalDevice> {
         &self.physical_device
     }
 
+    #[inline]
     pub fn instance(&self) -> &Arc<Instance> {
         self.physical_device.instance()
     }

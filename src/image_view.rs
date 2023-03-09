@@ -1,9 +1,4 @@
-use crate::{
-    device::Device,
-    image_access::{ImageAccess, ImageViewAccess},
-    image_properties::ImageProperties,
-    memory::ALLOCATION_CALLBACK_NONE,
-};
+use crate::{Device, ImageAccess, ImageProperties, ImageViewAccess, ALLOCATION_CALLBACK_NONE};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 

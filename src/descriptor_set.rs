@@ -1,6 +1,4 @@
-use crate::{
-    descriptor_layout::DescriptorSetLayout, descriptor_pool::DescriptorPool, device::Device,
-};
+use crate::{DescriptorPool, DescriptorSetLayout, Device};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 

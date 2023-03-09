@@ -1,6 +1,5 @@
 use crate::{
-    device::Device, image_access::ImageViewAccess, image_properties::ImageDimensions,
-    memory::ALLOCATION_CALLBACK_NONE, render_pass::RenderPass,
+    render_pass::RenderPass, Device, ImageDimensions, ImageViewAccess, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;

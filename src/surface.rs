@@ -1,6 +1,4 @@
-use crate::{
-    instance::Instance, memory::ALLOCATION_CALLBACK_NONE, physical_device::PhysicalDevice,
-};
+use crate::{Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE};
 use ash::{extensions::khr, prelude::VkResult, vk, Entry};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use std::sync::Arc;

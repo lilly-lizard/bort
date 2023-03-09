@@ -9,7 +9,7 @@ pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None
 // Memory Allocator
 
 pub struct MemoryAllocator {
-    inner: bort_vma::Allocator,
+    inner: Arc<bort_vma::Allocator>,
 
     // dependencies
     device: Arc<Device>,
@@ -22,28 +22,29 @@ impl MemoryAllocator {
             device.inner(),
             device.physical_device().handle(),
         );
-        let inner = bort_vma::Allocator::new(allocator_info)?;
+        let inner = Arc::new(bort_vma::Allocator::new(allocator_info)?);
 
         Ok(Self { inner, device })
     }
 
     // Getters
 
+    /// Access the `bort_vma::Allocator` struct that `self` contains. Allows you to access vma allocator
+    /// functions.
+    #[inline]
     pub fn inner(&self) -> &bort_vma::Allocator {
+        &self.inner
+    }
+
+    /// Needed because of the way `bort_vma::AllocatorPool` is implemented.
+    #[inline]
+    pub(crate) fn inner_arc(&self) -> &Arc<bort_vma::Allocator> {
         &self.inner
     }
 
     #[inline]
     pub fn device(&self) -> &Arc<Device> {
         &self.device
-    }
-}
-
-impl Drop for MemoryAllocator {
-    fn drop(&mut self) {
-        unsafe {
-            self.inner.destroy_allocator();
-        }
     }
 }
 
@@ -186,6 +187,7 @@ impl MemoryAllocation {
 
     // Getters
 
+    /// Access the `bort_vma::Allocation` handle that `self` contains.
     #[inline]
     pub fn inner(&self) -> &bort_vma::Allocation {
         &self.inner

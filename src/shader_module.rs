@@ -1,4 +1,4 @@
-use crate::{device::Device, memory::ALLOCATION_CALLBACK_NONE};
+use crate::{Device, ALLOCATION_CALLBACK_NONE};
 use ash::{util::read_spv, vk};
 use std::{
     error,
