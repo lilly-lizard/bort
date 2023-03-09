@@ -1,7 +1,6 @@
 # TODO
 
-- move stuff in memory.rs to vk_mem_bort and rename bort_vma
-	- see pool.rs, got Arc dependency and Drop and everything!
+- Buffer::new_from_memory_flags -> only need required/preferred_flags a lot of the time??
 - make all getters inline for consistency (don't know where the chains will be)
 - properties from create_info_builder
 - write descriptor sets

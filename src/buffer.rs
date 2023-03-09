@@ -1,4 +1,4 @@
-use crate::{AllocAccess, Device, MemoryAllocation, MemoryAllocator, MemoryError};
+use crate::{AllocAccess, Device, MemoryAllocation, MemoryError};
 use ash::{prelude::VkResult, vk};
 use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
