@@ -4,6 +4,10 @@ use crate::{
 use ash::vk;
 use std::{error, ffi::NulError, fmt, sync::Arc};
 
+pub trait DeviceOwned {
+    fn device(&self) -> &Arc<Device>;
+}
+
 pub struct Device {
     inner: ash::Device,
 

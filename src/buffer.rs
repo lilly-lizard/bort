@@ -1,4 +1,4 @@
-use crate::{AllocAccess, Device, MemoryAllocation, MemoryError};
+use crate::{AllocAccess, Device, DeviceOwned, MemoryAllocation, MemoryError};
 use ash::{prelude::VkResult, vk};
 use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
@@ -101,9 +101,11 @@ impl Buffer {
     pub fn memory_allocation(&self) -> &MemoryAllocation {
         &self.memory_allocation
     }
+}
 
+impl DeviceOwned for Buffer {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         &self.alloc_access().device()
     }
 }

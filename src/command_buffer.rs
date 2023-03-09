@@ -1,4 +1,4 @@
-use crate::{CommandPool, Device};
+use crate::{CommandPool, Device, DeviceOwned};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -44,9 +44,11 @@ impl CommandBuffer {
     pub fn command_pool(&self) -> &Arc<CommandPool> {
         &self.command_pool
     }
+}
 
+impl DeviceOwned for CommandBuffer {
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Arc<Device> {
         self.command_pool.device()
     }
 }
