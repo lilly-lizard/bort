@@ -1,7 +1,10 @@
 use crate::{
     Device, DeviceOwned, ImageAccess, ImageProperties, ImageViewAccess, ALLOCATION_CALLBACK_NONE,
 };
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::sync::Arc;
 
 pub struct ImageView<I: ImageAccess + 'static> {
@@ -53,6 +56,11 @@ impl<I: ImageAccess + 'static> DeviceOwned for ImageView<I> {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         self.image.device()
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

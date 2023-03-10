@@ -1,5 +1,8 @@
 use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
-use ash::{util::read_spv, vk};
+use ash::{
+    util::read_spv,
+    vk::{self, Handle},
+};
 use std::{
     error,
     ffi::CString,
@@ -61,6 +64,11 @@ impl DeviceOwned for ShaderModule {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.device
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

@@ -6,6 +6,7 @@ use std::{error, ffi::NulError, fmt, sync::Arc};
 
 pub trait DeviceOwned {
     fn device(&self) -> &Arc<Device>;
+    fn handle_raw(&self) -> u64;
 }
 
 pub struct Device {

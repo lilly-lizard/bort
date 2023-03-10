@@ -1,5 +1,8 @@
 use crate::{DescriptorPool, DescriptorSetLayout, Device, DeviceOwned};
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::sync::Arc;
 
 /// Note: no destructor needed. Just drop pool.
@@ -52,5 +55,10 @@ impl DeviceOwned for DescriptorSet {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         self.descriptor_pool.device()
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }

@@ -1,5 +1,8 @@
 use crate::{Device, DeviceOwned};
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::sync::Arc;
 
 pub struct Queue {
@@ -56,5 +59,10 @@ impl DeviceOwned for Queue {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.device
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }

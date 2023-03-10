@@ -2,7 +2,10 @@ use crate::{
     Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, RenderPass, ShaderStage,
     ALLOCATION_CALLBACK_NONE,
 };
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::sync::Arc;
 
 pub struct GraphicsPipeline {
@@ -135,6 +138,11 @@ impl DeviceOwned for GraphicsPipeline {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.pipeline_layout.device()
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

@@ -2,7 +2,11 @@ use crate::{
     extent_2d_from_width_height, is_format_srgb, Device, DeviceOwned, ImageDimensions, Surface,
     ALLOCATION_CALLBACK_NONE,
 };
-use ash::{extensions::khr, prelude::VkResult, vk};
+use ash::{
+    extensions::khr,
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::{
     cmp::{max, min},
     error, fmt,
@@ -136,6 +140,11 @@ impl DeviceOwned for Swapchain {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.device
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

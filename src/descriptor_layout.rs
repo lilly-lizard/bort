@@ -1,5 +1,8 @@
 use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::sync::Arc;
 
 pub struct DescriptorSetLayout {
@@ -45,6 +48,11 @@ impl DeviceOwned for DescriptorSetLayout {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.device
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

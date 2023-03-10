@@ -2,7 +2,10 @@ use crate::{
     transient_image_info, AllocAccess, Device, DeviceOwned, ImageAccess, ImageDimensions,
     ImageProperties, MemoryAllocation, MemoryAllocator, MemoryError,
 };
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
 
@@ -117,6 +120,11 @@ impl DeviceOwned for Image {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.memory_allocation.device()
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

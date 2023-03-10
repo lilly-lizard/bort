@@ -1,5 +1,8 @@
 use crate::{CommandPool, Device, DeviceOwned};
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::sync::Arc;
 
 pub struct CommandBuffer {
@@ -50,5 +53,10 @@ impl DeviceOwned for CommandBuffer {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         self.command_pool.device()
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }

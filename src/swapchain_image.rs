@@ -2,7 +2,7 @@ use crate::{
     default_component_mapping, default_subresource_range, Device, DeviceOwned, ImageAccess,
     ImageDimensions, ImageViewProperties, Swapchain,
 };
-use ash::vk;
+use ash::vk::{self, Handle};
 use std::{error, fmt, sync::Arc};
 
 pub struct SwapchainImage {
@@ -84,6 +84,11 @@ impl DeviceOwned for SwapchainImage {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.swapchain.device()
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

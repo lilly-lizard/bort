@@ -2,7 +2,10 @@ use crate::{
     render_pass::RenderPass, Device, DeviceOwned, ImageDimensions, ImageViewAccess,
     ALLOCATION_CALLBACK_NONE,
 };
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, Handle},
+};
 use std::sync::Arc;
 
 pub struct Framebuffer {
@@ -43,6 +46,11 @@ impl DeviceOwned for Framebuffer {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.render_pass.device()
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 

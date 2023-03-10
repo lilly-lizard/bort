@@ -1,6 +1,6 @@
 use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
 use ash::prelude::VkResult;
-use ash::vk;
+use ash::vk::{self, Handle};
 use std::sync::Arc;
 
 pub struct Semaphore {
@@ -35,6 +35,11 @@ impl DeviceOwned for Semaphore {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         &self.device
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
     }
 }
 
