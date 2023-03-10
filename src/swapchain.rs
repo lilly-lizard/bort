@@ -1,6 +1,6 @@
 use crate::{
-    extent_2d_from_width_height, is_format_srgb, Device, DeviceOwned, ImageDimensions, Surface,
-    ALLOCATION_CALLBACK_NONE,
+    extent_2d_from_width_height, is_format_srgb, Device, DeviceOwned, Fence, ImageDimensions,
+    Semaphore, Surface, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     extensions::khr,
@@ -115,6 +115,34 @@ impl Swapchain {
 
     pub fn get_swapchain_images(&self) -> VkResult<Vec<vk::Image>> {
         unsafe { self.swapchain_loader.get_swapchain_images(self.handle) }
+    }
+
+    /// On success, returns the next image's index and whether the swapchain is suboptimal for the surface.
+    pub fn aquire_next_image(
+        &self,
+        timeout: u64,
+        semaphore: Option<&Semaphore>,
+        fence: Option<&Fence>,
+    ) -> VkResult<(u32, bool)> {
+        let semaphore_handle = if let Some(semaphore) = semaphore {
+            semaphore.handle()
+        } else {
+            vk::Semaphore::null()
+        };
+        let fence_handle = if let Some(fence) = fence {
+            fence.handle()
+        } else {
+            vk::Fence::null()
+        };
+
+        unsafe {
+            self.swapchain_loader.acquire_next_image(
+                self.handle,
+                timeout,
+                semaphore_handle,
+                fence_handle,
+            )
+        }
     }
 
     // Getters
