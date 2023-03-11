@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 pub struct Framebuffer {
     handle: vk::Framebuffer,
+    properties: FramebufferProperties,
 
     // dependencies
     render_pass: Arc<RenderPass>,
@@ -18,9 +19,9 @@ pub struct Framebuffer {
 impl Framebuffer {
     pub fn new(
         render_pass: Arc<RenderPass>,
-        mut framebuffer_properties: FramebufferProperties,
+        mut properties: FramebufferProperties,
     ) -> VkResult<Self> {
-        let framebuffer_info_builder = framebuffer_properties.create_info_builder(&render_pass);
+        let framebuffer_info_builder = properties.create_info_builder(&render_pass);
 
         let handle = unsafe {
             render_pass
@@ -31,14 +32,35 @@ impl Framebuffer {
 
         Ok(Self {
             handle,
+            properties,
             render_pass,
         })
     }
 
+    pub fn full_render_area(&self) -> vk::Rect2D {
+        vk::Rect2D {
+            extent: vk::Extent2D {
+                width: self.properties.dimensions.width(),
+                height: self.properties.dimensions.height(),
+            },
+            offset: vk::Offset2D { x: 0, y: 0 },
+        }
+    }
+
+    pub fn whole_viewport(&self) -> vk::Viewport {
+        self.properties.dimensions.whole_viewport()
+    }
+
     // Getters
 
+    #[inline]
     pub fn handle(&self) -> vk::Framebuffer {
         self.handle
+    }
+
+    #[inline]
+    pub fn properties(&self) -> &FramebufferProperties {
+        &self.properties
     }
 }
 

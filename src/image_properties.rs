@@ -155,7 +155,6 @@ pub enum ImageDimensions {
 impl ImageDimensions {
     pub fn new_from_extent_and_layers(extent_3d: vk::Extent3D, array_layers: u32) -> Self {
         if array_layers > 1 {
-            // ignore depth
             if extent_3d.height > 1 {
                 Self::new_2d_array(extent_3d.width, extent_3d.height, array_layers)
             } else {
@@ -226,6 +225,10 @@ impl ImageDimensions {
         }
     }
 
+    pub fn width_height(&self) -> [u32; 2] {
+        [self.width(), self.height()]
+    }
+
     pub fn depth(&self) -> u32 {
         match *self {
             ImageDimensions::Dim1d { .. } => 1,
@@ -283,7 +286,7 @@ impl ImageDimensions {
             width: self.width() as f32,
             height: self.height() as f32,
             min_depth: 0.,
-            max_depth: self.depth() as f32,
+            max_depth: 1., // not to be confused with `self.depth()`
         }
     }
 }

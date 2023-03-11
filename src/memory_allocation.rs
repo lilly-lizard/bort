@@ -13,7 +13,7 @@ pub trait AllocAccess {
     }
 }
 
-/// Note this doesn't impl `Drop`. Destroy this yourself! (See `Buffer` and `Image`)
+/// Note this doesn't impl `Drop`. Destroy this yourself! e.g. with `Buffer` and `Image` `Drop` implementations
 pub struct MemoryAllocation {
     inner: bort_vma::Allocation,
     memory_type: vk::MemoryType,
@@ -183,11 +183,23 @@ impl MemoryAllocation {
 
 // Presets
 
+/// Default `AllocationCreateInfo` with specified required and preferred flags.
+pub fn allocation_info_from_flags(
+    required_flags: vk::MemoryPropertyFlags,
+    preferred_flags: vk::MemoryPropertyFlags,
+) -> AllocationCreateInfo {
+    AllocationCreateInfo {
+        required_flags,
+        preferred_flags,
+        ..Default::default()
+    }
+}
+
 /// For allocating memory that can be accessed and mapped from the cpu. Prefered flags include
 /// memory that is host coherent (doesn't require flushing) and device local (fast gpu access)
-pub fn cpu_accessible_allocation_info() -> AllocationCreateInfo {
+pub fn allocation_info_cpu_accessible() -> AllocationCreateInfo {
     AllocationCreateInfo {
-        flags: bort_vma::AllocationCreateFlags::HOST_ACCESS_RANDOM,
+        //flags: bort_vma::AllocationCreateFlags::HOST_ACCESS_RANDOM,
         required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE,
         preferred_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL
             | vk::MemoryPropertyFlags::HOST_COHERENT,

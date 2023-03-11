@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 pub struct Buffer {
     handle: vk::Buffer,
-    buffer_properties: BufferProperties,
+    properties: BufferProperties,
     memory_allocation: MemoryAllocation,
 }
 
@@ -18,10 +18,12 @@ impl Buffer {
         buffer_properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
+        let create_info_builder = buffer_properties.create_info_builder();
+
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_buffer(&buffer_properties.create_info_builder(), &allocation_info)
+                .create_buffer(&create_info_builder, &allocation_info)
         }?;
 
         Ok(Self::from_handle_and_allocation(
@@ -37,18 +39,17 @@ impl Buffer {
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let buffer_create_info = buffer_create_info_builder.build();
-        let buffer_properties = BufferProperties::from(&buffer_create_info);
+        let properties = BufferProperties::from(&*buffer_create_info_builder);
 
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_buffer(&buffer_create_info, &allocation_info)
+                .create_buffer(&buffer_create_info_builder, &allocation_info)
         }?;
 
         Ok(Self::from_handle_and_allocation(
             alloc_access,
-            buffer_properties,
+            properties,
             handle,
             vma_allocation,
         ))
@@ -56,7 +57,7 @@ impl Buffer {
 
     fn from_handle_and_allocation(
         alloc_access: Arc<dyn AllocAccess>,
-        buffer_properties: BufferProperties,
+        properties: BufferProperties,
         handle: vk::Buffer,
         vma_allocation: bort_vma::Allocation,
     ) -> Self {
@@ -64,7 +65,7 @@ impl Buffer {
 
         Self {
             handle,
-            buffer_properties,
+            properties,
             memory_allocation,
         }
     }
@@ -91,8 +92,8 @@ impl Buffer {
     }
 
     #[inline]
-    pub fn buffer_properties(&self) -> &BufferProperties {
-        &self.buffer_properties
+    pub fn properties(&self) -> &BufferProperties {
+        &self.properties
     }
 
     #[inline]
@@ -170,7 +171,14 @@ impl From<&vk::BufferCreateInfo> for BufferProperties {
 
 impl BufferProperties {
     pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {
-        vk::BufferCreateInfo::builder()
+        self.write_create_info_builder(vk::BufferCreateInfo::builder())
+    }
+
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::BufferCreateInfoBuilder<'a>,
+    ) -> vk::BufferCreateInfoBuilder<'a> {
+        builder
             .flags(self.create_flags)
             .size(self.size)
             .usage(self.usage)
