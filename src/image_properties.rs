@@ -28,7 +28,7 @@ pub fn transient_image_info(
 
 // Image Properties
 
-/// WARNING `default()` values for `format`, `dimensions` and `usage` are nothing!
+/// Note: default values for `format`, `dimensions` and `usage` are nothing!
 #[derive(Debug, Clone)]
 pub struct ImageProperties {
     pub create_flags: vk::ImageCreateFlags,

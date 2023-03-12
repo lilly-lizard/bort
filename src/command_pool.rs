@@ -114,22 +114,21 @@ impl Drop for CommandPool {
     }
 }
 
+/// Note: default value for `queue_family_index` is nothing!
 #[derive(Default, Clone, Copy)]
 pub struct CommandPoolProperties {
     pub flags: vk::CommandPoolCreateFlags,
     pub queue_family_index: u32,
 }
 
-impl From<&vk::CommandPoolCreateInfo> for CommandPoolProperties {
-    fn from(value: &vk::CommandPoolCreateInfo) -> Self {
+impl CommandPoolProperties {
+    pub fn new_default(queue_family_index: u32) -> Self {
         Self {
-            flags: value.flags,
-            queue_family_index: value.queue_family_index,
+            queue_family_index,
+            ..Default::default()
         }
     }
-}
 
-impl CommandPoolProperties {
     pub fn create_info_builder(&self) -> vk::CommandPoolCreateInfoBuilder {
         self.write_create_info_builder(vk::CommandPoolCreateInfo::builder())
     }
@@ -141,5 +140,16 @@ impl CommandPoolProperties {
         builder
             .flags(self.flags)
             .queue_family_index(self.queue_family_index)
+    }
+}
+
+impl From<&vk::CommandPoolCreateInfo> for CommandPoolProperties {
+    fn from(value: &vk::CommandPoolCreateInfo) -> Self {
+        Self {
+            flags: value.flags,
+
+            // nonsense defaults. make sure you override these!
+            queue_family_index: value.queue_family_index,
+        }
     }
 }

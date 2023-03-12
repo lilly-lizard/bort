@@ -130,6 +130,7 @@ impl Drop for Buffer {
     }
 }
 
+/// Note: default values for `size`, and `usage` are nothing!
 #[derive(Clone)]
 pub struct BufferProperties {
     pub create_flags: vk::BufferCreateFlags,
@@ -143,11 +144,39 @@ impl Default for BufferProperties {
     fn default() -> Self {
         Self {
             create_flags: vk::BufferCreateFlags::empty(),
-            size: 0,
-            usage: vk::BufferUsageFlags::empty(),
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             queue_family_indices: Vec::new(),
+
+            // nonsense defaults. make sure you override these!
+            size: 0,
+            usage: vk::BufferUsageFlags::empty(),
         }
+    }
+}
+
+impl BufferProperties {
+    pub fn new_default(size: vk::DeviceSize, usage: vk::BufferUsageFlags) -> Self {
+        Self {
+            size,
+            usage,
+            ..Default::default()
+        }
+    }
+
+    pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {
+        self.write_create_info_builder(vk::BufferCreateInfo::builder())
+    }
+
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::BufferCreateInfoBuilder<'a>,
+    ) -> vk::BufferCreateInfoBuilder<'a> {
+        builder
+            .flags(self.create_flags)
+            .size(self.size)
+            .usage(self.usage)
+            .sharing_mode(self.sharing_mode)
+            .queue_family_indices(self.queue_family_indices.as_slice())
     }
 }
 
@@ -166,23 +195,5 @@ impl From<&vk::BufferCreateInfo> for BufferProperties {
             sharing_mode: value.sharing_mode,
             queue_family_indices: queue_family_indices,
         }
-    }
-}
-
-impl BufferProperties {
-    pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {
-        self.write_create_info_builder(vk::BufferCreateInfo::builder())
-    }
-
-    pub fn write_create_info_builder<'a>(
-        &'a self,
-        builder: vk::BufferCreateInfoBuilder<'a>,
-    ) -> vk::BufferCreateInfoBuilder<'a> {
-        builder
-            .flags(self.create_flags)
-            .size(self.size)
-            .usage(self.usage)
-            .sharing_mode(self.sharing_mode)
-            .queue_family_indices(self.queue_family_indices.as_slice())
     }
 }
