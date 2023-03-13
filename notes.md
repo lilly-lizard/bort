@@ -9,3 +9,17 @@
 - instance and device properties
 - cargo feature to use rc instead of arc
 - make all getters inline for consistency (don't know where the chains will be)
+
+create_info Properties struct checklist:
+- derive Clone
+- impl Default (or derive in special cases) right after struct declaration
+- document which members have nonsense default values
+- new_default() fn with these values as args
+- write_create_info_builder<'a>() fn _note: this doesn't always need `&'a self`_
+- create_info_builder() fn (optional)
+- From<&vk::*CreateInfoBuilder>
+
+other:
+- new_from_create_info() fn for associated struct
+- // Properties comment
+- inline getters
