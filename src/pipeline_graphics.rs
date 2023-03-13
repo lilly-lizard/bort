@@ -25,17 +25,18 @@ impl GraphicsPipeline {
         render_pass: &RenderPass,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
+        // populate vkPipelineShaderStageCreateInfo
         let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = shader_stages
             .into_iter()
             .map(|stage| stage.create_info_builder().build())
             .collect();
 
-        // TODO BROKEN!!!!!!!!!!!!!!! call write_vk_create_infos TODO
-        let mut properties_vk = GraphicsPipelinePropertiesCreateInfosVk::default();
-        let create_info_builder = properties.write_create_info_builder(
-            vk::GraphicsPipelineCreateInfo::builder(),
-            &mut properties_vk,
-        );
+        // populate the sub-structs of vkGraphicsPipelineCreateInfo defined by GraphicsPipelineProperties
+        let properties_vk = properties.vk_create_infos();
+
+        // use these and other args to populate the fields of vkGraphicsPipelineCreateInfo
+        let create_info_builder = properties
+            .write_create_info_builder(vk::GraphicsPipelineCreateInfo::builder(), &properties_vk);
         let create_info_builder = create_info_builder
             .stages(shader_stages_vk.as_slice())
             .render_pass(render_pass.handle())
@@ -47,15 +48,15 @@ impl GraphicsPipeline {
             vk::PipelineCache::null()
         };
 
-        let handles = unsafe {
+        let handle_res = unsafe {
             pipeline_layout.device().inner().create_graphics_pipelines(
                 cache_handle,
                 &[create_info_builder.build()],
                 ALLOCATION_CALLBACK_NONE,
             )
-        }
-        .map_err(|(_pipelines, err_code)| err_code)?; // note: cbf taking VK_PIPELINE_COMPILE_REQUIRED into account...
-        let handle = handles[0];
+        };
+        // note: cbf taking VK_PIPELINE_COMPILE_REQUIRED into account rn...
+        let handle = handle_res.map_err(|(_pipelines, err_code)| err_code)?[0];
 
         Ok(Self {
             handle,
@@ -64,39 +65,43 @@ impl GraphicsPipeline {
         })
     }
 
-    pub fn batch_create<'a>(
+    pub fn new_batch_create<'a>(
         device: &Device,
-        per_pipeline_params: Vec<NewPipelineCreateParams<'a>>,
+        per_pipeline_params: Vec<PerPipelineCreationParams<'a>>,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Vec<Self>> {
-        // lifetime shinanigans (love ya rust)
+        let pipeline_count = per_pipeline_params.len();
+
+        // populate the sub-structs of vkGraphicsPipelineCreateInfo defined by GraphicsPipelineProperties
         let mut pipeline_properties_vk: Vec<GraphicsPipelinePropertiesCreateInfosVk> = Vec::new();
-        for pipeline_index in 0..per_pipeline_params.len() {
+        for pipeline_index in 0..pipeline_count {
             let properties_vk = per_pipeline_params[pipeline_index]
                 .properties
                 .vk_create_infos();
             pipeline_properties_vk.push(properties_vk);
         }
 
+        // populate the vkPipelineShaderStageCreateInfo structs
         let mut shader_stage_handles: Vec<Vec<vk::PipelineShaderStageCreateInfo>> = Vec::new();
-        for pipeline_index in 0..per_pipeline_params.len() {
-            let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = per_pipeline_params
-                [pipeline_index]
+        for pipeline_index in 0..pipeline_count {
+            let shader_stages_vk = per_pipeline_params[pipeline_index]
                 .shader_stages
                 .iter()
                 .map(|stage| stage.create_info_builder().build())
-                .collect();
+                .collect::<Vec<_>>();
             shader_stage_handles.push(shader_stages_vk);
         }
 
+        // use these and other args to populate the fields of vkGraphicsPipelineCreateInfo
         let mut create_info_builders: Vec<vk::GraphicsPipelineCreateInfoBuilder> = Vec::new();
-        for pipeline_index in 0..per_pipeline_params.len() {
+        for pipeline_index in 0..pipeline_count {
             let create_info_builder = per_pipeline_params[pipeline_index]
                 .properties
                 .write_create_info_builder(
                     vk::GraphicsPipelineCreateInfo::builder(),
                     &pipeline_properties_vk[pipeline_index],
                 );
+
             let create_info_builder = create_info_builder
                 .stages(shader_stage_handles[pipeline_index].as_slice())
                 .render_pass(per_pipeline_params[pipeline_index].render_pass.handle())
@@ -116,7 +121,7 @@ impl GraphicsPipeline {
             vk::PipelineCache::null()
         };
 
-        let handles = unsafe {
+        let pipeline_handles = unsafe {
             device.inner().create_graphics_pipelines(
                 cache_handle,
                 &create_infos,
@@ -129,7 +134,7 @@ impl GraphicsPipeline {
             .into_iter()
             .enumerate()
             .map(|(index, params)| Self {
-                handle: handles[index],
+                handle: pipeline_handles[index],
                 properties: params.properties,
                 pipeline_layout: params.pipeline_layout.clone(),
             })
@@ -140,16 +145,19 @@ impl GraphicsPipeline {
 
     // Getters
 
+    #[inline]
     pub fn properties(&self) -> &GraphicsPipelineProperties {
         &self.properties
     }
 }
 
 impl PipelineAccess for GraphicsPipeline {
+    #[inline]
     fn handle(&self) -> vk::Pipeline {
         self.handle
     }
 
+    #[inline]
     fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
         &self.pipeline_layout
     }
@@ -177,17 +185,9 @@ impl Drop for GraphicsPipeline {
     }
 }
 
-// todo doc
-pub struct NewPipelineCreateParams<'a> {
-    pipeline_layout: Arc<PipelineLayout>,
-    properties: GraphicsPipelineProperties,
-    shader_stages: Vec<ShaderStage>,
-    render_pass: &'a RenderPass,
-}
-
 // Properties
 
-/// Note: doesn't include shader stages
+/// Note: doesn't include shader stages, render pass, pipeline layout or pipeline cache
 #[derive(Clone, Default)]
 pub struct GraphicsPipelineProperties {
     pub flags: vk::PipelineCreateFlags,
@@ -204,9 +204,7 @@ pub struct GraphicsPipelineProperties {
 }
 
 impl GraphicsPipelineProperties {
-    /// todo doc
-    /// Populates the vk*CreateInfo structs in `properties_vk` then returns the `builder` arg now
-    /// containing references to these structs.
+    /// Returns the `builder` arg containing references to the structs in `properties_vk`.
     ///
     /// Note: this doesn't populate:
     /// - `layout`
@@ -235,25 +233,8 @@ impl GraphicsPipelineProperties {
             .dynamic_state(&properties_vk.dynamic_state_vk)
     }
 
-    /// todo doc
-    /// Populates the vk*CreateInfo structs in `properties_vk` then returns a `GraphicsPipelineCreateInfoBuilder`
-    /// containing references to these structs.
-    ///
-    /// Note: this doesn't populate:
-    /// - `layout`
-    /// - `render_pass`
-    /// - `subpass`
-    /// - `stages`
-    /// - `base_pipeline_handle`
-    /// - `base_pipeline_index`
-    pub fn create_info_builder<'a>(
-        &'a mut self,
-        properties_vk: &'a mut GraphicsPipelinePropertiesCreateInfosVk<'a>,
-    ) -> vk::GraphicsPipelineCreateInfoBuilder {
-        self.write_create_info_builder(vk::GraphicsPipelineCreateInfo::builder(), properties_vk)
-    }
-
-    /// todo doc
+    /// Returns a set of vk::*CreateInfoBuilder structs populated by the members of `self`.
+    /// Use this with `Self::write_create_info_builder` to populate a `GraphicsPipelineCreateInfoBuilder`.
     pub fn vk_create_infos<'a>(&'a self) -> GraphicsPipelinePropertiesCreateInfosVk<'a> {
         let mut properties_vk = GraphicsPipelinePropertiesCreateInfosVk::default();
         // write vk create-info builders for each member to `properties_vk`
@@ -672,11 +653,20 @@ impl ViewportState {
 
 // Helper
 
+/// Per-pipeline creation arguments
+#[derive(Clone)]
+pub struct PerPipelineCreationParams<'a> {
+    pipeline_layout: Arc<PipelineLayout>,
+    properties: GraphicsPipelineProperties,
+    shader_stages: Vec<ShaderStage>,
+    render_pass: &'a RenderPass,
+}
+
 /// The equivilent vk*CreateInfo structs for the members of `GraphicsPipelineProperties`.
 ///
-/// These are populated in `GraphicsPipelineProperties::write_create_info_builder` in order for
-/// the builder to have references to create info structs whose lifetimes can be ensured to live
-/// for the duration of the builder.
+/// These are populated in `GraphicsPipelineProperties::vk_create_infos` in order for the
+/// `GraphicsPipelineCreateInfo` to have references to create info structs whose lifetimes
+/// can be ensured to live for the duration of the builder.
 pub struct GraphicsPipelinePropertiesCreateInfosVk<'a> {
     pub vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfoBuilder<'a>,
     pub input_assembly_state_vk: vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>,
