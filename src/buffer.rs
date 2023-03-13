@@ -39,7 +39,7 @@ impl Buffer {
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let properties = BufferProperties::from(&*buffer_create_info_builder);
+        let properties = BufferProperties::from(&buffer_create_info_builder);
 
         let (handle, vma_allocation) = unsafe {
             alloc_access
@@ -130,6 +130,8 @@ impl Drop for Buffer {
     }
 }
 
+// Properties
+
 /// Note: default values for `size`, and `usage` are nothing!
 #[derive(Clone)]
 pub struct BufferProperties {
@@ -163,10 +165,6 @@ impl BufferProperties {
         }
     }
 
-    pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {
-        self.write_create_info_builder(vk::BufferCreateInfo::builder())
-    }
-
     pub fn write_create_info_builder<'a>(
         &'a self,
         builder: vk::BufferCreateInfoBuilder<'a>,
@@ -178,10 +176,14 @@ impl BufferProperties {
             .sharing_mode(self.sharing_mode)
             .queue_family_indices(self.queue_family_indices.as_slice())
     }
+
+    pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {
+        self.write_create_info_builder(vk::BufferCreateInfo::builder())
+    }
 }
 
-impl From<&vk::BufferCreateInfo> for BufferProperties {
-    fn from(value: &vk::BufferCreateInfo) -> Self {
+impl<'a> From<&vk::BufferCreateInfoBuilder<'a>> for BufferProperties {
+    fn from(value: &vk::BufferCreateInfoBuilder<'a>) -> Self {
         let mut queue_family_indices = Vec::<u32>::new();
         for i in 0..value.queue_family_index_count {
             let queue_family_index = unsafe { *value.p_queue_family_indices.offset(i as isize) };

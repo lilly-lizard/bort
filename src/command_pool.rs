@@ -34,7 +34,7 @@ impl CommandPool {
         device: Arc<Device>,
         create_info_builder: vk::CommandPoolCreateInfoBuilder,
     ) -> VkResult<Self> {
-        let properties = CommandPoolProperties::from(&*create_info_builder);
+        let properties = CommandPoolProperties::from(&create_info_builder);
 
         let handle = unsafe {
             device
@@ -114,6 +114,8 @@ impl Drop for CommandPool {
     }
 }
 
+// Properties
+
 /// Note: default value for `queue_family_index` is nothing!
 #[derive(Default, Clone, Copy)]
 pub struct CommandPoolProperties {
@@ -129,22 +131,22 @@ impl CommandPoolProperties {
         }
     }
 
-    pub fn create_info_builder(&self) -> vk::CommandPoolCreateInfoBuilder {
-        self.write_create_info_builder(vk::CommandPoolCreateInfo::builder())
-    }
-
     pub fn write_create_info_builder<'a>(
-        &'a self,
+        &self,
         builder: vk::CommandPoolCreateInfoBuilder<'a>,
     ) -> vk::CommandPoolCreateInfoBuilder<'a> {
         builder
             .flags(self.flags)
             .queue_family_index(self.queue_family_index)
     }
+
+    pub fn create_info_builder(&self) -> vk::CommandPoolCreateInfoBuilder {
+        self.write_create_info_builder(vk::CommandPoolCreateInfo::builder())
+    }
 }
 
-impl From<&vk::CommandPoolCreateInfo> for CommandPoolProperties {
-    fn from(value: &vk::CommandPoolCreateInfo) -> Self {
+impl<'a> From<&vk::CommandPoolCreateInfoBuilder<'a>> for CommandPoolProperties {
+    fn from(value: &vk::CommandPoolCreateInfoBuilder<'a>) -> Self {
         Self {
             flags: value.flags,
 

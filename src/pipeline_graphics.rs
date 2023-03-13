@@ -20,7 +20,7 @@ pub struct GraphicsPipeline {
 impl GraphicsPipeline {
     pub fn new(
         pipeline_layout: Arc<PipelineLayout>,
-        mut properties: GraphicsPipelineProperties,
+        properties: GraphicsPipelineProperties,
         shader_stages: impl IntoIterator<Item = ShaderStage>,
         render_pass: &RenderPass,
         pipeline_cache: Option<&PipelineCache>,
@@ -30,8 +30,13 @@ impl GraphicsPipeline {
             .map(|stage| stage.create_info_builder().build())
             .collect();
 
-        let create_info_builder = properties
-            .create_info_builder()
+        // TODO BROKEN!!!!!!!!!!!!!!! call write_vk_create_infos TODO
+        let mut properties_vk = GraphicsPipelinePropertiesCreateInfosVk::default();
+        let create_info_builder = properties.write_create_info_builder(
+            vk::GraphicsPipelineCreateInfo::builder(),
+            &mut properties_vk,
+        );
+        let create_info_builder = create_info_builder
             .stages(shader_stages_vk.as_slice())
             .render_pass(render_pass.handle())
             .layout(pipeline_layout.handle());
@@ -61,32 +66,48 @@ impl GraphicsPipeline {
 
     pub fn batch_create<'a>(
         device: &Device,
-        per_pipeline_params: impl Iterator<Item = NewPipelineCreateParams<'a>>,
+        per_pipeline_params: Vec<NewPipelineCreateParams<'a>>,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Vec<Self>> {
-        let mut per_pipeline_params = per_pipeline_params.collect::<Vec<_>>();
-        let create_infos = per_pipeline_params
-            .iter_mut()
-            .map(
-                |NewPipelineCreateParams {
-                     pipeline_layout,
-                     properties,
-                     shader_stages,
-                     render_pass,
-                 }| {
-                    let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = shader_stages
-                        .into_iter()
-                        .map(|stage| stage.create_info_builder().build())
-                        .collect();
+        // lifetime shinanigans (love ya rust)
+        let mut pipeline_properties_vk: Vec<GraphicsPipelinePropertiesCreateInfosVk> = Vec::new();
+        for pipeline_index in 0..per_pipeline_params.len() {
+            let properties_vk = per_pipeline_params[pipeline_index]
+                .properties
+                .vk_create_infos();
+            pipeline_properties_vk.push(properties_vk);
+        }
 
-                    properties
-                        .create_info_builder()
-                        .stages(shader_stages_vk.as_slice())
-                        .render_pass(render_pass.handle())
-                        .layout(pipeline_layout.handle())
-                        .build()
-                },
-            )
+        let mut shader_stage_handles: Vec<Vec<vk::PipelineShaderStageCreateInfo>> = Vec::new();
+        for pipeline_index in 0..per_pipeline_params.len() {
+            let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = per_pipeline_params
+                [pipeline_index]
+                .shader_stages
+                .iter()
+                .map(|stage| stage.create_info_builder().build())
+                .collect();
+            shader_stage_handles.push(shader_stages_vk);
+        }
+
+        let mut create_info_builders: Vec<vk::GraphicsPipelineCreateInfoBuilder> = Vec::new();
+        for pipeline_index in 0..per_pipeline_params.len() {
+            let create_info_builder = per_pipeline_params[pipeline_index]
+                .properties
+                .write_create_info_builder(
+                    vk::GraphicsPipelineCreateInfo::builder(),
+                    &pipeline_properties_vk[pipeline_index],
+                );
+            let create_info_builder = create_info_builder
+                .stages(shader_stage_handles[pipeline_index].as_slice())
+                .render_pass(per_pipeline_params[pipeline_index].render_pass.handle())
+                .layout(per_pipeline_params[pipeline_index].pipeline_layout.handle());
+
+            create_info_builders.push(create_info_builder);
+        }
+
+        let create_infos = create_info_builders
+            .into_iter()
+            .map(|builder| builder.build())
             .collect::<Vec<_>>();
 
         let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
@@ -156,6 +177,7 @@ impl Drop for GraphicsPipeline {
     }
 }
 
+// todo doc
 pub struct NewPipelineCreateParams<'a> {
     pipeline_layout: Arc<PipelineLayout>,
     properties: GraphicsPipelineProperties,
@@ -166,7 +188,7 @@ pub struct NewPipelineCreateParams<'a> {
 // Properties
 
 /// Note: doesn't include shader stages
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct GraphicsPipelineProperties {
     pub flags: vk::PipelineCreateFlags,
     pub subpass_index: u32,
@@ -179,49 +201,13 @@ pub struct GraphicsPipelineProperties {
     pub depth_stencil_state: DepthStencilState,
     pub color_blend_state: ColorBlendState,
     pub dynamic_state: DynamicState,
-
-    // because these need to be stored for the lifetime duration of self todo can't partial initialize because of these!!
-    vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfo,
-    input_assembly_state_vk: vk::PipelineInputAssemblyStateCreateInfo,
-    tessellation_state_vk: vk::PipelineTessellationStateCreateInfo,
-    viewport_state_vk: vk::PipelineViewportStateCreateInfo,
-    rasterization_state_vk: vk::PipelineRasterizationStateCreateInfo,
-    multisample_state_vk: vk::PipelineMultisampleStateCreateInfo,
-    depth_stencil_state_vk: vk::PipelineDepthStencilStateCreateInfo,
-    color_blend_state_vk: vk::PipelineColorBlendStateCreateInfo,
-    dynamic_state_vk: vk::PipelineDynamicStateCreateInfo,
 }
 
 impl GraphicsPipelineProperties {
-    pub fn new(
-        flags: vk::PipelineCreateFlags,
-        subpass_index: u32,
-        vertex_input_state: VertexInputState,
-        input_assembly_state: InputAssemblyState,
-        tessellation_state: TessellationState,
-        viewport_state: ViewportState,
-        rasterization_state: RasterizationState,
-        multisample_state: MultisampleState,
-        depth_stencil_state: DepthStencilState,
-        color_blend_state: ColorBlendState,
-        dynamic_state: DynamicState,
-    ) -> Self {
-        Self {
-            flags,
-            subpass_index,
-            vertex_input_state,
-            input_assembly_state,
-            tessellation_state,
-            viewport_state,
-            rasterization_state,
-            multisample_state,
-            depth_stencil_state,
-            color_blend_state,
-            dynamic_state,
-            ..Self::default()
-        }
-    }
-
+    /// todo doc
+    /// Populates the vk*CreateInfo structs in `properties_vk` then returns the `builder` arg now
+    /// containing references to these structs.
+    ///
     /// Note: this doesn't populate:
     /// - `layout`
     /// - `render_pass`
@@ -229,47 +215,58 @@ impl GraphicsPipelineProperties {
     /// - `stages`
     /// - `base_pipeline_handle`
     /// - `base_pipeline_index`
-    pub fn create_info_builder(&mut self) -> vk::GraphicsPipelineCreateInfoBuilder {
-        self.vertex_input_state_vk = self
-            .vertex_input_state
-            .build(vk::PipelineVertexInputStateCreateInfo::builder());
-        self.input_assembly_state_vk = self
-            .input_assembly_state
-            .build(vk::PipelineInputAssemblyStateCreateInfo::builder());
-        self.tessellation_state_vk = self
-            .tessellation_state
-            .build(vk::PipelineTessellationStateCreateInfo::builder());
-        self.viewport_state_vk = self
-            .viewport_state
-            .build(vk::PipelineViewportStateCreateInfo::builder());
-        self.rasterization_state_vk = self
-            .rasterization_state
-            .build(vk::PipelineRasterizationStateCreateInfo::builder());
-        self.multisample_state_vk = self
-            .multisample_state
-            .build(vk::PipelineMultisampleStateCreateInfo::builder());
-        self.depth_stencil_state_vk = self
-            .depth_stencil_state
-            .build(vk::PipelineDepthStencilStateCreateInfo::builder());
-        self.color_blend_state_vk = self
-            .color_blend_state
-            .build(vk::PipelineColorBlendStateCreateInfo::builder());
-        self.dynamic_state_vk = self
-            .dynamic_state
-            .build(vk::PipelineDynamicStateCreateInfo::builder());
-
-        vk::GraphicsPipelineCreateInfo::builder()
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::GraphicsPipelineCreateInfoBuilder<'a>,
+        properties_vk: &'a GraphicsPipelinePropertiesCreateInfosVk<'a>,
+    ) -> vk::GraphicsPipelineCreateInfoBuilder<'a> {
+        // pass references to `properties_vk` to `builder` to populate relevant members
+        builder
             .flags(self.flags)
             .subpass(self.subpass_index)
-            .vertex_input_state(&self.vertex_input_state_vk)
-            .input_assembly_state(&self.input_assembly_state_vk)
-            .tessellation_state(&self.tessellation_state_vk)
-            .viewport_state(&self.viewport_state_vk)
-            .rasterization_state(&self.rasterization_state_vk)
-            .multisample_state(&self.multisample_state_vk)
-            .depth_stencil_state(&self.depth_stencil_state_vk)
-            .color_blend_state(&self.color_blend_state_vk)
-            .dynamic_state(&self.dynamic_state_vk)
+            .vertex_input_state(&properties_vk.vertex_input_state_vk)
+            .input_assembly_state(&properties_vk.input_assembly_state_vk)
+            .tessellation_state(&properties_vk.tessellation_state_vk)
+            .viewport_state(&properties_vk.viewport_state_vk)
+            .rasterization_state(&properties_vk.rasterization_state_vk)
+            .multisample_state(&properties_vk.multisample_state_vk)
+            .depth_stencil_state(&properties_vk.depth_stencil_state_vk)
+            .color_blend_state(&properties_vk.color_blend_state_vk)
+            .dynamic_state(&properties_vk.dynamic_state_vk)
+    }
+
+    /// todo doc
+    /// Populates the vk*CreateInfo structs in `properties_vk` then returns a `GraphicsPipelineCreateInfoBuilder`
+    /// containing references to these structs.
+    ///
+    /// Note: this doesn't populate:
+    /// - `layout`
+    /// - `render_pass`
+    /// - `subpass`
+    /// - `stages`
+    /// - `base_pipeline_handle`
+    /// - `base_pipeline_index`
+    pub fn create_info_builder<'a>(
+        &'a mut self,
+        properties_vk: &'a mut GraphicsPipelinePropertiesCreateInfosVk<'a>,
+    ) -> vk::GraphicsPipelineCreateInfoBuilder {
+        self.write_create_info_builder(vk::GraphicsPipelineCreateInfo::builder(), properties_vk)
+    }
+
+    /// todo doc
+    pub fn vk_create_infos<'a>(&'a self) -> GraphicsPipelinePropertiesCreateInfosVk<'a> {
+        let mut properties_vk = GraphicsPipelinePropertiesCreateInfosVk::default();
+        // write vk create-info builders for each member to `properties_vk`
+        properties_vk.vertex_input_state_vk = self.vertex_input_state.create_info_builder();
+        properties_vk.input_assembly_state_vk = self.input_assembly_state.create_info_builder();
+        properties_vk.tessellation_state_vk = self.tessellation_state.create_info_builder();
+        properties_vk.viewport_state_vk = self.viewport_state.create_info_builder();
+        properties_vk.rasterization_state_vk = self.rasterization_state.create_info_builder();
+        properties_vk.multisample_state_vk = self.multisample_state.create_info_builder();
+        properties_vk.depth_stencil_state_vk = self.depth_stencil_state.create_info_builder();
+        properties_vk.color_blend_state_vk = self.color_blend_state.create_info_builder();
+        properties_vk.dynamic_state_vk = self.dynamic_state.create_info_builder();
+        properties_vk
     }
 }
 
@@ -282,26 +279,41 @@ pub struct ColorBlendState {
     pub attachments: Vec<vk::PipelineColorBlendAttachmentState>,
     pub blend_constants: [f32; 4],
 }
+impl Default for ColorBlendState {
+    fn default() -> Self {
+        Self {
+            flags: vk::PipelineColorBlendStateCreateFlags::empty(),
+            logic_op: None,
+            attachments: Vec::new(),
+            blend_constants: [0.; 4],
+        }
+    }
+}
 impl ColorBlendState {
-    pub fn new_default(attachments: Vec<vk::PipelineColorBlendAttachmentState>) -> Self {
+    pub fn new(attachments: Vec<vk::PipelineColorBlendAttachmentState>) -> Self {
         Self {
             attachments,
             ..Default::default()
         }
     }
 
-    pub fn build(
-        &self,
-        builder: vk::PipelineColorBlendStateCreateInfoBuilder,
-    ) -> vk::PipelineColorBlendStateCreateInfo {
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::PipelineColorBlendStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineColorBlendStateCreateInfoBuilder<'a> {
         builder
             .flags(self.flags)
             .logic_op_enable(self.logic_op.is_some())
             .logic_op(self.logic_op.unwrap_or(vk::LogicOp::CLEAR))
             .attachments(self.attachments.as_slice())
             .blend_constants(self.blend_constants)
-            .build()
     }
+
+    pub fn create_info_builder(&self) -> vk::PipelineColorBlendStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineColorBlendStateCreateInfo::builder())
+    }
+
+    // Presets
 
     pub fn blend_state_disabled() -> vk::PipelineColorBlendAttachmentState {
         vk::PipelineColorBlendAttachmentState {
@@ -358,16 +370,6 @@ impl ColorBlendState {
         }
     }
 }
-impl Default for ColorBlendState {
-    fn default() -> Self {
-        Self {
-            flags: vk::PipelineColorBlendStateCreateFlags::empty(),
-            logic_op: None,
-            attachments: Vec::new(),
-            blend_constants: [0.; 4],
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct DepthStencilState {
@@ -381,25 +383,6 @@ pub struct DepthStencilState {
     pub back: vk::StencilOpState,
     pub min_depth_bounds: f32,
     pub max_depth_bounds: f32,
-}
-impl DepthStencilState {
-    pub fn build(
-        &self,
-        builder: vk::PipelineDepthStencilStateCreateInfoBuilder,
-    ) -> vk::PipelineDepthStencilStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .depth_test_enable(self.depth_test_enable)
-            .depth_write_enable(self.depth_write_enable)
-            .depth_compare_op(self.depth_compare_op)
-            .depth_bounds_test_enable(self.depth_bounds_test_enable)
-            .stencil_test_enable(self.depth_bounds_test_enable)
-            .front(self.front)
-            .back(self.back)
-            .min_depth_bounds(self.min_depth_bounds)
-            .max_depth_bounds(self.max_depth_bounds)
-            .build()
-    }
 }
 impl Default for DepthStencilState {
     fn default() -> Self {
@@ -417,29 +400,33 @@ impl Default for DepthStencilState {
         }
     }
 }
+impl DepthStencilState {
+    pub fn write_create_info_builder<'a>(
+        &self,
+        builder: vk::PipelineDepthStencilStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineDepthStencilStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .depth_test_enable(self.depth_test_enable)
+            .depth_write_enable(self.depth_write_enable)
+            .depth_compare_op(self.depth_compare_op)
+            .depth_bounds_test_enable(self.depth_bounds_test_enable)
+            .stencil_test_enable(self.depth_bounds_test_enable)
+            .front(self.front)
+            .back(self.back)
+            .min_depth_bounds(self.min_depth_bounds)
+            .max_depth_bounds(self.max_depth_bounds)
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineDepthStencilStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineDepthStencilStateCreateInfo::builder())
+    }
+}
 
 #[derive(Clone)]
 pub struct DynamicState {
     pub flags: vk::PipelineDynamicStateCreateFlags,
     pub dynamic_states: Vec<vk::DynamicState>,
-}
-impl DynamicState {
-    pub fn new_default(dynamic_states: Vec<vk::DynamicState>) -> Self {
-        Self {
-            dynamic_states,
-            ..Default::default()
-        }
-    }
-
-    pub fn build(
-        &self,
-        builder: vk::PipelineDynamicStateCreateInfoBuilder,
-    ) -> vk::PipelineDynamicStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .dynamic_states(self.dynamic_states.as_slice())
-            .build()
-    }
 }
 impl Default for DynamicState {
     fn default() -> Self {
@@ -449,24 +436,26 @@ impl Default for DynamicState {
         }
     }
 }
+impl DynamicState {
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::PipelineDynamicStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineDynamicStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .dynamic_states(self.dynamic_states.as_slice())
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineDynamicStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineDynamicStateCreateInfo::builder())
+    }
+}
 
 #[derive(Clone)]
 pub struct InputAssemblyState {
     pub flags: vk::PipelineInputAssemblyStateCreateFlags,
     pub topology: vk::PrimitiveTopology,
     pub primitive_restart_enable: bool,
-}
-impl InputAssemblyState {
-    pub fn build(
-        &self,
-        builder: vk::PipelineInputAssemblyStateCreateInfoBuilder,
-    ) -> vk::PipelineInputAssemblyStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .topology(self.topology)
-            .primitive_restart_enable(self.primitive_restart_enable)
-            .build()
-    }
 }
 impl Default for InputAssemblyState {
     fn default() -> Self {
@@ -475,6 +464,21 @@ impl Default for InputAssemblyState {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             primitive_restart_enable: false,
         }
+    }
+}
+impl InputAssemblyState {
+    pub fn write_create_info_builder<'a>(
+        &self,
+        builder: vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineInputAssemblyStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .topology(self.topology)
+            .primitive_restart_enable(self.primitive_restart_enable)
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineInputAssemblyStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineInputAssemblyStateCreateInfo::builder())
     }
 }
 
@@ -488,22 +492,6 @@ pub struct MultisampleState {
     pub alpha_to_coverage_enable: bool,
     pub alpha_to_one_enable: bool,
 }
-impl MultisampleState {
-    pub fn build(
-        &self,
-        builder: vk::PipelineMultisampleStateCreateInfoBuilder,
-    ) -> vk::PipelineMultisampleStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .rasterization_samples(self.rasterization_samples)
-            .sample_shading_enable(self.sample_shading_enable)
-            .min_sample_shading(self.min_sample_shading)
-            .sample_mask(self.sample_mask.as_slice())
-            .alpha_to_coverage_enable(self.alpha_to_coverage_enable)
-            .alpha_to_one_enable(self.alpha_to_one_enable)
-            .build()
-    }
-}
 impl Default for MultisampleState {
     fn default() -> Self {
         Self {
@@ -515,6 +503,25 @@ impl Default for MultisampleState {
             alpha_to_coverage_enable: false,
             alpha_to_one_enable: false,
         }
+    }
+}
+impl MultisampleState {
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::PipelineMultisampleStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineMultisampleStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .rasterization_samples(self.rasterization_samples)
+            .sample_shading_enable(self.sample_shading_enable)
+            .min_sample_shading(self.min_sample_shading)
+            .sample_mask(self.sample_mask.as_slice())
+            .alpha_to_coverage_enable(self.alpha_to_coverage_enable)
+            .alpha_to_one_enable(self.alpha_to_one_enable)
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineMultisampleStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineMultisampleStateCreateInfo::builder())
     }
 }
 
@@ -531,26 +538,6 @@ pub struct RasterizationState {
     pub depth_bias_clamp: f32,
     pub depth_bias_slope_factor: f32,
     pub line_width: f32,
-}
-impl RasterizationState {
-    pub fn build(
-        &self,
-        builder: vk::PipelineRasterizationStateCreateInfoBuilder,
-    ) -> vk::PipelineRasterizationStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .depth_clamp_enable(self.depth_clamp_enable)
-            .rasterizer_discard_enable(self.rasterizer_discard_enable)
-            .polygon_mode(self.polygon_mode)
-            .cull_mode(self.cull_mode)
-            .front_face(self.front_face)
-            .depth_bias_enable(self.depth_bias_enable)
-            .depth_bias_constant_factor(self.depth_bias_constant_factor)
-            .depth_bias_clamp(self.depth_bias_clamp)
-            .depth_bias_slope_factor(self.depth_bias_slope_factor)
-            .line_width(self.line_width)
-            .build()
-    }
 }
 impl Default for RasterizationState {
     fn default() -> Self {
@@ -569,22 +556,34 @@ impl Default for RasterizationState {
         }
     }
 }
+impl RasterizationState {
+    pub fn write_create_info_builder<'a>(
+        &self,
+        builder: vk::PipelineRasterizationStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineRasterizationStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .depth_clamp_enable(self.depth_clamp_enable)
+            .rasterizer_discard_enable(self.rasterizer_discard_enable)
+            .polygon_mode(self.polygon_mode)
+            .cull_mode(self.cull_mode)
+            .front_face(self.front_face)
+            .depth_bias_enable(self.depth_bias_enable)
+            .depth_bias_constant_factor(self.depth_bias_constant_factor)
+            .depth_bias_clamp(self.depth_bias_clamp)
+            .depth_bias_slope_factor(self.depth_bias_slope_factor)
+            .line_width(self.line_width)
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineRasterizationStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineRasterizationStateCreateInfo::builder())
+    }
+}
 
 #[derive(Clone)]
 pub struct TessellationState {
     pub flags: vk::PipelineTessellationStateCreateFlags,
     pub patch_control_points: u32,
-}
-impl TessellationState {
-    pub fn build(
-        &self,
-        builder: vk::PipelineTessellationStateCreateInfoBuilder,
-    ) -> vk::PipelineTessellationStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .patch_control_points(self.patch_control_points)
-            .build()
-    }
 }
 impl Default for TessellationState {
     fn default() -> Self {
@@ -594,24 +593,26 @@ impl Default for TessellationState {
         }
     }
 }
+impl TessellationState {
+    pub fn write_create_info_builder<'a>(
+        &self,
+        builder: vk::PipelineTessellationStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineTessellationStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .patch_control_points(self.patch_control_points)
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineTessellationStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineTessellationStateCreateInfo::builder())
+    }
+}
 
 #[derive(Clone)]
 pub struct VertexInputState {
     pub flags: vk::PipelineVertexInputStateCreateFlags,
     pub vertex_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
     pub vertex_attribute_descriptions: Vec<vk::VertexInputAttributeDescription>,
-}
-impl VertexInputState {
-    pub fn build(
-        &self,
-        builder: vk::PipelineVertexInputStateCreateInfoBuilder,
-    ) -> vk::PipelineVertexInputStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .vertex_binding_descriptions(self.vertex_binding_descriptions.as_slice())
-            .vertex_attribute_descriptions(self.vertex_attribute_descriptions.as_slice())
-            .build()
-    }
 }
 impl Default for VertexInputState {
     fn default() -> Self {
@@ -622,6 +623,21 @@ impl Default for VertexInputState {
         }
     }
 }
+impl VertexInputState {
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::PipelineVertexInputStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineVertexInputStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .vertex_binding_descriptions(self.vertex_binding_descriptions.as_slice())
+            .vertex_attribute_descriptions(self.vertex_attribute_descriptions.as_slice())
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineVertexInputStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineVertexInputStateCreateInfo::builder())
+    }
+}
 
 #[derive(Clone)]
 pub struct ViewportState {
@@ -629,24 +645,61 @@ pub struct ViewportState {
     pub viewports: Vec<vk::Viewport>,
     pub scissors: Vec<vk::Rect2D>,
 }
-impl ViewportState {
-    pub fn build(
-        &self,
-        builder: vk::PipelineViewportStateCreateInfoBuilder,
-    ) -> vk::PipelineViewportStateCreateInfo {
-        builder
-            .flags(self.flags)
-            .viewports(self.viewports.as_slice())
-            .scissors(self.scissors.as_slice())
-            .build()
-    }
-}
 impl Default for ViewportState {
     fn default() -> Self {
         Self {
             flags: vk::PipelineViewportStateCreateFlags::empty(),
             viewports: Vec::new(),
             scissors: Vec::new(),
+        }
+    }
+}
+impl ViewportState {
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::PipelineViewportStateCreateInfoBuilder<'a>,
+    ) -> vk::PipelineViewportStateCreateInfoBuilder<'a> {
+        builder
+            .flags(self.flags)
+            .viewports(self.viewports.as_slice())
+            .scissors(self.scissors.as_slice())
+    }
+
+    pub fn create_info_builder(&self) -> vk::PipelineViewportStateCreateInfoBuilder {
+        self.write_create_info_builder(vk::PipelineViewportStateCreateInfo::builder())
+    }
+}
+
+// Helper
+
+/// The equivilent vk*CreateInfo structs for the members of `GraphicsPipelineProperties`.
+///
+/// These are populated in `GraphicsPipelineProperties::write_create_info_builder` in order for
+/// the builder to have references to create info structs whose lifetimes can be ensured to live
+/// for the duration of the builder.
+pub struct GraphicsPipelinePropertiesCreateInfosVk<'a> {
+    pub vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfoBuilder<'a>,
+    pub input_assembly_state_vk: vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>,
+    pub tessellation_state_vk: vk::PipelineTessellationStateCreateInfoBuilder<'a>,
+    pub viewport_state_vk: vk::PipelineViewportStateCreateInfoBuilder<'a>,
+    pub rasterization_state_vk: vk::PipelineRasterizationStateCreateInfoBuilder<'a>,
+    pub multisample_state_vk: vk::PipelineMultisampleStateCreateInfoBuilder<'a>,
+    pub depth_stencil_state_vk: vk::PipelineDepthStencilStateCreateInfoBuilder<'a>,
+    pub color_blend_state_vk: vk::PipelineColorBlendStateCreateInfoBuilder<'a>,
+    pub dynamic_state_vk: vk::PipelineDynamicStateCreateInfoBuilder<'a>,
+}
+impl<'a> Default for GraphicsPipelinePropertiesCreateInfosVk<'a> {
+    fn default() -> Self {
+        Self {
+            vertex_input_state_vk: vk::PipelineVertexInputStateCreateInfo::builder(),
+            input_assembly_state_vk: vk::PipelineInputAssemblyStateCreateInfo::builder(),
+            tessellation_state_vk: vk::PipelineTessellationStateCreateInfo::builder(),
+            viewport_state_vk: vk::PipelineViewportStateCreateInfo::builder(),
+            rasterization_state_vk: vk::PipelineRasterizationStateCreateInfo::builder(),
+            multisample_state_vk: vk::PipelineMultisampleStateCreateInfo::builder(),
+            depth_stencil_state_vk: vk::PipelineDepthStencilStateCreateInfo::builder(),
+            color_blend_state_vk: vk::PipelineColorBlendStateCreateInfo::builder(),
+            dynamic_state_vk: vk::PipelineDynamicStateCreateInfo::builder(),
         }
     }
 }
