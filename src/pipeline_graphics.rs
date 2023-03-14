@@ -65,6 +65,53 @@ impl GraphicsPipeline {
         })
     }
 
+    /// Safety:
+    /// - if any of the following members aren't null they must point to something!
+    ///     - `p_vertex_input_state`
+    ///     - `p_input_assembly_state`
+    ///     - `p_tessellation_state`
+    ///     - `p_viewport_state`
+    ///     - `p_rasterization_state`
+    ///     - `p_multisample_state`
+    ///     - `p_depth_stencil_state`
+    ///     - `p_color_blend_state`
+    ///     - `p_dynamic_state`
+    /// - see docs for the following functions for additional safety requirements:
+    ///     - [`VertexInputState::from_unsafe_create_info_ptr`]
+    ///     - [`ViewportState::from_unsafe_create_info_ptr`]
+    ///     - [`MultisampleState::from_unsafe_create_info_ptr`]
+    ///     - [`ColorBlendState::from_unsafe_create_info_ptr`]
+    ///     - [`DynamicState::from_unsafe_create_info_ptr`]
+    pub unsafe fn new_from_create_info_builder(
+        pipeline_layout: Arc<PipelineLayout>,
+        create_info_builder: vk::GraphicsPipelineCreateInfoBuilder,
+        pipeline_cache: Option<&PipelineCache>,
+    ) -> VkResult<Self> {
+        let properties = GraphicsPipelineProperties::from_create_info(&create_info_builder);
+
+        let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
+            pipeline_cache.handle()
+        } else {
+            vk::PipelineCache::null()
+        };
+
+        let handle_res = unsafe {
+            pipeline_layout.device().inner().create_graphics_pipelines(
+                cache_handle,
+                &[create_info_builder.build()],
+                ALLOCATION_CALLBACK_NONE,
+            )
+        };
+        // note: cbf taking VK_PIPELINE_COMPILE_REQUIRED into account rn...
+        let handle = handle_res.map_err(|(_pipelines, err_code)| err_code)?[0];
+
+        Ok(Self {
+            handle,
+            properties,
+            pipeline_layout,
+        })
+    }
+
     pub fn new_batch_create<'a>(
         device: &Device,
         per_pipeline_params: Vec<PerPipelineCreationParams<'a>>,
@@ -249,23 +296,33 @@ impl GraphicsPipelineProperties {
         properties_vk
     }
 
-    // todo safety doc
-    unsafe fn from_create_info(value: &vk::GraphicsPipelineCreateInfo) -> Self {
-        let vertex_input_state = if value.p_vertex_input_state != std::ptr::null() {
-            let vk_struct = unsafe { *value.p_vertex_input_state };
-            unsafe { VertexInputState::from_create_info(&vk_struct) }
-        } else {
-            Default::default()
-        };
-        todo!();
-        let input_assembly_state = Default::default();
-        let tessellation_state = Default::default();
-        let viewport_state = Default::default();
-        let rasterization_state = Default::default();
-        let multisample_state = Default::default();
-        let depth_stencil_state = Default::default();
-        let color_blend_state = Default::default();
-        let dynamic_state = Default::default();
+    /// Safety:
+    /// - if any of the following members aren't null they must point to something!
+    ///     - `p_vertex_input_state`
+    ///     - `p_input_assembly_state`
+    ///     - `p_tessellation_state`
+    ///     - `p_viewport_state`
+    ///     - `p_rasterization_state`
+    ///     - `p_multisample_state`
+    ///     - `p_depth_stencil_state`
+    ///     - `p_color_blend_state`
+    ///     - `p_dynamic_state`
+    /// - see docs for the following functions for additional safety requirements:
+    ///     - [`VertexInputState::from_unsafe_create_info_ptr`]
+    ///     - [`ViewportState::from_unsafe_create_info_ptr`]
+    ///     - [`MultisampleState::from_unsafe_create_info_ptr`]
+    ///     - [`ColorBlendState::from_unsafe_create_info_ptr`]
+    ///     - [`DynamicState::from_unsafe_create_info_ptr`]
+    pub unsafe fn from_create_info(value: &vk::GraphicsPipelineCreateInfo) -> Self {
+        let vertex_input_state = from_unsafe_create_info_ptr(value.p_vertex_input_state);
+        let input_assembly_state = from_safe_create_info_ptr(value.p_input_assembly_state);
+        let tessellation_state = from_safe_create_info_ptr(value.p_tessellation_state);
+        let viewport_state = from_unsafe_create_info_ptr(value.p_viewport_state);
+        let rasterization_state = from_safe_create_info_ptr(value.p_rasterization_state);
+        let multisample_state = from_unsafe_create_info_ptr(value.p_multisample_state);
+        let depth_stencil_state = from_safe_create_info_ptr(value.p_depth_stencil_state);
+        let color_blend_state = from_unsafe_create_info_ptr(value.p_color_blend_state);
+        let dynamic_state = from_unsafe_create_info_ptr(value.p_dynamic_state);
 
         Self {
             flags: value.flags,
@@ -383,8 +440,10 @@ impl ColorBlendState {
         }
     }
 }
-impl<'a> From<&vk::PipelineColorBlendStateCreateInfoBuilder<'a>> for ColorBlendState {
-    fn from(value: &vk::PipelineColorBlendStateCreateInfoBuilder<'a>) -> Self {
+impl FromCreateInfoUnsafe<vk::PipelineColorBlendStateCreateInfo> for ColorBlendState {
+    /// Safety:
+    /// - if `p_attachments` is not null, it must point to an array of `attachment_count` values
+    unsafe fn from_create_info(value: &vk::PipelineColorBlendStateCreateInfo) -> Self {
         let mut attachments = Vec::<vk::PipelineColorBlendAttachmentState>::new();
         for i in 0..value.attachment_count {
             let attachment_state = unsafe { *value.p_attachments.offset(i as isize) };
@@ -403,6 +462,11 @@ impl<'a> From<&vk::PipelineColorBlendStateCreateInfoBuilder<'a>> for ColorBlendS
             attachments,
             blend_constants: value.blend_constants,
         }
+    }
+}
+impl<'a> From<&vk::PipelineColorBlendStateCreateInfoBuilder<'a>> for ColorBlendState {
+    fn from(value: &vk::PipelineColorBlendStateCreateInfoBuilder<'a>) -> Self {
+        unsafe { Self::from_create_info(value) }
     }
 }
 
@@ -457,8 +521,8 @@ impl DepthStencilState {
         self.write_create_info_builder(vk::PipelineDepthStencilStateCreateInfo::builder())
     }
 }
-impl<'a> From<&vk::PipelineDepthStencilStateCreateInfoBuilder<'a>> for DepthStencilState {
-    fn from(value: &vk::PipelineDepthStencilStateCreateInfoBuilder<'a>) -> Self {
+impl FromCreateInfoSafe<vk::PipelineDepthStencilStateCreateInfo> for DepthStencilState {
+    fn from_create_info(value: &vk::PipelineDepthStencilStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
             depth_test_enable: value.depth_test_enable != 0,
@@ -471,6 +535,11 @@ impl<'a> From<&vk::PipelineDepthStencilStateCreateInfoBuilder<'a>> for DepthSten
             min_depth_bounds: value.min_depth_bounds,
             max_depth_bounds: value.max_depth_bounds,
         }
+    }
+}
+impl<'a> From<&vk::PipelineDepthStencilStateCreateInfoBuilder<'a>> for DepthStencilState {
+    fn from(value: &vk::PipelineDepthStencilStateCreateInfoBuilder<'a>) -> Self {
+        Self::from_create_info(value)
     }
 }
 
@@ -501,8 +570,10 @@ impl DynamicState {
         self.write_create_info_builder(vk::PipelineDynamicStateCreateInfo::builder())
     }
 }
-impl<'a> From<&vk::PipelineDynamicStateCreateInfoBuilder<'a>> for DynamicState {
-    fn from(value: &vk::PipelineDynamicStateCreateInfoBuilder<'a>) -> Self {
+impl FromCreateInfoUnsafe<vk::PipelineDynamicStateCreateInfo> for DynamicState {
+    /// Safety:
+    /// - if `p_dynamic_states` is not null, it must point to an array of `dynamic_state_count` values
+    unsafe fn from_create_info(value: &vk::PipelineDynamicStateCreateInfo) -> Self {
         let mut dynamic_states = Vec::<vk::DynamicState>::new();
         for i in 0..value.dynamic_state_count {
             let dynamic_state = unsafe { *value.p_dynamic_states.offset(i as isize) };
@@ -513,6 +584,11 @@ impl<'a> From<&vk::PipelineDynamicStateCreateInfoBuilder<'a>> for DynamicState {
             flags: value.flags,
             dynamic_states,
         }
+    }
+}
+impl<'a> From<&vk::PipelineDynamicStateCreateInfoBuilder<'a>> for DynamicState {
+    fn from(value: &vk::PipelineDynamicStateCreateInfoBuilder<'a>) -> Self {
+        unsafe { Self::from_create_info(value) }
     }
 }
 
@@ -546,13 +622,18 @@ impl InputAssemblyState {
         self.write_create_info_builder(vk::PipelineInputAssemblyStateCreateInfo::builder())
     }
 }
-impl<'a> From<&vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>> for InputAssemblyState {
-    fn from(value: &vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>) -> Self {
+impl FromCreateInfoSafe<vk::PipelineInputAssemblyStateCreateInfo> for InputAssemblyState {
+    fn from_create_info(value: &vk::PipelineInputAssemblyStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
             topology: value.topology,
             primitive_restart_enable: value.primitive_restart_enable != 0,
         }
+    }
+}
+impl<'a> From<&vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>> for InputAssemblyState {
+    fn from(value: &vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>) -> Self {
+        Self::from_create_info(value)
     }
 }
 
@@ -598,13 +679,41 @@ impl MultisampleState {
         self.write_create_info_builder(vk::PipelineMultisampleStateCreateInfo::builder())
     }
 }
+impl FromCreateInfoUnsafe<vk::PipelineMultisampleStateCreateInfo> for MultisampleState {
+    /// Safety:
+    /// - If `p_sample_mask` is not null and `rasterization_samples` is equal to `VK_SAMPLE_COUNT_64_BIT`
+    ///   the `p_sample_mask` must point to an array of 2 values as per
+    ///   [VUID-VkPipelineMultisampleStateCreateInfo-pSampleMask-parameter](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineMultisampleStateCreateInfo.html)
+    unsafe fn from_create_info(value: &vk::PipelineMultisampleStateCreateInfo) -> Self {
+        let mut sample_mask = Vec::<vk::SampleMask>::new();
+        if value.p_sample_mask != std::ptr::null() {
+            let lower_32_bit_sample_mask = unsafe { *value.p_sample_mask };
+            sample_mask.push(lower_32_bit_sample_mask);
+
+            if value.rasterization_samples == vk::SampleCountFlags::TYPE_64 {
+                let upper_32_bit_sample_mask = unsafe { *value.p_sample_mask.offset(1) };
+                sample_mask.push(upper_32_bit_sample_mask);
+            }
+        }
+
+        Self {
+            flags: value.flags,
+            rasterization_samples: value.rasterization_samples,
+            sample_shading_enable: value.sample_shading_enable != 0,
+            min_sample_shading: value.min_sample_shading,
+            sample_mask,
+            alpha_to_coverage_enable: value.alpha_to_coverage_enable != 0,
+            alpha_to_one_enable: value.alpha_to_one_enable != 0,
+        }
+    }
+}
 impl<'a> From<&vk::PipelineMultisampleStateCreateInfoBuilder<'a>> for MultisampleState {
     fn from(value: &vk::PipelineMultisampleStateCreateInfoBuilder<'a>) -> Self {
         let mut sample_mask = Vec::<vk::SampleMask>::new();
         if value.p_sample_mask != std::ptr::null() {
-            // NOTE: there's no guarentee that there's anything else in p_sample_mask (even if
-            // rasterization_samples > VK_SAMPLE_COUNT_32_BIT) so here we play it safe and accept
-            // the loss of any higher bits that were stored here...
+            // NOTE: the builder makes no guarentee that there's anything else in p_sample_mask (even
+            // if rasterization_samples > VK_SAMPLE_COUNT_32_BIT) so here we play it safe and ignore
+            // any higher bits that may be stored here.
             let lower_32_bit_sample_mask = unsafe { *value.p_sample_mask };
             sample_mask.push(lower_32_bit_sample_mask);
         }
@@ -675,8 +784,8 @@ impl RasterizationState {
         self.write_create_info_builder(vk::PipelineRasterizationStateCreateInfo::builder())
     }
 }
-impl<'a> From<&vk::PipelineRasterizationStateCreateInfoBuilder<'a>> for RasterizationState {
-    fn from(value: &vk::PipelineRasterizationStateCreateInfoBuilder<'a>) -> Self {
+impl FromCreateInfoSafe<vk::PipelineRasterizationStateCreateInfo> for RasterizationState {
+    fn from_create_info(value: &vk::PipelineRasterizationStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
             depth_clamp_enable: value.depth_clamp_enable != 0,
@@ -690,6 +799,11 @@ impl<'a> From<&vk::PipelineRasterizationStateCreateInfoBuilder<'a>> for Rasteriz
             depth_bias_slope_factor: value.depth_bias_slope_factor,
             line_width: value.line_width,
         }
+    }
+}
+impl<'a> From<&vk::PipelineRasterizationStateCreateInfoBuilder<'a>> for RasterizationState {
+    fn from(value: &vk::PipelineRasterizationStateCreateInfoBuilder<'a>) -> Self {
+        Self::from_create_info(value)
     }
 }
 
@@ -720,12 +834,17 @@ impl TessellationState {
         self.write_create_info_builder(vk::PipelineTessellationStateCreateInfo::builder())
     }
 }
-impl<'a> From<&vk::PipelineTessellationStateCreateInfoBuilder<'a>> for TessellationState {
-    fn from(value: &vk::PipelineTessellationStateCreateInfoBuilder<'a>) -> Self {
+impl FromCreateInfoSafe<vk::PipelineTessellationStateCreateInfo> for TessellationState {
+    fn from_create_info(value: &vk::PipelineTessellationStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
             patch_control_points: value.patch_control_points,
         }
+    }
+}
+impl<'a> From<&vk::PipelineTessellationStateCreateInfoBuilder<'a>> for TessellationState {
+    fn from(value: &vk::PipelineTessellationStateCreateInfoBuilder<'a>) -> Self {
+        Self::from_create_info(value)
     }
 }
 
@@ -758,11 +877,12 @@ impl VertexInputState {
     pub fn create_info_builder(&self) -> vk::PipelineVertexInputStateCreateInfoBuilder {
         self.write_create_info_builder(vk::PipelineVertexInputStateCreateInfo::builder())
     }
-
+}
+impl FromCreateInfoUnsafe<vk::PipelineVertexInputStateCreateInfo> for VertexInputState {
     /// Safety:
     /// - if `p_vertex_binding_descriptions` is not null, it must point to an array of `vertex_binding_description_count` values
     /// - if `p_vertex_attribute_descriptions` is not null, it must point to an array of `vertex_attribute_description_count` values
-    pub unsafe fn from_create_info(value: &vk::PipelineVertexInputStateCreateInfo) -> Self {
+    unsafe fn from_create_info(value: &vk::PipelineVertexInputStateCreateInfo) -> Self {
         let mut vertex_binding_descriptions = Vec::<vk::VertexInputBindingDescription>::new();
         for i in 0..value.vertex_binding_description_count {
             let binding_description =
@@ -820,8 +940,11 @@ impl ViewportState {
         self.write_create_info_builder(vk::PipelineViewportStateCreateInfo::builder())
     }
 }
-impl<'a> From<&vk::PipelineViewportStateCreateInfoBuilder<'a>> for ViewportState {
-    fn from(value: &vk::PipelineViewportStateCreateInfoBuilder<'a>) -> Self {
+impl FromCreateInfoUnsafe<vk::PipelineViewportStateCreateInfo> for ViewportState {
+    /// Safety:
+    /// - if `p_viewports` is not null, it must point to an array of `viewport_count` values
+    /// - if `p_scissors` is not null, it must point to an array of `scissor_count` values
+    unsafe fn from_create_info(value: &vk::PipelineViewportStateCreateInfo) -> Self {
         let mut viewports = Vec::<vk::Viewport>::new();
         for i in 0..value.viewport_count {
             let viewport = unsafe { *value.p_viewports.offset(i as isize) };
@@ -841,8 +964,13 @@ impl<'a> From<&vk::PipelineViewportStateCreateInfoBuilder<'a>> for ViewportState
         }
     }
 }
+impl<'a> From<&vk::PipelineViewportStateCreateInfoBuilder<'a>> for ViewportState {
+    fn from(value: &vk::PipelineViewportStateCreateInfoBuilder<'a>) -> Self {
+        unsafe { Self::from_create_info(value) }
+    }
+}
 
-// Helper
+// Helper stuff (ft. borrow checker wrestling <3 rust)
 
 /// Per-pipeline creation arguments
 #[derive(Clone)]
@@ -882,5 +1010,51 @@ impl<'a> Default for GraphicsPipelinePropertiesCreateInfosVk<'a> {
             color_blend_state_vk: vk::PipelineColorBlendStateCreateInfo::builder(),
             dynamic_state_vk: vk::PipelineDynamicStateCreateInfo::builder(),
         }
+    }
+}
+
+trait FromCreateInfoUnsafe<TVkCreateInfo> {
+    unsafe fn from_create_info(value: &TVkCreateInfo) -> Self;
+}
+trait FromCreateInfoSafe<TVkCreateInfo> {
+    fn from_create_info(value: &TVkCreateInfo) -> Self;
+}
+
+/// If `vk_create_info_ptr` isn't null, this function dereferences it then returns the result of
+/// `from_create_info`. Otherwise returns `Default::default()`.
+///
+/// Safety:
+/// - `vk_create_info_ptr` must point to something
+/// - whatever safety requirements `T::from_create_info` needs (look at doc for that fn)
+unsafe fn from_unsafe_create_info_ptr<T, TVkCreateInfo>(
+    vk_create_info_ptr: *const TVkCreateInfo,
+) -> T
+where
+    T: FromCreateInfoUnsafe<TVkCreateInfo> + Default,
+    TVkCreateInfo: Copy + Clone,
+{
+    if vk_create_info_ptr != std::ptr::null() {
+        let vk_create_info = unsafe { *vk_create_info_ptr };
+        unsafe { T::from_create_info(&vk_create_info) }
+    } else {
+        Default::default()
+    }
+}
+
+/// If `vk_create_info_ptr` isn't null, this function dereferences it then returns the result of
+/// `from_create_info`. Otherwise returns `Default::default()`.
+///
+/// Safety:
+/// - `vk_create_info_ptr` must point to something
+unsafe fn from_safe_create_info_ptr<T, TVkCreateInfo>(vk_create_info_ptr: *const TVkCreateInfo) -> T
+where
+    T: FromCreateInfoSafe<TVkCreateInfo> + Default,
+    TVkCreateInfo: Copy + Clone,
+{
+    if vk_create_info_ptr != std::ptr::null() {
+        let vk_create_info = unsafe { *vk_create_info_ptr };
+        T::from_create_info(&vk_create_info)
+    } else {
+        Default::default()
     }
 }
