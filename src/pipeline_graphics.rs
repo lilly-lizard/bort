@@ -76,13 +76,13 @@ impl GraphicsPipeline {
     ///     - `p_depth_stencil_state`
     ///     - `p_color_blend_state`
     ///     - `p_dynamic_state`
-    /// - see docs for the following functions for additional safety requirements:
+    /// - additional safety requirements found in docs for the following:
     ///     - [`VertexInputState::from_unsafe_create_info_ptr`]
     ///     - [`ViewportState::from_unsafe_create_info_ptr`]
     ///     - [`MultisampleState::from_unsafe_create_info_ptr`]
     ///     - [`ColorBlendState::from_unsafe_create_info_ptr`]
     ///     - [`DynamicState::from_unsafe_create_info_ptr`]
-    pub unsafe fn new_from_create_info_builder(
+    pub unsafe fn new_from_create_info(
         pipeline_layout: Arc<PipelineLayout>,
         create_info_builder: vk::GraphicsPipelineCreateInfoBuilder,
         pipeline_cache: Option<&PipelineCache>,
@@ -1013,10 +1013,10 @@ impl<'a> Default for GraphicsPipelinePropertiesCreateInfosVk<'a> {
     }
 }
 
-trait FromCreateInfoUnsafe<TVkCreateInfo> {
+pub trait FromCreateInfoUnsafe<TVkCreateInfo> {
     unsafe fn from_create_info(value: &TVkCreateInfo) -> Self;
 }
-trait FromCreateInfoSafe<TVkCreateInfo> {
+pub trait FromCreateInfoSafe<TVkCreateInfo> {
     fn from_create_info(value: &TVkCreateInfo) -> Self;
 }
 
