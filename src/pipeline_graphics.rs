@@ -308,21 +308,46 @@ impl GraphicsPipelineProperties {
     ///     - `p_color_blend_state`
     ///     - `p_dynamic_state`
     /// - see docs for the following functions for additional safety requirements:
-    ///     - [`VertexInputState::from_unsafe_create_info_ptr`]
-    ///     - [`ViewportState::from_unsafe_create_info_ptr`]
-    ///     - [`MultisampleState::from_unsafe_create_info_ptr`]
-    ///     - [`ColorBlendState::from_unsafe_create_info_ptr`]
-    ///     - [`DynamicState::from_unsafe_create_info_ptr`]
+    ///     - [`VertexInputState::from_create_info_ptr`]
+    ///     - [`ViewportState::from_create_info_ptr`]
+    ///     - [`MultisampleState::from_create_info_ptr`]
+    ///     - [`ColorBlendState::from_create_info_ptr`]
+    ///     - [`DynamicState::from_create_info_ptr`]
     pub unsafe fn from_create_info(value: &vk::GraphicsPipelineCreateInfo) -> Self {
-        let vertex_input_state = from_unsafe_create_info_ptr(value.p_vertex_input_state);
-        let input_assembly_state = from_safe_create_info_ptr(value.p_input_assembly_state);
-        let tessellation_state = from_safe_create_info_ptr(value.p_tessellation_state);
-        let viewport_state = from_unsafe_create_info_ptr(value.p_viewport_state);
-        let rasterization_state = from_safe_create_info_ptr(value.p_rasterization_state);
-        let multisample_state = from_unsafe_create_info_ptr(value.p_multisample_state);
-        let depth_stencil_state = from_safe_create_info_ptr(value.p_depth_stencil_state);
-        let color_blend_state = from_unsafe_create_info_ptr(value.p_color_blend_state);
-        let dynamic_state = from_unsafe_create_info_ptr(value.p_dynamic_state);
+        let vertex_input_state = if value.p_vertex_input_state != std::ptr::null() {
+            let vk_create_info = unsafe { *value.p_vertex_input_state };
+            VertexInputState::from_create_info(&vk_create_info)
+        } else {
+            Default::default()
+        };
+        let input_assembly_state = from_create_info_ptr(value.p_input_assembly_state);
+        let tessellation_state = from_create_info_ptr(value.p_tessellation_state);
+        let viewport_state = if value.p_viewport_state != std::ptr::null() {
+            let vk_create_info = unsafe { *value.p_viewport_state };
+            ViewportState::from_create_info(&vk_create_info)
+        } else {
+            Default::default()
+        };
+        let rasterization_state = from_create_info_ptr(value.p_rasterization_state);
+        let multisample_state = if value.p_multisample_state != std::ptr::null() {
+            let vk_create_info = unsafe { *value.p_multisample_state };
+            MultisampleState::from_create_info(&vk_create_info)
+        } else {
+            Default::default()
+        };
+        let depth_stencil_state = from_create_info_ptr(value.p_depth_stencil_state);
+        let color_blend_state = if value.p_color_blend_state != std::ptr::null() {
+            let vk_create_info = unsafe { *value.p_color_blend_state };
+            ColorBlendState::from_create_info(&vk_create_info)
+        } else {
+            Default::default()
+        };
+        let dynamic_state = if value.p_dynamic_state != std::ptr::null() {
+            let vk_create_info = unsafe { *value.p_dynamic_state };
+            DynamicState::from_create_info(&vk_create_info)
+        } else {
+            Default::default()
+        };
 
         Self {
             flags: value.flags,
@@ -439,11 +464,10 @@ impl ColorBlendState {
             ..Default::default()
         }
     }
-}
-impl FromCreateInfoUnsafe<vk::PipelineColorBlendStateCreateInfo> for ColorBlendState {
+
     /// Safety:
     /// - if `p_attachments` is not null, it must point to an array of `attachment_count` values
-    unsafe fn from_create_info(value: &vk::PipelineColorBlendStateCreateInfo) -> Self {
+    pub unsafe fn from_create_info(value: &vk::PipelineColorBlendStateCreateInfo) -> Self {
         let mut attachments = Vec::<vk::PipelineColorBlendAttachmentState>::new();
         for i in 0..value.attachment_count {
             let attachment_state = unsafe { *value.p_attachments.offset(i as isize) };
@@ -521,7 +545,7 @@ impl DepthStencilState {
         self.write_create_info_builder(vk::PipelineDepthStencilStateCreateInfo::builder())
     }
 }
-impl FromCreateInfoSafe<vk::PipelineDepthStencilStateCreateInfo> for DepthStencilState {
+impl FromCreateInfo<vk::PipelineDepthStencilStateCreateInfo> for DepthStencilState {
     fn from_create_info(value: &vk::PipelineDepthStencilStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
@@ -569,11 +593,10 @@ impl DynamicState {
     pub fn create_info_builder(&self) -> vk::PipelineDynamicStateCreateInfoBuilder {
         self.write_create_info_builder(vk::PipelineDynamicStateCreateInfo::builder())
     }
-}
-impl FromCreateInfoUnsafe<vk::PipelineDynamicStateCreateInfo> for DynamicState {
+
     /// Safety:
     /// - if `p_dynamic_states` is not null, it must point to an array of `dynamic_state_count` values
-    unsafe fn from_create_info(value: &vk::PipelineDynamicStateCreateInfo) -> Self {
+    pub unsafe fn from_create_info(value: &vk::PipelineDynamicStateCreateInfo) -> Self {
         let mut dynamic_states = Vec::<vk::DynamicState>::new();
         for i in 0..value.dynamic_state_count {
             let dynamic_state = unsafe { *value.p_dynamic_states.offset(i as isize) };
@@ -622,7 +645,7 @@ impl InputAssemblyState {
         self.write_create_info_builder(vk::PipelineInputAssemblyStateCreateInfo::builder())
     }
 }
-impl FromCreateInfoSafe<vk::PipelineInputAssemblyStateCreateInfo> for InputAssemblyState {
+impl FromCreateInfo<vk::PipelineInputAssemblyStateCreateInfo> for InputAssemblyState {
     fn from_create_info(value: &vk::PipelineInputAssemblyStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
@@ -678,13 +701,12 @@ impl MultisampleState {
     pub fn create_info_builder(&self) -> vk::PipelineMultisampleStateCreateInfoBuilder {
         self.write_create_info_builder(vk::PipelineMultisampleStateCreateInfo::builder())
     }
-}
-impl FromCreateInfoUnsafe<vk::PipelineMultisampleStateCreateInfo> for MultisampleState {
+
     /// Safety:
     /// - If `p_sample_mask` is not null and `rasterization_samples` is equal to `VK_SAMPLE_COUNT_64_BIT`
     ///   the `p_sample_mask` must point to an array of 2 values as per
     ///   [VUID-VkPipelineMultisampleStateCreateInfo-pSampleMask-parameter](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineMultisampleStateCreateInfo.html)
-    unsafe fn from_create_info(value: &vk::PipelineMultisampleStateCreateInfo) -> Self {
+    pub unsafe fn from_create_info(value: &vk::PipelineMultisampleStateCreateInfo) -> Self {
         let mut sample_mask = Vec::<vk::SampleMask>::new();
         if value.p_sample_mask != std::ptr::null() {
             let lower_32_bit_sample_mask = unsafe { *value.p_sample_mask };
@@ -784,7 +806,7 @@ impl RasterizationState {
         self.write_create_info_builder(vk::PipelineRasterizationStateCreateInfo::builder())
     }
 }
-impl FromCreateInfoSafe<vk::PipelineRasterizationStateCreateInfo> for RasterizationState {
+impl FromCreateInfo<vk::PipelineRasterizationStateCreateInfo> for RasterizationState {
     fn from_create_info(value: &vk::PipelineRasterizationStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
@@ -834,7 +856,7 @@ impl TessellationState {
         self.write_create_info_builder(vk::PipelineTessellationStateCreateInfo::builder())
     }
 }
-impl FromCreateInfoSafe<vk::PipelineTessellationStateCreateInfo> for TessellationState {
+impl FromCreateInfo<vk::PipelineTessellationStateCreateInfo> for TessellationState {
     fn from_create_info(value: &vk::PipelineTessellationStateCreateInfo) -> Self {
         Self {
             flags: value.flags,
@@ -877,12 +899,11 @@ impl VertexInputState {
     pub fn create_info_builder(&self) -> vk::PipelineVertexInputStateCreateInfoBuilder {
         self.write_create_info_builder(vk::PipelineVertexInputStateCreateInfo::builder())
     }
-}
-impl FromCreateInfoUnsafe<vk::PipelineVertexInputStateCreateInfo> for VertexInputState {
+
     /// Safety:
     /// - if `p_vertex_binding_descriptions` is not null, it must point to an array of `vertex_binding_description_count` values
     /// - if `p_vertex_attribute_descriptions` is not null, it must point to an array of `vertex_attribute_description_count` values
-    unsafe fn from_create_info(value: &vk::PipelineVertexInputStateCreateInfo) -> Self {
+    pub unsafe fn from_create_info(value: &vk::PipelineVertexInputStateCreateInfo) -> Self {
         let mut vertex_binding_descriptions = Vec::<vk::VertexInputBindingDescription>::new();
         for i in 0..value.vertex_binding_description_count {
             let binding_description =
@@ -939,12 +960,11 @@ impl ViewportState {
     pub fn create_info_builder(&self) -> vk::PipelineViewportStateCreateInfoBuilder {
         self.write_create_info_builder(vk::PipelineViewportStateCreateInfo::builder())
     }
-}
-impl FromCreateInfoUnsafe<vk::PipelineViewportStateCreateInfo> for ViewportState {
+
     /// Safety:
     /// - if `p_viewports` is not null, it must point to an array of `viewport_count` values
     /// - if `p_scissors` is not null, it must point to an array of `scissor_count` values
-    unsafe fn from_create_info(value: &vk::PipelineViewportStateCreateInfo) -> Self {
+    pub unsafe fn from_create_info(value: &vk::PipelineViewportStateCreateInfo) -> Self {
         let mut viewports = Vec::<vk::Viewport>::new();
         for i in 0..value.viewport_count {
             let viewport = unsafe { *value.p_viewports.offset(i as isize) };
@@ -1013,42 +1033,17 @@ impl<'a> Default for GraphicsPipelinePropertiesCreateInfosVk<'a> {
     }
 }
 
-pub trait FromCreateInfoUnsafe<TVkCreateInfo> {
-    unsafe fn from_create_info(value: &TVkCreateInfo) -> Self;
-}
-pub trait FromCreateInfoSafe<TVkCreateInfo> {
+pub trait FromCreateInfo<TVkCreateInfo> {
     fn from_create_info(value: &TVkCreateInfo) -> Self;
 }
-
 /// If `vk_create_info_ptr` isn't null, this function dereferences it then returns the result of
 /// `from_create_info`. Otherwise returns `Default::default()`.
 ///
 /// Safety:
 /// - `vk_create_info_ptr` must point to something
-/// - whatever safety requirements `T::from_create_info` needs (look at doc for that fn)
-unsafe fn from_unsafe_create_info_ptr<T, TVkCreateInfo>(
-    vk_create_info_ptr: *const TVkCreateInfo,
-) -> T
+unsafe fn from_create_info_ptr<T, TVkCreateInfo>(vk_create_info_ptr: *const TVkCreateInfo) -> T
 where
-    T: FromCreateInfoUnsafe<TVkCreateInfo> + Default,
-    TVkCreateInfo: Copy + Clone,
-{
-    if vk_create_info_ptr != std::ptr::null() {
-        let vk_create_info = unsafe { *vk_create_info_ptr };
-        unsafe { T::from_create_info(&vk_create_info) }
-    } else {
-        Default::default()
-    }
-}
-
-/// If `vk_create_info_ptr` isn't null, this function dereferences it then returns the result of
-/// `from_create_info`. Otherwise returns `Default::default()`.
-///
-/// Safety:
-/// - `vk_create_info_ptr` must point to something
-unsafe fn from_safe_create_info_ptr<T, TVkCreateInfo>(vk_create_info_ptr: *const TVkCreateInfo) -> T
-where
-    T: FromCreateInfoSafe<TVkCreateInfo> + Default,
+    T: FromCreateInfo<TVkCreateInfo> + Default,
     TVkCreateInfo: Copy + Clone,
 {
     if vk_create_info_ptr != std::ptr::null() {
