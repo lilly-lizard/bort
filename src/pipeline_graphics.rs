@@ -1,6 +1,6 @@
 use crate::{
-    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, RenderPass, ShaderStage,
-    ALLOCATION_CALLBACK_NONE,
+    from_create_info_ptr, Device, DeviceOwned, FromCreateInfo, PipelineAccess, PipelineCache,
+    PipelineLayout, RenderPass, ShaderStage, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
@@ -1030,26 +1030,5 @@ impl<'a> Default for GraphicsPipelinePropertiesCreateInfosVk<'a> {
             color_blend_state_vk: vk::PipelineColorBlendStateCreateInfo::builder(),
             dynamic_state_vk: vk::PipelineDynamicStateCreateInfo::builder(),
         }
-    }
-}
-
-pub trait FromCreateInfo<TVkCreateInfo> {
-    fn from_create_info(value: &TVkCreateInfo) -> Self;
-}
-/// If `vk_create_info_ptr` isn't null, this function dereferences it then returns the result of
-/// `from_create_info`. Otherwise returns `Default::default()`.
-///
-/// Safety:
-/// - `vk_create_info_ptr` must point to something
-unsafe fn from_create_info_ptr<T, TVkCreateInfo>(vk_create_info_ptr: *const TVkCreateInfo) -> T
-where
-    T: FromCreateInfo<TVkCreateInfo> + Default,
-    TVkCreateInfo: Copy + Clone,
-{
-    if vk_create_info_ptr != std::ptr::null() {
-        let vk_create_info = unsafe { *vk_create_info_ptr };
-        T::from_create_info(&vk_create_info)
-    } else {
-        Default::default()
     }
 }
