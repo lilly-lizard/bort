@@ -72,10 +72,12 @@ impl DescriptorPool {
 
     // Getters
 
+    #[inline]
     pub fn handle(&self) -> vk::DescriptorPool {
         self.handle
     }
 
+    #[inline]
     pub fn properties(&self) -> &DescriptorPoolProperties {
         &self.properties
     }
@@ -111,10 +113,17 @@ pub struct DescriptorPoolProperties {
 }
 
 impl DescriptorPoolProperties {
-    pub fn create_info_builder(&self) -> vk::DescriptorPoolCreateInfoBuilder {
-        vk::DescriptorPoolCreateInfo::builder()
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::DescriptorPoolCreateInfoBuilder<'a>,
+    ) -> vk::DescriptorPoolCreateInfoBuilder<'a> {
+        builder
             .flags(self.create_flags)
             .max_sets(self.max_sets)
             .pool_sizes(self.pool_sizes.as_slice())
+    }
+
+    pub fn create_info_builder(&self) -> vk::DescriptorPoolCreateInfoBuilder {
+        self.write_create_info_builder(vk::DescriptorPoolCreateInfo::builder())
     }
 }

@@ -30,11 +30,11 @@ impl CommandPool {
         })
     }
 
-    pub fn new_from_create_info(
+    pub fn new_from_create_info_builder(
         device: Arc<Device>,
         create_info_builder: vk::CommandPoolCreateInfoBuilder,
     ) -> VkResult<Self> {
-        let properties = CommandPoolProperties::from(&create_info_builder);
+        let properties = CommandPoolProperties::from_create_info_builder(&create_info_builder);
 
         let handle = unsafe {
             device
@@ -143,10 +143,8 @@ impl CommandPoolProperties {
     pub fn create_info_builder(&self) -> vk::CommandPoolCreateInfoBuilder {
         self.write_create_info_builder(vk::CommandPoolCreateInfo::builder())
     }
-}
 
-impl<'a> From<&vk::CommandPoolCreateInfoBuilder<'a>> for CommandPoolProperties {
-    fn from(value: &vk::CommandPoolCreateInfoBuilder<'a>) -> Self {
+    pub fn from_create_info_builder(value: &vk::CommandPoolCreateInfoBuilder) -> Self {
         Self {
             flags: value.flags,
 

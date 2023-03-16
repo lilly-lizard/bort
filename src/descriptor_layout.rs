@@ -136,7 +136,7 @@ impl DescriptorSetLayoutProperties {
         }
 
         for i in 0..self.bindings.len() {
-            let vk_layout_binding = self.bindings[i].write_info_builder(
+            let vk_layout_binding = self.bindings[i].write_vk_binding_builder(
                 vk::DescriptorSetLayoutBinding::builder(),
                 &vk_immutable_samplers[i].as_slice(),
             );
@@ -172,19 +172,6 @@ pub struct DescriptorSetLayoutBinding {
 }
 
 impl DescriptorSetLayoutBinding {
-    pub fn write_info_builder<'a>(
-        &self,
-        builder: vk::DescriptorSetLayoutBindingBuilder<'a>,
-        vk_immutable_samplers: &'a [vk::Sampler],
-    ) -> vk::DescriptorSetLayoutBindingBuilder<'a> {
-        builder
-            .binding(self.binding)
-            .descriptor_type(self.descriptor_type)
-            .descriptor_count(self.descriptor_count)
-            .stage_flags(self.stage_flags)
-            .immutable_samplers(vk_immutable_samplers)
-    }
-
     pub fn vk_immutable_samplers(&self) -> Vec<vk::Sampler> {
         self.immutable_samplers
             .iter()
@@ -198,8 +185,21 @@ impl DescriptorSetLayoutBinding {
             descriptor_type: value.descriptor_type,
             descriptor_count: value.descriptor_count,
             stage_flags: value.stage_flags,
-            immutable_samplers: Vec::new(), // create info only gives us handles
+            immutable_samplers: Vec::new(), // because the create info only gives us handles
         }
+    }
+
+    pub fn write_vk_binding_builder<'a>(
+        &self,
+        builder: vk::DescriptorSetLayoutBindingBuilder<'a>,
+        vk_immutable_samplers: &'a [vk::Sampler],
+    ) -> vk::DescriptorSetLayoutBindingBuilder<'a> {
+        builder
+            .binding(self.binding)
+            .descriptor_type(self.descriptor_type)
+            .descriptor_count(self.descriptor_count)
+            .stage_flags(self.stage_flags)
+            .immutable_samplers(vk_immutable_samplers)
     }
 
     pub fn from_vk_binding_builder(value: &vk::DescriptorSetLayoutBindingBuilder) -> Self {

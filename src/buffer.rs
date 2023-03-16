@@ -34,12 +34,12 @@ impl Buffer {
         ))
     }
 
-    pub fn new_from_create_info(
+    pub fn new_from_create_info_builder(
         alloc_access: Arc<dyn AllocAccess>,
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let properties = BufferProperties::from(&buffer_create_info_builder);
+        let properties = BufferProperties::from_create_info_builder(&buffer_create_info_builder);
 
         let (handle, vma_allocation) = unsafe {
             alloc_access
@@ -180,10 +180,8 @@ impl BufferProperties {
     pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {
         self.write_create_info_builder(vk::BufferCreateInfo::builder())
     }
-}
 
-impl<'a> From<&vk::BufferCreateInfoBuilder<'a>> for BufferProperties {
-    fn from(value: &vk::BufferCreateInfoBuilder<'a>) -> Self {
+    pub fn from_create_info_builder(value: &vk::BufferCreateInfoBuilder) -> Self {
         let mut queue_family_indices = Vec::<u32>::new();
         for i in 0..value.queue_family_index_count {
             let queue_family_index = unsafe { *value.p_queue_family_indices.offset(i as isize) };

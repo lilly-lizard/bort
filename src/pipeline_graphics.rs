@@ -385,7 +385,7 @@ impl Default for ColorBlendState {
     }
 }
 impl ColorBlendState {
-    pub fn new(attachments: Vec<vk::PipelineColorBlendAttachmentState>) -> Self {
+    pub fn new_default(attachments: Vec<vk::PipelineColorBlendAttachmentState>) -> Self {
         Self {
             attachments,
             ..Default::default()
@@ -581,6 +581,13 @@ impl Default for DynamicState {
     }
 }
 impl DynamicState {
+    pub fn new_default(dynamic_states: Vec<vk::DynamicState>) -> Self {
+        Self {
+            dynamic_states,
+            ..Default::default()
+        }
+    }
+
     pub fn write_create_info_builder<'a>(
         &'a self,
         builder: vk::PipelineDynamicStateCreateInfoBuilder<'a>,
