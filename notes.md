@@ -10,7 +10,12 @@
 - cargo feature to use rc instead of arc
 - make all getters inline for consistency (don't know where the chains will be)
 
-create_info Properties struct checklist:
+# create_info Properties struct checklist
+
+todo remove all From impls and have explicit fns.
+todo check naming of from_create_info and from_create_info_builder. be explicit becuase they're different!
+review command_pool and buffer again...
+
 - derive Clone
 - impl Default (or derive in special cases) right after struct declaration
 - document which members have nonsense default values
@@ -20,6 +25,6 @@ create_info Properties struct checklist:
 - From<&vk::*CreateInfoBuilder>
 
 other:
-- new_from_create_info() fn for associated struct
+- new_from_create_info_builder() fn for associated struct
 - // Properties comment
 - inline getters
