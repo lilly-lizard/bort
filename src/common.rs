@@ -7,10 +7,10 @@ use std::{
 
 pub fn string_to_c_string_vec(
     source: impl IntoIterator<Item = String>,
-) -> Result<Vec<*const c_char>, NulError> {
+) -> Result<Vec<CString>, NulError> {
     source
         .into_iter()
-        .map(|name| Ok(CString::new(name)?.as_ptr()))
+        .map(|name| Ok(CString::new(name)?))
         .collect()
 }
 

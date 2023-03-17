@@ -3,7 +3,7 @@ use ash::{extensions::ext::DebugUtils, vk, Entry};
 use raw_window_handle::RawDisplayHandle;
 use std::{
     error,
-    ffi::{CString, NulError},
+    ffi::{CStr, CString, NulError},
     fmt,
 };
 
@@ -56,31 +56,37 @@ impl Instance {
                 0,
             ));
 
-        let mut layer_names_raw = string_to_c_string_vec(additional_layer_names)
+        let layer_name_cstrings = string_to_c_string_vec(additional_layer_names)
             .map_err(|e| InstanceError::LayerStringConversion(e))?;
-        let mut extension_names_raw = string_to_c_string_vec(additional_extension_names)
+        let extension_name_cstrings = string_to_c_string_vec(additional_extension_names)
             .map_err(|e| InstanceError::ExtensionStringConversion(e))?;
 
-        // in this case, error just means no extensions.
-        if let Ok(display_extension_names) =
-            ash_window::enumerate_required_extensions(display_handle)
-        {
-            extension_names_raw.extend_from_slice(display_extension_names);
-        }
+        let mut extension_name_ptrs = extension_name_cstrings
+            .iter()
+            .map(|cstring| cstring.as_ptr())
+            .collect::<Vec<_>>();
+        let mut layer_name_ptrs = layer_name_cstrings
+            .iter()
+            .map(|cstring| cstring.as_ptr())
+            .collect::<Vec<_>>();
+
+        let display_extension_names = ash_window::enumerate_required_extensions(display_handle)
+            .map_err(|e| InstanceError::UnsupportedRawDisplayHandle(e))?;
+        extension_name_ptrs.extend_from_slice(display_extension_names);
 
         let validation_layer_name =
-            CString::new("VK_LAYER_KHRONOS_validation").expect("no nulls in str");
+            unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
         if enable_debug_validation {
-            layer_names_raw.push(validation_layer_name.as_ptr());
+            layer_name_ptrs.push(validation_layer_name.as_ptr());
         }
         if enable_debug_validation {
-            extension_names_raw.push(DebugUtils::name().as_ptr());
+            extension_name_ptrs.push(DebugUtils::name().as_ptr());
         }
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&appinfo)
-            .enabled_layer_names(&layer_names_raw)
-            .enabled_extension_names(&extension_names_raw);
+            .enabled_layer_names(&layer_name_ptrs)
+            .enabled_extension_names(&extension_name_ptrs);
 
         let instance = unsafe { entry.create_instance(&create_info, ALLOCATION_CALLBACK_NONE) }
             .map_err(|e| InstanceError::Creation(e))?;
@@ -165,6 +171,7 @@ impl Drop for Instance {
 
 #[derive(Debug, Clone)]
 pub enum InstanceError {
+    UnsupportedRawDisplayHandle(vk::Result),
     AppNameStringConversion(NulError),
     ExtensionStringConversion(NulError),
     LayerStringConversion(NulError),
@@ -174,6 +181,9 @@ pub enum InstanceError {
 impl fmt::Display for InstanceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::UnsupportedRawDisplayHandle(e) => {
+                write!(f, "unsupported raw display handle type! return from ash_window::enumerate_required_extensions: {}", e)
+            }
             Self::AppNameStringConversion(e) => {
                 write!(f, "failed to convert app name string to c string: {}", e)
             }
@@ -197,6 +207,7 @@ impl fmt::Display for InstanceError {
 impl error::Error for InstanceError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
+            Self::UnsupportedRawDisplayHandle(e) => Some(e),
             Self::AppNameStringConversion(e) => Some(e),
             Self::ExtensionStringConversion(e) => Some(e),
             Self::LayerStringConversion(e) => Some(e),

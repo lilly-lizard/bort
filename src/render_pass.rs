@@ -97,15 +97,14 @@ impl Drop for RenderPass {
 #[derive(Debug, Default)]
 pub struct Subpass {
     pub color_attachments: Vec<vk::AttachmentReference>,
-    pub depth_attachment: vk::AttachmentReference,
+    pub depth_attachment: Option<vk::AttachmentReference>,
     pub input_attachments: Vec<vk::AttachmentReference>,
 }
 
 impl Subpass {
-    /// If you don't have a depth attachment, just pass in `vk::AttachmentReference::default()`
     pub fn new(
         color_attachments: impl IntoIterator<Item = vk::AttachmentReference>,
-        depth_attachment: vk::AttachmentReference,
+        depth_attachment: Option<vk::AttachmentReference>,
         input_attachments: impl IntoIterator<Item = vk::AttachmentReference>,
     ) -> Self {
         let color_attachments: Vec<vk::AttachmentReference> =
@@ -132,8 +131,10 @@ impl Subpass {
             subpass_description_builder =
                 subpass_description_builder.color_attachments(self.input_attachments.as_slice());
         }
-        subpass_description_builder =
-            subpass_description_builder.depth_stencil_attachment(&self.depth_attachment);
+        if let Some(depth_attachment) = &self.depth_attachment {
+            subpass_description_builder =
+                subpass_description_builder.depth_stencil_attachment(depth_attachment);
+        }
 
         subpass_description_builder
     }

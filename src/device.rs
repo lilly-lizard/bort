@@ -29,15 +29,24 @@ impl Device {
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
-        let extension_names_raw = string_to_c_string_vec(extension_names)
+        let extension_name_cstrings = string_to_c_string_vec(extension_names)
             .map_err(|e| DeviceError::ExtensionStringConversion(e))?;
-        let layer_names_raw = string_to_c_string_vec(layer_names)
+        let layer_name_cstrings = string_to_c_string_vec(layer_names)
             .map_err(|e| DeviceError::LayerStringConversion(e))?;
+
+        let extension_name_ptrs = extension_name_cstrings
+            .iter()
+            .map(|cstring| cstring.as_ptr())
+            .collect::<Vec<_>>();
+        let layer_name_ptrs = layer_name_cstrings
+            .iter()
+            .map(|cstring| cstring.as_ptr())
+            .collect::<Vec<_>>();
 
         let mut device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(queue_create_infos)
-            .enabled_extension_names(extension_names_raw.as_slice())
-            .enabled_layer_names(layer_names_raw.as_slice());
+            .enabled_extension_names(extension_name_ptrs.as_slice())
+            .enabled_layer_names(layer_name_ptrs.as_slice());
 
         let mut features_2 = vk::PhysicalDeviceFeatures2::builder();
         if instance.api_version() <= ApiVersion::new(1, 0) {

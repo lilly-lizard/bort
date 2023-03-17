@@ -140,7 +140,7 @@ impl Drop for Image {
 
 // Presets
 
-/// Properties for a transient, lazily allocated image.
+/// Properties for a (preferably) transient, lazily allocated image.
 pub fn transient_image_info(
     dimensions: ImageDimensions,
     format: vk::Format,
@@ -154,9 +154,9 @@ pub fn transient_image_info(
     };
 
     let allocation_info = AllocationCreateInfo {
-        //usage: MemoryUsage::GpuLazy,
-        required_flags: vk::MemoryPropertyFlags::LAZILY_ALLOCATED
-            | vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        //usage: bort_vma::MemoryUsage::GpuLazy,
+        required_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        preferred_flags: vk::MemoryPropertyFlags::LAZILY_ALLOCATED,
         ..AllocationCreateInfo::default()
     };
 
@@ -188,7 +188,7 @@ impl Default for ImageProperties {
             tiling: vk::ImageTiling::OPTIMAL,
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             queue_family_indices: Vec::new(),
-            initial_layout: vk::ImageLayout::GENERAL,
+            initial_layout: vk::ImageLayout::UNDEFINED,
             create_flags: vk::ImageCreateFlags::empty(),
 
             // nonsense defaults. make sure you override these!
