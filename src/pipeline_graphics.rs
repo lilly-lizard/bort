@@ -21,15 +21,15 @@ impl GraphicsPipeline {
     pub fn new(
         pipeline_layout: Arc<PipelineLayout>,
         properties: GraphicsPipelineProperties,
-        shader_stages: impl IntoIterator<Item = ShaderStage>,
+        shader_stages: &[ShaderStage],
         render_pass: &RenderPass,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
         // populate vkPipelineShaderStageCreateInfo
-        let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = shader_stages
-            .into_iter()
+        let shader_stages_vk = shader_stages
+            .iter()
             .map(|stage| stage.create_info_builder().build())
-            .collect();
+            .collect::<Vec<vk::PipelineShaderStageCreateInfo>>();
 
         // populate the sub-structs of vkGraphicsPipelineCreateInfo defined by GraphicsPipelineProperties
         let properties_vk = properties.vk_create_infos();
@@ -957,6 +957,14 @@ impl Default for ViewportState {
     }
 }
 impl ViewportState {
+    pub fn new_dynamic(viewport_count: usize, scissor_count: usize) -> Self {
+        Self {
+            viewports: vec![Default::default(); viewport_count],
+            scissors: vec![Default::default(); scissor_count],
+            ..Default::default()
+        }
+    }
+
     pub fn write_create_info_builder<'a>(
         &'a self,
         builder: vk::PipelineViewportStateCreateInfoBuilder<'a>,

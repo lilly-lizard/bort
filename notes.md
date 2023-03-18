@@ -1,5 +1,7 @@
 # TODO
 
+- only create_info write vecs when len != 0 (see descriptor_layout.rs immutable samplers)
+- replace all `impl Iterator` with slices (will cause probs later with open source contributers)
 - properties from create_info_builder
 	- comments on what defaults make sense (part of the reason properties even exist...)
 	- is pnext chain accessible during creation?

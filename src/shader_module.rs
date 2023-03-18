@@ -141,6 +141,7 @@ impl ShaderStage {
         vk::PipelineShaderStageCreateInfo::builder()
             .flags(self.flags)
             .module(self.module.handle())
+            .stage(self.stage)
             .name(self.entry_point.as_c_str())
     }
 }

@@ -191,15 +191,17 @@ impl DescriptorSetLayoutBinding {
 
     pub fn write_vk_binding_builder<'a>(
         &self,
-        builder: vk::DescriptorSetLayoutBindingBuilder<'a>,
+        mut builder: vk::DescriptorSetLayoutBindingBuilder<'a>,
         vk_immutable_samplers: &'a [vk::Sampler],
     ) -> vk::DescriptorSetLayoutBindingBuilder<'a> {
+        if vk_immutable_samplers.len() != 0 {
+            builder = builder.immutable_samplers(vk_immutable_samplers); // put before descriptor_count because calling this overrides it
+        }
         builder
             .binding(self.binding)
             .descriptor_type(self.descriptor_type)
             .descriptor_count(self.descriptor_count)
             .stage_flags(self.stage_flags)
-            .immutable_samplers(vk_immutable_samplers)
     }
 
     pub fn from_vk_binding_builder(value: &vk::DescriptorSetLayoutBindingBuilder) -> Self {

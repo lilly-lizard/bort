@@ -103,19 +103,14 @@ pub struct Subpass {
 
 impl Subpass {
     pub fn new(
-        color_attachments: impl IntoIterator<Item = vk::AttachmentReference>,
+        color_attachments: &[vk::AttachmentReference],
         depth_attachment: Option<vk::AttachmentReference>,
-        input_attachments: impl IntoIterator<Item = vk::AttachmentReference>,
+        input_attachments: &[vk::AttachmentReference],
     ) -> Self {
-        let color_attachments: Vec<vk::AttachmentReference> =
-            color_attachments.into_iter().collect();
-        let input_attachments: Vec<vk::AttachmentReference> =
-            input_attachments.into_iter().collect();
-
         Self {
-            color_attachments,
+            color_attachments: color_attachments.into(),
             depth_attachment,
-            input_attachments,
+            input_attachments: input_attachments.into(),
         }
     }
 
@@ -129,7 +124,7 @@ impl Subpass {
         }
         if self.input_attachments.len() > 0 {
             subpass_description_builder =
-                subpass_description_builder.color_attachments(self.input_attachments.as_slice());
+                subpass_description_builder.input_attachments(self.input_attachments.as_slice());
         }
         if let Some(depth_attachment) = &self.depth_attachment {
             subpass_description_builder =
