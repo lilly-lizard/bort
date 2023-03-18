@@ -204,13 +204,11 @@ impl ImageProperties {
         format: vk::Format,
         dimensions: ImageDimensions,
         usage: vk::ImageUsageFlags,
-        initial_layout: vk::ImageLayout,
     ) -> Self {
         Self {
             format,
             dimensions,
             usage,
-            initial_layout,
             ..Self::default()
         }
     }
