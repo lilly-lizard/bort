@@ -159,6 +159,7 @@ impl Swapchain {
     }
 
     /// todo unsafe? mention need to drop (destroy) dependent resources first
+    /// todo take &Self as arg and return Self (like vulkano) allows for Arcs because don't need mut
     pub fn recreate(&mut self) -> Result<(), SwapchainError> {
         unsafe {
             self.swapchain_loader

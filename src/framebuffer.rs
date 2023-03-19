@@ -37,7 +37,7 @@ impl Framebuffer {
         })
     }
 
-    pub fn full_render_area(&self) -> vk::Rect2D {
+    pub fn whole_rect(&self) -> vk::Rect2D {
         vk::Rect2D {
             extent: vk::Extent2D {
                 width: self.properties.dimensions.width(),
