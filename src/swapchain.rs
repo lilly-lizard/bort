@@ -1,5 +1,6 @@
 use crate::{
-    extent_2d_from_width_height, is_format_srgb, Device, DeviceOwned, Fence, ImageDimensions,
+    default_component_mapping, default_subresource_range, extent_2d_from_width_height,
+    is_format_srgb, Device, DeviceOwned, Fence, ImageAccess, ImageDimensions, ImageViewProperties,
     Semaphore, Surface, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
@@ -19,6 +20,7 @@ pub struct Swapchain {
     handle: vk::SwapchainKHR,
     swapchain_loader: khr::Swapchain,
     properties: SwapchainProperties,
+    swapchain_images: Vec<Arc<SwapchainImage>>,
 
     // dependencies
     device: Arc<Device>,
@@ -103,18 +105,29 @@ impl Swapchain {
         }
         .map_err(|e| SwapchainError::Creation(e))?;
 
+        let vk_swapchain_images = unsafe { swapchain_loader.get_swapchain_images(handle) }
+            .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
+
+        let swapchain_images = vk_swapchain_images
+            .into_iter()
+            .map(|image_handle| unsafe {
+                Arc::new(SwapchainImage::from_image_handle(
+                    device.clone(),
+                    image_handle,
+                    &properties,
+                ))
+            })
+            .collect::<Vec<_>>();
+
         Ok(Self {
             handle,
             swapchain_loader,
             properties,
+            swapchain_images,
 
             device,
             surface,
         })
-    }
-
-    pub fn get_swapchain_images(&self) -> VkResult<Vec<vk::Image>> {
-        unsafe { self.swapchain_loader.get_swapchain_images(self.handle) }
     }
 
     /// On success, returns the next image's index and whether the swapchain is suboptimal for the surface.
@@ -145,22 +158,91 @@ impl Swapchain {
         }
     }
 
+    /// todo unsafe? mention need to drop (destroy) dependent resources first
+    pub fn recreate(&mut self) -> Result<(), SwapchainError> {
+        unsafe {
+            self.swapchain_loader
+                .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
+        };
+
+        let swapchain_create_info_builder = self
+            .properties
+            .create_info_builder(self.surface.handle(), vk::SwapchainKHR::null());
+
+        let new_handle = unsafe {
+            self.swapchain_loader
+                .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
+        }
+        .map_err(|e| SwapchainError::Creation(e))?;
+
+        self.handle = new_handle;
+
+        let vk_swapchain_images = unsafe { self.swapchain_loader.get_swapchain_images(new_handle) }
+            .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
+
+        self.swapchain_images = vk_swapchain_images
+            .into_iter()
+            .map(|image_handle| unsafe {
+                Arc::new(SwapchainImage::from_image_handle(
+                    self.device.clone(),
+                    image_handle,
+                    &self.properties,
+                ))
+            })
+            .collect::<Vec<_>>();
+
+        Ok(())
+    }
+
+    pub fn image_view_properties(&self) -> ImageViewProperties {
+        let format = self.properties().surface_format.format;
+        let component_mapping = default_component_mapping();
+
+        let layer_count = self.properties().array_layers;
+        let view_type = if layer_count > 1 {
+            vk::ImageViewType::TYPE_2D_ARRAY
+        } else {
+            vk::ImageViewType::TYPE_2D
+        };
+        let subresource_range = vk::ImageSubresourceRange {
+            layer_count,
+            ..default_subresource_range(vk::ImageAspectFlags::COLOR)
+        };
+
+        ImageViewProperties {
+            format,
+            view_type,
+            component_mapping,
+            subresource_range,
+            ..ImageViewProperties::default()
+        }
+    }
+
     // Getters
 
+    #[inline]
     pub fn handle(&self) -> vk::SwapchainKHR {
         self.handle
     }
 
+    #[inline]
     pub fn swapchain_loader(&self) -> &khr::Swapchain {
         &self.swapchain_loader
     }
 
+    #[inline]
     pub fn properties(&self) -> &SwapchainProperties {
         &self.properties
     }
 
+    #[inline]
     pub fn surface(&self) -> &Arc<Surface> {
         &self.surface
+    }
+
+    #[inline]
+    pub fn swapchain_images(&self) -> &Vec<Arc<SwapchainImage>> {
+        &self.swapchain_images
     }
 }
 
@@ -265,7 +347,63 @@ impl SwapchainProperties {
     }
 }
 
-// Helper Functions
+// Swapchain Image
+
+pub struct SwapchainImage {
+    handle: vk::Image,
+    dimensions: ImageDimensions,
+
+    // dependencies
+    device: Arc<Device>,
+}
+
+impl SwapchainImage {
+    /// Safety: make sure image 'handle' was retreived from 'swapchain'
+    pub(crate) unsafe fn from_image_handle(
+        device: Arc<Device>,
+        handle: vk::Image,
+        swapchain_properties: &SwapchainProperties,
+    ) -> Self {
+        Self {
+            handle,
+            dimensions: swapchain_properties.dimensions(),
+            device,
+        }
+    }
+
+    // Getters
+
+    #[inline]
+    pub fn dimensions(&self) -> ImageDimensions {
+        self.dimensions
+    }
+}
+
+impl ImageAccess for SwapchainImage {
+    #[inline]
+    fn handle(&self) -> vk::Image {
+        self.handle
+    }
+
+    #[inline]
+    fn dimensions(&self) -> ImageDimensions {
+        self.dimensions
+    }
+}
+
+impl DeviceOwned for SwapchainImage {
+    #[inline]
+    fn device(&self) -> &Arc<Device> {
+        &self.device
+    }
+
+    #[inline]
+    fn handle_raw(&self) -> u64 {
+        self.handle.as_raw()
+    }
+}
+
+// Helper
 
 /// Checks surface support for the first compositie alpha flag in order of preference:
 /// 1. `vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED`
@@ -306,6 +444,7 @@ pub enum SwapchainError {
     GetPhysicalDeviceSurfaceCapabilities(vk::Result),
     GetPhysicalDeviceSurfacePresentModes(vk::Result),
     Creation(vk::Result),
+    GetSwapchainImages(vk::Result),
 }
 
 impl fmt::Display for SwapchainError {
@@ -322,6 +461,10 @@ impl fmt::Display for SwapchainError {
                 e
             ),
             Self::Creation(e) => write!(f, "failed to create swapchain: {}", e),
+
+            Self::GetSwapchainImages(e) => {
+                write!(f, "call to vkGetSwapchainImagesKHR failed: {}", e)
+            }
         }
     }
 }
@@ -332,6 +475,7 @@ impl error::Error for SwapchainError {
             Self::GetPhysicalDeviceSurfaceCapabilities(e) => Some(e),
             Self::GetPhysicalDeviceSurfacePresentModes(e) => Some(e),
             Self::Creation(e) => Some(e),
+            Self::GetSwapchainImages(e) => Some(e),
         }
     }
 }

@@ -29,7 +29,6 @@ mod semaphore;
 mod shader_module;
 mod surface;
 mod swapchain;
-mod swapchain_image;
 
 // so you can access everything from the `bort_vma` namespace instead of typing something like `bort_vma::pipeline_compute::ComputePipeline`
 pub use buffer::*;
@@ -63,4 +62,3 @@ pub use semaphore::*;
 pub use shader_module::*;
 pub use surface::*;
 pub use swapchain::*;
-pub use swapchain_image::*;
