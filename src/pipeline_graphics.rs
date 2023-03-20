@@ -436,15 +436,25 @@ impl ColorBlendState {
     /// Returns `vk::PipelineColorBlendAttachmentState` where the output will be merged with the existing value
     /// based on the alpha of the source.
     pub fn blend_state_alpha() -> vk::PipelineColorBlendAttachmentState {
+        todo!();
         vk::PipelineColorBlendAttachmentState {
             blend_enable: 1,
+            src_color_blend_factor: vk::BlendFactor::ONE,
+            dst_color_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
             color_blend_op: vk::BlendOp::ADD,
-            src_color_blend_factor: vk::BlendFactor::SRC_ALPHA,
-            src_alpha_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
-            alpha_blend_op: vk::BlendOp::ADD,
-            dst_color_blend_factor: vk::BlendFactor::SRC_ALPHA,
+            src_alpha_blend_factor: vk::BlendFactor::SRC_ALPHA,
             dst_alpha_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+            alpha_blend_op: vk::BlendOp::ADD,
             color_write_mask: vk::ColorComponentFlags::RGBA,
+            // todo wtf?
+            // blend_enable: 1,
+            // color_blend_op: vk::BlendOp::ADD,
+            // src_color_blend_factor: vk::BlendFactor::SRC_ALPHA,
+            // src_alpha_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+            // alpha_blend_op: vk::BlendOp::ADD,
+            // dst_color_blend_factor: vk::BlendFactor::SRC_ALPHA,
+            // dst_alpha_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+            // color_write_mask: vk::ColorComponentFlags::RGBA,
             ..Default::default()
         }
     }
