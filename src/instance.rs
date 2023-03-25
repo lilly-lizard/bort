@@ -5,6 +5,7 @@ use std::{
     error,
     ffi::{CStr, CString, NulError},
     fmt,
+    sync::Arc,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -29,12 +30,15 @@ fn api_version_ordering() {
 pub struct Instance {
     inner: ash::Instance,
     api_version: ApiVersion,
+
+    // dependencies
+    entry: Arc<Entry>,
 }
 
 impl Instance {
     /// No need to specify display extensions or debug validation layer/extension, this function will figure that out for you.
     pub fn new(
-        entry: &Entry,
+        entry: Arc<Entry>,
         api_version: ApiVersion,
         app_name: &str,
         display_handle: RawDisplayHandle,
@@ -92,6 +96,7 @@ impl Instance {
             .map_err(|e| InstanceError::Creation(e))?;
 
         Ok(Self {
+            entry,
             inner: instance,
             api_version,
         })
@@ -158,6 +163,11 @@ impl Instance {
     #[inline]
     pub fn api_version(&self) -> ApiVersion {
         self.api_version
+    }
+
+    #[inline]
+    pub fn entry(&self) -> &Arc<Entry> {
+        &self.entry
     }
 }
 
