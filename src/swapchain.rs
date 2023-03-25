@@ -28,74 +28,12 @@ pub struct Swapchain {
 }
 
 impl Swapchain {
-    /// Prefers the following settings:
-    /// - present mode = `vk::PresentModeKHR::MAILBOX`
-    /// - pre-transform = `vk::SurfaceTransformFlagsKHR::IDENTITY`
-    ///
-    /// `preferred_image_count` is clamped based on `vk::SurfaceCapabilitiesKHR`.
-    ///
-    /// `surface_format`, `composite_alpha` and `image_usage` are unchecked.
-    ///
-    /// Sharing mode is set to `vk::SharingMode::EXCLUSIVE`, only 1 array layer, and clipping is enabled.
     pub fn new(
         device: Arc<Device>,
         surface: Arc<Surface>,
-
-        preferred_image_count: u32,
-        surface_format: vk::SurfaceFormatKHR,
-        composite_alpha: vk::CompositeAlphaFlagsKHR,
-        image_usage: vk::ImageUsageFlags,
-        window_dimensions: [u32; 2],
+        properties: SwapchainProperties,
     ) -> Result<Self, SwapchainError> {
         let swapchain_loader = khr::Swapchain::new(device.instance().inner(), device.inner());
-
-        let surface_capabilities = surface
-            .get_physical_device_surface_capabilities(device.physical_device())
-            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfaceCapabilities(e))?;
-
-        let image_count = max(
-            min(preferred_image_count, surface_capabilities.max_image_count),
-            surface_capabilities.min_image_count,
-        );
-
-        let extent = match surface_capabilities.current_extent.width {
-            std::u32::MAX => vk::Extent2D {
-                width: window_dimensions[0],
-                height: window_dimensions[1],
-            },
-            _ => surface_capabilities.current_extent,
-        };
-
-        let present_modes = surface
-            .get_physical_device_surface_present_modes(device.physical_device())
-            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfacePresentModes(e))?;
-        let present_mode = present_modes
-            .into_iter()
-            .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
-            .unwrap_or(vk::PresentModeKHR::FIFO);
-
-        // should think more about this if targeting mobile in the future...
-        let pre_transform = if surface_capabilities
-            .supported_transforms
-            .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
-        {
-            vk::SurfaceTransformFlagsKHR::IDENTITY
-        } else {
-            surface_capabilities.current_transform
-        };
-
-        let properties = SwapchainProperties {
-            image_count,
-            surface_format,
-            width_height: [extent.width, extent.height],
-            image_usage,
-            sharing_mode: vk::SharingMode::EXCLUSIVE,
-            pre_transform,
-            composite_alpha,
-            present_mode,
-            clipping_enabled: true,
-            ..SwapchainProperties::default()
-        };
 
         let swapchain_create_info_builder =
             properties.create_info_builder(surface.handle(), vk::SwapchainKHR::null());
@@ -160,15 +98,9 @@ impl Swapchain {
 
     /// todo unsafe? mention need to drop (destroy) dependent resources first
     /// todo take &Self as arg and return Self (like vulkano) allows for Arcs because don't need mut
-    pub fn recreate(&mut self) -> Result<(), SwapchainError> {
-        unsafe {
-            self.swapchain_loader
-                .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
-        };
-
-        let swapchain_create_info_builder = self
-            .properties
-            .create_info_builder(self.surface.handle(), vk::SwapchainKHR::null());
+    pub fn recreate(&mut self, properties: SwapchainProperties) -> Result<(), SwapchainError> {
+        let swapchain_create_info_builder =
+            properties.create_info_builder(self.surface.handle(), self.handle);
 
         let new_handle = unsafe {
             self.swapchain_loader
@@ -176,7 +108,13 @@ impl Swapchain {
         }
         .map_err(|e| SwapchainError::Creation(e))?;
 
+        unsafe {
+            self.swapchain_loader
+                .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
+        };
+
         self.handle = new_handle;
+        self.properties = properties;
 
         let vk_swapchain_images = unsafe { self.swapchain_loader.get_swapchain_images(new_handle) }
             .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
@@ -316,6 +254,73 @@ impl Default for SwapchainProperties {
 }
 
 impl SwapchainProperties {
+    /// Prefers the following settings:
+    /// - present mode = `vk::PresentModeKHR::MAILBOX`
+    /// - pre-transform = `vk::SurfaceTransformFlagsKHR::IDENTITY`
+    ///
+    /// `preferred_image_count` is clamped based on `vk::SurfaceCapabilitiesKHR`.
+    ///
+    /// `surface_format`, `composite_alpha` and `image_usage` are unchecked.
+    ///
+    /// Sharing mode is set to `vk::SharingMode::EXCLUSIVE`, only 1 array layer, and clipping is enabled.
+    pub fn new_default(
+        device: &Device,
+        surface: &Surface,
+        preferred_image_count: u32,
+        surface_format: vk::SurfaceFormatKHR,
+        composite_alpha: vk::CompositeAlphaFlagsKHR,
+        image_usage: vk::ImageUsageFlags,
+        window_dimensions: [u32; 2],
+    ) -> Result<Self, SwapchainError> {
+        let surface_capabilities = surface
+            .get_physical_device_surface_capabilities(device.physical_device())
+            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfaceCapabilities(e))?;
+
+        let image_count = max(
+            min(preferred_image_count, surface_capabilities.max_image_count),
+            surface_capabilities.min_image_count,
+        );
+
+        let extent = match surface_capabilities.current_extent.width {
+            std::u32::MAX => vk::Extent2D {
+                width: window_dimensions[0],
+                height: window_dimensions[1],
+            },
+            _ => surface_capabilities.current_extent,
+        };
+
+        let present_modes = surface
+            .get_physical_device_surface_present_modes(device.physical_device())
+            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfacePresentModes(e))?;
+        let present_mode = present_modes
+            .into_iter()
+            .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
+            .unwrap_or(vk::PresentModeKHR::FIFO);
+
+        // should think more about this if targeting mobile in the future...
+        let pre_transform = if surface_capabilities
+            .supported_transforms
+            .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
+        {
+            vk::SurfaceTransformFlagsKHR::IDENTITY
+        } else {
+            surface_capabilities.current_transform
+        };
+
+        Ok(Self {
+            image_count,
+            surface_format,
+            width_height: [extent.width, extent.height],
+            image_usage,
+            sharing_mode: vk::SharingMode::EXCLUSIVE,
+            pre_transform,
+            composite_alpha,
+            present_mode,
+            clipping_enabled: true,
+            ..Self::default()
+        })
+    }
+
     pub fn create_info_builder(
         &self,
         surface_handle: vk::SurfaceKHR,
