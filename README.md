@@ -6,4 +6,4 @@ Is a pretty unambitious, lightweight vulkan wrapper on top of [ash](https://gith
 
 Oh, also this is like all unsafe from the vulkan spec perspective i.e. there's very little spec validity checking. I don't really care because that's what the validation layers are for so I cbf marking everything as `unsafe`.
 
-Shout out to [vulkano](https://github.com/vulkano-rs/vulkano) for being awesome. If you want spec safety, that's the place to go!
+Shout out to [vulkano](https://github.com/vulkano-rs/vulkano) for being awesome. If you want enforced spec compliance, that's the place to go!
