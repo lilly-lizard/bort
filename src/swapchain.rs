@@ -99,36 +99,11 @@ impl Swapchain {
     /// Make sure any resources depending on the swapchain/swapchain images are dropped/destroyed
     /// before calling this! E.g. swapchain image views and framebuffers...
     pub fn recreate(&mut self, properties: SwapchainProperties) -> Result<(), SwapchainError> {
-        let swapchain_create_info_builder =
-            properties.create_info_builder(self.surface.handle(), self.handle);
-
-        let new_handle = unsafe {
-            self.swapchain_loader
-                .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
-        }
-        .map_err(|e| SwapchainError::Creation(e))?;
-
-        unsafe {
-            self.swapchain_loader
-                .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
-        };
+        let (new_handle, swapchain_images) = Self::recreate_common(&self, &properties)?;
 
         self.handle = new_handle;
         self.properties = properties;
-
-        let vk_swapchain_images = unsafe { self.swapchain_loader.get_swapchain_images(new_handle) }
-            .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
-
-        self.swapchain_images = vk_swapchain_images
-            .into_iter()
-            .map(|image_handle| unsafe {
-                Arc::new(SwapchainImage::from_image_handle(
-                    self.device.clone(),
-                    image_handle,
-                    &self.properties,
-                ))
-            })
-            .collect::<Vec<_>>();
+        self.swapchain_images = swapchain_images;
 
         Ok(())
     }
@@ -142,8 +117,22 @@ impl Swapchain {
         self: Arc<Self>,
         properties: SwapchainProperties,
     ) -> Result<Self, SwapchainError> {
-        todo!("merge duplicate code with recreate");
+        let (new_handle, swapchain_images) = Self::recreate_common(&self, &properties)?;
 
+        Ok(Self {
+            handle: new_handle,
+            swapchain_loader: self.swapchain_loader.clone(),
+            properties,
+            swapchain_images,
+            device: self.device.clone(),
+            surface: self.surface.clone(),
+        })
+    }
+
+    fn recreate_common(
+        self: &Self,
+        properties: &SwapchainProperties,
+    ) -> Result<(vk::SwapchainKHR, Vec<Arc<SwapchainImage>>), SwapchainError> {
         let swapchain_create_info_builder =
             properties.create_info_builder(self.surface.handle(), self.handle);
 
@@ -172,14 +161,7 @@ impl Swapchain {
             })
             .collect::<Vec<_>>();
 
-        Ok(Self {
-            handle: new_handle,
-            swapchain_loader: self.swapchain_loader.clone(),
-            properties,
-            swapchain_images,
-            device: self.device.clone(),
-            surface: self.surface.clone(),
-        })
+        Ok((new_handle, swapchain_images))
     }
 
     pub fn image_view_properties(&self) -> ImageViewProperties {
