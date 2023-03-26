@@ -47,6 +47,7 @@ dependencies = [
 [[package]]
 name = "bort-vma"
 version = "0.2.3"
+source = "git+https://github.com/lilly-lizard/bort-vma/#bc80e6ba6ac7d5f4a35f1d6e67cba8e8b6a4896e"
 dependencies = [
  "ash",
  "bitflags",
