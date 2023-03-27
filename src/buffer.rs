@@ -174,7 +174,7 @@ impl BufferProperties {
             .size(self.size)
             .usage(self.usage)
             .sharing_mode(self.sharing_mode)
-            .queue_family_indices(self.queue_family_indices.as_slice())
+            .queue_family_indices(&self.queue_family_indices)
     }
 
     pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {

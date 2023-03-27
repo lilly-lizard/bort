@@ -38,7 +38,7 @@ impl GraphicsPipeline {
         let create_info_builder = properties
             .write_create_info_builder(vk::GraphicsPipelineCreateInfo::builder(), &properties_vk);
         let create_info_builder = create_info_builder
-            .stages(shader_stages_vk.as_slice())
+            .stages(&shader_stages_vk)
             .render_pass(render_pass.handle())
             .layout(pipeline_layout.handle());
 
@@ -140,7 +140,7 @@ impl GraphicsPipeline {
                 );
 
             let create_info_builder = create_info_builder
-                .stages(shader_stage_handles[pipeline_index].as_slice())
+                .stages(&shader_stage_handles[pipeline_index])
                 .render_pass(per_pipeline_params[pipeline_index].render_pass.handle())
                 .layout(per_pipeline_params[pipeline_index].pipeline_layout.handle());
 
@@ -400,7 +400,7 @@ impl ColorBlendState {
             .flags(self.flags)
             .logic_op_enable(self.logic_op.is_some())
             .logic_op(self.logic_op.unwrap_or(vk::LogicOp::CLEAR))
-            .attachments(self.attachments.as_slice())
+            .attachments(&self.attachments)
             .blend_constants(self.blend_constants)
     }
 
@@ -604,7 +604,7 @@ impl DynamicState {
     ) -> vk::PipelineDynamicStateCreateInfoBuilder<'a> {
         builder
             .flags(self.flags)
-            .dynamic_states(self.dynamic_states.as_slice())
+            .dynamic_states(&self.dynamic_states)
     }
 
     pub fn create_info_builder(&self) -> vk::PipelineDynamicStateCreateInfoBuilder {
@@ -710,7 +710,7 @@ impl MultisampleState {
             .rasterization_samples(self.rasterization_samples)
             .sample_shading_enable(self.sample_shading_enable)
             .min_sample_shading(self.min_sample_shading)
-            .sample_mask(self.sample_mask.as_slice())
+            .sample_mask(&self.sample_mask)
             .alpha_to_coverage_enable(self.alpha_to_coverage_enable)
             .alpha_to_one_enable(self.alpha_to_one_enable)
     }
@@ -913,8 +913,8 @@ impl VertexInputState {
     ) -> vk::PipelineVertexInputStateCreateInfoBuilder<'a> {
         builder
             .flags(self.flags)
-            .vertex_binding_descriptions(self.vertex_binding_descriptions.as_slice())
-            .vertex_attribute_descriptions(self.vertex_attribute_descriptions.as_slice())
+            .vertex_binding_descriptions(&self.vertex_binding_descriptions)
+            .vertex_attribute_descriptions(&self.vertex_attribute_descriptions)
     }
 
     pub fn create_info_builder(&self) -> vk::PipelineVertexInputStateCreateInfoBuilder {
@@ -981,8 +981,8 @@ impl ViewportState {
     ) -> vk::PipelineViewportStateCreateInfoBuilder<'a> {
         builder
             .flags(self.flags)
-            .viewports(self.viewports.as_slice())
-            .scissors(self.scissors.as_slice())
+            .viewports(&self.viewports)
+            .scissors(&self.scissors)
     }
 
     pub fn create_info_builder(&self) -> vk::PipelineViewportStateCreateInfoBuilder {

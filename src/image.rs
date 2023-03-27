@@ -226,7 +226,7 @@ impl ImageProperties {
             .usage(self.usage)
             .sharing_mode(self.sharing_mode)
             .initial_layout(self.initial_layout)
-            .queue_family_indices(self.queue_family_indices.as_slice())
+            .queue_family_indices(&self.queue_family_indices)
     }
 
     pub fn subresource_range(&self) -> vk::ImageSubresourceRange {

@@ -40,9 +40,9 @@ impl RenderPass {
             subpass_dependencies.into_iter().collect();
 
         let render_pass_info = vk::RenderPassCreateInfo::builder()
-            .attachments(attachment_descriptions.as_slice())
-            .subpasses(subpass_descriptions.as_slice())
-            .dependencies(subpass_dependencies.as_slice());
+            .attachments(&attachment_descriptions)
+            .subpasses(&subpass_descriptions)
+            .dependencies(&subpass_dependencies);
 
         let handle = unsafe {
             device
@@ -120,11 +120,11 @@ impl Subpass {
 
         if self.color_attachments.len() > 0 {
             subpass_description_builder =
-                subpass_description_builder.color_attachments(self.color_attachments.as_slice());
+                subpass_description_builder.color_attachments(&self.color_attachments);
         }
         if self.input_attachments.len() > 0 {
             subpass_description_builder =
-                subpass_description_builder.input_attachments(self.input_attachments.as_slice());
+                subpass_description_builder.input_attachments(&self.input_attachments);
         }
         if let Some(depth_attachment) = &self.depth_attachment {
             subpass_description_builder =

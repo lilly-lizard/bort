@@ -45,8 +45,8 @@ impl Device {
 
         let mut device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(queue_create_infos)
-            .enabled_extension_names(extension_name_ptrs.as_slice())
-            .enabled_layer_names(layer_name_ptrs.as_slice());
+            .enabled_extension_names(&extension_name_ptrs)
+            .enabled_layer_names(&layer_name_ptrs);
 
         let mut features_2 = vk::PhysicalDeviceFeatures2::builder();
         if instance.api_version() <= ApiVersion::new(1, 0) {

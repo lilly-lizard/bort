@@ -8,7 +8,6 @@ use std::sync::Arc;
 pub struct DescriptorSetLayout {
     handle: vk::DescriptorSetLayout,
     properties: DescriptorSetLayoutProperties,
-    // note, I cbf supporting immutable samplers, but if I were to, I'd put a `Vec` of `Arc`s here.
 
     // dependencies
     device: Arc<Device>,
@@ -25,7 +24,7 @@ impl DescriptorSetLayout {
 
         let create_info_builder = properties.write_create_info_builder(
             vk::DescriptorSetLayoutCreateInfo::builder(),
-            vk_layout_bindings.as_slice(),
+            &vk_layout_bindings,
         );
 
         let handle = unsafe {
@@ -139,7 +138,7 @@ impl DescriptorSetLayoutProperties {
         for i in 0..self.bindings.len() {
             let vk_layout_binding = self.bindings[i].write_vk_binding_builder(
                 vk::DescriptorSetLayoutBinding::builder(),
-                &vk_immutable_samplers[i].as_slice(),
+                &vk_immutable_samplers[i],
             );
             vk_layout_bindings.push(vk_layout_binding);
         }
@@ -181,13 +180,14 @@ impl DescriptorSetLayoutBinding {
             .collect::<Vec<_>>()
     }
 
+    /// Note: leaves `immutable_samplers` empty because the create info only provides the handles.
     pub fn from_vk_binding(value: &vk::DescriptorSetLayoutBinding) -> Self {
         Self {
             binding: value.binding,
             descriptor_type: value.descriptor_type,
             descriptor_count: value.descriptor_count,
             stage_flags: value.stage_flags,
-            immutable_samplers: Vec::new(), // because the create info only gives us handles
+            immutable_samplers: Vec::new(), // because the create info only provides handles
         }
     }
 

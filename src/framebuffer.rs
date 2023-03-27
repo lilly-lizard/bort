@@ -17,17 +17,41 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
-    pub fn new(
-        render_pass: Arc<RenderPass>,
-        mut properties: FramebufferProperties,
-    ) -> VkResult<Self> {
-        let framebuffer_info_builder = properties.create_info_builder(&render_pass);
+    pub fn new(render_pass: Arc<RenderPass>, properties: FramebufferProperties) -> VkResult<Self> {
+        let vk_attachment_image_view_handles = properties.vk_attachment_image_view_handles();
+        let create_info_builder = properties.write_create_info_builder(
+            vk::FramebufferCreateInfo::builder(),
+            &vk_attachment_image_view_handles,
+            &render_pass,
+        );
 
         let handle = unsafe {
             render_pass
                 .device()
                 .inner()
-                .create_framebuffer(&framebuffer_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_framebuffer(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+        }?;
+
+        Ok(Self {
+            handle,
+            properties,
+            render_pass,
+        })
+    }
+
+    /// Note: this fn doesn't check that the render pass handle in `create_info_builder` is equal to
+    /// that of `render_pass`!
+    pub fn new_from_create_info_builder(
+        render_pass: Arc<RenderPass>,
+        create_info_builder: vk::FramebufferCreateInfoBuilder,
+    ) -> VkResult<Self> {
+        let properties = FramebufferProperties::from_create_info_builder(&create_info_builder);
+
+        let handle = unsafe {
+            render_pass
+                .device()
+                .inner()
+                .create_framebuffer(&create_info_builder, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -86,51 +110,55 @@ impl Drop for Framebuffer {
     }
 }
 
+// Note: default is empty!
+#[derive(Clone, Default)]
 pub struct FramebufferProperties {
     pub flags: vk::FramebufferCreateFlags,
     pub attachments: Vec<Arc<dyn ImageViewAccess>>,
     pub dimensions: ImageDimensions,
-    // because these need to be stored for the lifetime duration of self
-    attachment_image_view_handles: Vec<vk::ImageView>,
 }
 
 impl FramebufferProperties {
-    pub fn new(attachments: Vec<Arc<dyn ImageViewAccess>>, dimensions: ImageDimensions) -> Self {
+    pub fn new_default(
+        attachments: Vec<Arc<dyn ImageViewAccess>>,
+        dimensions: ImageDimensions,
+    ) -> Self {
         Self {
             flags: vk::FramebufferCreateFlags::empty(),
             attachments,
-            attachment_image_view_handles: Vec::new(),
             dimensions,
         }
     }
 
-    pub fn create_info_builder(
-        &mut self,
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::FramebufferCreateInfoBuilder<'a>,
+        vk_attchment_image_view_handles: &'a [vk::ImageView],
         render_pass: &RenderPass,
     ) -> vk::FramebufferCreateInfoBuilder {
-        self.attachment_image_view_handles = self
-            .attachments
+        builder
+            .flags(self.flags)
+            .attachments(vk_attchment_image_view_handles)
+            .height(self.dimensions.height())
+            .width(self.dimensions.width())
+            .layers(self.dimensions.array_layers())
+            .render_pass(render_pass.handle())
+    }
+
+    pub fn vk_attachment_image_view_handles(&self) -> Vec<vk::ImageView> {
+        self.attachments
             .iter()
             .map(|image_view| image_view.handle())
-            .collect::<Vec<_>>();
-
-        vk::FramebufferCreateInfo::builder()
-            .flags(self.flags)
-            .render_pass(render_pass.handle())
-            .attachments(self.attachment_image_view_handles.as_slice())
-            .width(self.dimensions.width())
-            .height(self.dimensions.height())
-            .layers(self.dimensions.array_layers())
+            .collect::<Vec<_>>()
     }
-}
 
-impl Default for FramebufferProperties {
-    fn default() -> Self {
+    /// Note: leaves `attachments` empty because the create info only provides handles
+    pub fn from_create_info_builder(value: &vk::FramebufferCreateInfoBuilder) -> Self {
+        let dimensions = ImageDimensions::new_2d_array(value.width, value.height, value.layers);
         Self {
-            flags: Default::default(),
-            attachments: Vec::new(),
-            dimensions: ImageDimensions::default(),
-            attachment_image_view_handles: Vec::new(),
+            flags: value.flags,
+            attachments: Vec::new(), // because the create info only provides handles
+            dimensions,
         }
     }
 }

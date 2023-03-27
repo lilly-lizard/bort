@@ -15,10 +15,31 @@ pub struct DescriptorPool {
 
 impl DescriptorPool {
     pub fn new(device: Arc<Device>, properties: DescriptorPoolProperties) -> VkResult<Self> {
+        let create_info_builder = properties.create_info_builder();
+
         let handle = unsafe {
             device
                 .inner()
-                .create_descriptor_pool(&properties.create_info_builder(), ALLOCATION_CALLBACK_NONE)
+                .create_descriptor_pool(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+        }?;
+
+        Ok(Self {
+            handle,
+            properties,
+            device,
+        })
+    }
+
+    pub fn new_from_create_info_builder(
+        device: Arc<Device>,
+        create_info_builder: vk::DescriptorPoolCreateInfoBuilder,
+    ) -> VkResult<Self> {
+        let properties = DescriptorPoolProperties::from_create_info_builder(&create_info_builder);
+
+        let handle = unsafe {
+            device
+                .inner()
+                .create_descriptor_pool(&create_info_builder, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -50,7 +71,7 @@ impl DescriptorPool {
         let layout_handles = layouts.iter().map(|l| l.handle()).collect::<Vec<_>>();
         let create_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.handle)
-            .set_layouts(layout_handles.as_slice());
+            .set_layouts(&layout_handles);
 
         let descriptor_set_handles =
             unsafe { self.device().inner().allocate_descriptor_sets(&create_info) }?;
@@ -129,7 +150,7 @@ impl DescriptorPoolProperties {
         builder
             .flags(self.flags)
             .max_sets(self.max_sets)
-            .pool_sizes(self.pool_sizes.as_slice())
+            .pool_sizes(&self.pool_sizes)
     }
 
     pub fn create_info_builder(&self) -> vk::DescriptorPoolCreateInfoBuilder {

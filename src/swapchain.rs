@@ -373,7 +373,7 @@ impl SwapchainProperties {
             .present_mode(self.present_mode)
             .clipped(self.clipping_enabled)
             .old_swapchain(old_swapchain_handle)
-            .queue_family_indices(self.queue_family_indices.as_slice())
+            .queue_family_indices(&self.queue_family_indices)
     }
 
     pub fn dimensions(&self) -> ImageDimensions {

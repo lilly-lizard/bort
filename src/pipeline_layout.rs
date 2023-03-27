@@ -92,7 +92,7 @@ impl PipelineLayoutProperties {
 
         vk::PipelineLayoutCreateInfo::builder()
             .flags(self.flags)
-            .set_layouts(self.set_layouts_vk.as_slice())
-            .push_constant_ranges(self.push_constant_ranges.as_slice())
+            .set_layouts(&self.set_layouts_vk)
+            .push_constant_ranges(&self.push_constant_ranges)
     }
 }
