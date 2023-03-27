@@ -17,11 +17,33 @@ pub struct ImageView<I: ImageAccess + 'static> {
 
 impl<I: ImageAccess + 'static> ImageView<I> {
     pub fn new(image: Arc<I>, properties: ImageViewProperties) -> VkResult<Self> {
+        let create_info_builder = properties.create_info_builder(image.handle());
+
         let handle = unsafe {
-            image.device().inner().create_image_view(
-                &properties.create_info_builder(image.handle()),
-                ALLOCATION_CALLBACK_NONE,
-            )
+            image
+                .device()
+                .inner()
+                .create_image_view(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+        }?;
+
+        Ok(Self {
+            handle,
+            properties,
+            image,
+        })
+    }
+
+    pub fn new_from_create_info_builder(
+        image: Arc<I>,
+        create_info_builder: vk::ImageViewCreateInfoBuilder,
+    ) -> VkResult<Self> {
+        let properties = ImageViewProperties::from_create_info_builder(&create_info_builder);
+
+        let handle = unsafe {
+            image
+                .device()
+                .inner()
+                .create_image_view(&create_info_builder, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -112,14 +134,32 @@ impl ImageViewProperties {
         }
     }
 
-    pub fn create_info_builder(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfoBuilder {
-        vk::ImageViewCreateInfo::builder()
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::ImageViewCreateInfoBuilder<'a>,
+        image_handle: vk::Image,
+    ) -> vk::ImageViewCreateInfoBuilder {
+        builder
             .flags(self.flags)
             .image(image_handle)
             .view_type(self.view_type)
             .format(self.format)
             .components(self.component_mapping)
             .subresource_range(self.subresource_range)
+    }
+
+    pub fn create_info_builder(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfoBuilder {
+        self.write_create_info_builder(vk::ImageViewCreateInfo::builder(), image_handle)
+    }
+
+    pub fn from_create_info_builder(value: &vk::ImageViewCreateInfoBuilder) -> Self {
+        Self {
+            flags: value.flags,
+            view_type: value.view_type,
+            component_mapping: value.components,
+            format: value.format,
+            subresource_range: value.subresource_range,
+        }
     }
 }
 
