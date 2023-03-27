@@ -87,7 +87,7 @@ impl Drop for Framebuffer {
 }
 
 pub struct FramebufferProperties {
-    pub create_flags: vk::FramebufferCreateFlags,
+    pub flags: vk::FramebufferCreateFlags,
     pub attachments: Vec<Arc<dyn ImageViewAccess>>,
     pub dimensions: ImageDimensions,
     // because these need to be stored for the lifetime duration of self
@@ -97,7 +97,7 @@ pub struct FramebufferProperties {
 impl FramebufferProperties {
     pub fn new(attachments: Vec<Arc<dyn ImageViewAccess>>, dimensions: ImageDimensions) -> Self {
         Self {
-            create_flags: vk::FramebufferCreateFlags::empty(),
+            flags: vk::FramebufferCreateFlags::empty(),
             attachments,
             attachment_image_view_handles: Vec::new(),
             dimensions,
@@ -115,7 +115,7 @@ impl FramebufferProperties {
             .collect::<Vec<_>>();
 
         vk::FramebufferCreateInfo::builder()
-            .flags(self.create_flags)
+            .flags(self.flags)
             .render_pass(render_pass.handle())
             .attachments(self.attachment_image_view_handles.as_slice())
             .width(self.dimensions.width())
@@ -127,7 +127,7 @@ impl FramebufferProperties {
 impl Default for FramebufferProperties {
     fn default() -> Self {
         Self {
-            create_flags: Default::default(),
+            flags: Default::default(),
             attachments: Vec::new(),
             dimensions: ImageDimensions::default(),
             attachment_image_view_handles: Vec::new(),

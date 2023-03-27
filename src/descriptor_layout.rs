@@ -98,6 +98,7 @@ impl Drop for DescriptorSetLayout {
 
 // Properties
 
+/// Note: default has no bindings!
 #[derive(Default, Clone)]
 pub struct DescriptorSetLayoutProperties {
     pub flags: vk::DescriptorSetLayoutCreateFlags,
@@ -105,7 +106,7 @@ pub struct DescriptorSetLayoutProperties {
 }
 
 impl DescriptorSetLayoutProperties {
-    pub fn new(bindings: Vec<DescriptorSetLayoutBinding>) -> Self {
+    pub fn new_default(bindings: Vec<DescriptorSetLayoutBinding>) -> Self {
         Self {
             flags: vk::DescriptorSetLayoutCreateFlags::empty(),
             bindings,
@@ -162,6 +163,7 @@ impl DescriptorSetLayoutProperties {
 
 // Descriptor set layout binding
 
+/// Note: default values are nothing!
 #[derive(Default, Clone)]
 pub struct DescriptorSetLayoutBinding {
     pub binding: u32,

@@ -105,25 +105,48 @@ impl Drop for DescriptorPool {
     }
 }
 
-#[derive(Clone, Default)]
+/// Note: default values are nothing!
+#[derive(Default, Clone)]
 pub struct DescriptorPoolProperties {
-    pub create_flags: vk::DescriptorPoolCreateFlags,
+    pub flags: vk::DescriptorPoolCreateFlags,
     pub max_sets: u32,
     pub pool_sizes: Vec<vk::DescriptorPoolSize>,
 }
 
 impl DescriptorPoolProperties {
+    pub fn new_default(max_sets: u32, pool_sizes: Vec<vk::DescriptorPoolSize>) -> Self {
+        Self {
+            max_sets,
+            pool_sizes,
+            ..Default::default()
+        }
+    }
+
     pub fn write_create_info_builder<'a>(
         &'a self,
         builder: vk::DescriptorPoolCreateInfoBuilder<'a>,
     ) -> vk::DescriptorPoolCreateInfoBuilder<'a> {
         builder
-            .flags(self.create_flags)
+            .flags(self.flags)
             .max_sets(self.max_sets)
             .pool_sizes(self.pool_sizes.as_slice())
     }
 
     pub fn create_info_builder(&self) -> vk::DescriptorPoolCreateInfoBuilder {
         self.write_create_info_builder(vk::DescriptorPoolCreateInfo::builder())
+    }
+
+    pub fn from_create_info_builder(value: &vk::DescriptorPoolCreateInfoBuilder) -> Self {
+        let mut pool_sizes = Vec::<vk::DescriptorPoolSize>::new();
+        for i in 0..value.pool_size_count {
+            let pool_size = unsafe { *value.p_pool_sizes.offset(i as isize) };
+            pool_sizes.push(pool_size);
+        }
+
+        Self {
+            flags: value.flags,
+            max_sets: value.max_sets,
+            pool_sizes,
+        }
     }
 }

@@ -135,7 +135,7 @@ impl Drop for Buffer {
 /// Note: default values for `size`, and `usage` are nothing!
 #[derive(Clone)]
 pub struct BufferProperties {
-    pub create_flags: vk::BufferCreateFlags,
+    pub flags: vk::BufferCreateFlags,
     pub size: vk::DeviceSize,
     pub usage: vk::BufferUsageFlags,
     pub sharing_mode: vk::SharingMode,
@@ -145,7 +145,7 @@ pub struct BufferProperties {
 impl Default for BufferProperties {
     fn default() -> Self {
         Self {
-            create_flags: vk::BufferCreateFlags::empty(),
+            flags: vk::BufferCreateFlags::empty(),
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             queue_family_indices: Vec::new(),
 
@@ -170,7 +170,7 @@ impl BufferProperties {
         builder: vk::BufferCreateInfoBuilder<'a>,
     ) -> vk::BufferCreateInfoBuilder<'a> {
         builder
-            .flags(self.create_flags)
+            .flags(self.flags)
             .size(self.size)
             .usage(self.usage)
             .sharing_mode(self.sharing_mode)
@@ -189,7 +189,7 @@ impl BufferProperties {
         }
 
         Self {
-            create_flags: value.flags,
+            flags: value.flags,
             size: value.size,
             usage: value.usage,
             sharing_mode: value.sharing_mode,

@@ -96,10 +96,15 @@ impl Swapchain {
         }
     }
 
-    /// Make sure any resources depending on the swapchain/swapchain images are dropped/destroyed
-    /// before calling this! E.g. swapchain image views and framebuffers...
+    /// Also destroys the old swapchain so make sure any resources depending on the swapchain and
+    /// swapchain images are dropped before calling this! E.g. swapchain image views and framebuffers...
     pub fn recreate(&mut self, properties: SwapchainProperties) -> Result<(), SwapchainError> {
         let (new_handle, swapchain_images) = Self::recreate_common(&self, &properties)?;
+
+        unsafe {
+            self.swapchain_loader
+                .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
+        };
 
         self.handle = new_handle;
         self.properties = properties;
@@ -111,22 +116,23 @@ impl Swapchain {
     /// Same as `Self::recreate` but consumes an immutable (reference counted) `Swapchain` and
     /// returns a new `Swapchain`.
     ///
-    /// Make sure any resources depending on the swapchain/swapchain images are dropped/destroyed
-    /// before calling this! E.g. swapchain image views and framebuffers...
+    /// Unlike `Self::recreate` this doesn't destroy the old swapchain. If you want it to be cleaned
+    /// up, it must be dropped which requires any resources depending on the swapchain/swapchain images
+    /// to be dropped e.g. swapchain image views and framebuffers...
     pub fn recreate_replace(
-        self: Arc<Self>,
+        self: &Arc<Self>,
         properties: SwapchainProperties,
-    ) -> Result<Self, SwapchainError> {
+    ) -> Result<Arc<Self>, SwapchainError> {
         let (new_handle, swapchain_images) = Self::recreate_common(&self, &properties)?;
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             handle: new_handle,
             swapchain_loader: self.swapchain_loader.clone(),
             properties,
             swapchain_images,
             device: self.device.clone(),
             surface: self.surface.clone(),
-        })
+        }))
     }
 
     fn recreate_common(
@@ -141,11 +147,6 @@ impl Swapchain {
                 .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
         }
         .map_err(|e| SwapchainError::Creation(e))?;
-
-        unsafe {
-            self.swapchain_loader
-                .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
-        };
 
         let vk_swapchain_images = unsafe { self.swapchain_loader.get_swapchain_images(new_handle) }
             .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
@@ -247,7 +248,7 @@ impl Drop for Swapchain {
 /// - `composite_alpha`
 #[derive(Debug, Clone)]
 pub struct SwapchainProperties {
-    pub create_flags: vk::SwapchainCreateFlagsKHR,
+    pub flags: vk::SwapchainCreateFlagsKHR,
     pub image_count: u32,
     pub pre_transform: vk::SurfaceTransformFlagsKHR,
     pub composite_alpha: vk::CompositeAlphaFlagsKHR,
@@ -272,7 +273,7 @@ impl Default for SwapchainProperties {
             queue_family_indices: Vec::new(),
             clipping_enabled: true,
             present_mode: vk::PresentModeKHR::MAILBOX,
-            create_flags: vk::SwapchainCreateFlagsKHR::empty(),
+            flags: vk::SwapchainCreateFlagsKHR::empty(),
 
             // nonsense defaults. make sure you override these!
             surface_format: vk::SurfaceFormatKHR::default(),
@@ -358,7 +359,7 @@ impl SwapchainProperties {
         old_swapchain_handle: vk::SwapchainKHR,
     ) -> vk::SwapchainCreateInfoKHRBuilder {
         vk::SwapchainCreateInfoKHR::builder()
-            .flags(self.create_flags)
+            .flags(self.flags)
             .surface(surface_handle)
             .min_image_count(self.image_count)
             .image_format(self.surface_format.format)

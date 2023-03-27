@@ -63,7 +63,7 @@ impl Drop for PipelineLayout {
 
 #[derive(Default, Clone)]
 pub struct PipelineLayoutProperties {
-    pub create_flags: vk::PipelineLayoutCreateFlags,
+    pub flags: vk::PipelineLayoutCreateFlags,
     pub set_layouts: Vec<Arc<DescriptorSetLayout>>,
     pub push_constant_ranges: Vec<vk::PushConstantRange>,
     // because these need to be stored for the lifetime duration of self
@@ -76,7 +76,7 @@ impl PipelineLayoutProperties {
         push_constant_ranges: Vec<vk::PushConstantRange>,
     ) -> Self {
         Self {
-            create_flags: vk::PipelineLayoutCreateFlags::empty(),
+            flags: vk::PipelineLayoutCreateFlags::empty(),
             set_layouts,
             push_constant_ranges,
             set_layouts_vk: Vec::new(),
@@ -91,7 +91,7 @@ impl PipelineLayoutProperties {
             .collect();
 
         vk::PipelineLayoutCreateInfo::builder()
-            .flags(self.create_flags)
+            .flags(self.flags)
             .set_layouts(self.set_layouts_vk.as_slice())
             .push_constant_ranges(self.push_constant_ranges.as_slice())
     }

@@ -77,7 +77,7 @@ impl<I: ImageAccess + 'static> Drop for ImageView<I> {
 /// WARNING `default()` values for `format`, `view_type` are nothing!
 #[derive(Debug, Copy, Clone)]
 pub struct ImageViewProperties {
-    pub create_flags: vk::ImageViewCreateFlags,
+    pub flags: vk::ImageViewCreateFlags,
     pub view_type: vk::ImageViewType,
     pub component_mapping: vk::ComponentMapping,
     pub format: vk::Format,
@@ -88,7 +88,7 @@ impl Default for ImageViewProperties {
     fn default() -> Self {
         Self {
             component_mapping: default_component_mapping(),
-            create_flags: vk::ImageViewCreateFlags::empty(),
+            flags: vk::ImageViewCreateFlags::empty(),
             subresource_range: default_subresource_range(vk::ImageAspectFlags::COLOR),
 
             // nonsense defaults. make sure you override these!
@@ -114,7 +114,7 @@ impl ImageViewProperties {
 
     pub fn create_info_builder(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfoBuilder {
         vk::ImageViewCreateInfo::builder()
-            .flags(self.create_flags)
+            .flags(self.flags)
             .image(image_handle)
             .view_type(self.view_type)
             .format(self.format)

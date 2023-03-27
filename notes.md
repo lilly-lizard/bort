@@ -20,7 +20,7 @@ todo check naming of from_create_info and from_create_info_builder. be explicit 
 review command_pool and buffer again...
 
 - derive Clone
-- impl Default (or derive in special cases) right after struct declaration
+- impl Default (or derive in special cases. check all derives at end!) right after struct declaration
 - document which members have nonsense default values
 - new_default() fn with these values as args
 - write_create_info_builder<'a>() fn _note: this doesn't always need `&'a self`_

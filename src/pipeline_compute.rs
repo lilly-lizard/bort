@@ -93,11 +93,11 @@ impl Drop for ComputePipeline {
 
 #[derive(Clone)]
 pub struct ComputePipelineProperties {
-    pub create_flags: vk::PipelineCreateFlags,
+    pub flags: vk::PipelineCreateFlags,
 }
 
 impl ComputePipelineProperties {
     pub fn create_info_builder(&self) -> vk::ComputePipelineCreateInfoBuilder {
-        vk::ComputePipelineCreateInfo::builder().flags(self.create_flags)
+        vk::ComputePipelineCreateInfo::builder().flags(self.flags)
     }
 }

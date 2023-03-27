@@ -168,7 +168,7 @@ pub fn transient_image_info(
 /// Note: default values for `format`, `dimensions` and `usage` are nothing!
 #[derive(Debug, Clone)]
 pub struct ImageProperties {
-    pub create_flags: vk::ImageCreateFlags,
+    pub flags: vk::ImageCreateFlags,
     pub format: vk::Format,
     pub dimensions: ImageDimensions,
     pub mip_levels: u32,
@@ -189,7 +189,7 @@ impl Default for ImageProperties {
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             queue_family_indices: Vec::new(),
             initial_layout: vk::ImageLayout::UNDEFINED,
-            create_flags: vk::ImageCreateFlags::empty(),
+            flags: vk::ImageCreateFlags::empty(),
 
             // nonsense defaults. make sure you override these!
             format: vk::Format::default(),
@@ -215,7 +215,7 @@ impl ImageProperties {
 
     pub fn create_info_builder(&self) -> vk::ImageCreateInfoBuilder {
         vk::ImageCreateInfo::builder()
-            .flags(self.create_flags)
+            .flags(self.flags)
             .image_type(self.dimensions.image_type())
             .format(self.format)
             .extent(self.dimensions.extent_3d())
@@ -259,7 +259,7 @@ impl From<&vk::ImageCreateInfo> for ImageProperties {
             sharing_mode: value.sharing_mode,
             queue_family_indices,
             initial_layout: value.initial_layout,
-            create_flags: value.flags,
+            flags: value.flags,
             format: value.format,
             dimensions,
             usage: value.usage,

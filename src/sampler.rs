@@ -63,7 +63,7 @@ impl Drop for Sampler {
 
 #[derive(Debug, Clone, Copy)]
 pub struct SamplerProperties {
-    pub create_flags: vk::SamplerCreateFlags,
+    pub flags: vk::SamplerCreateFlags,
     pub mag_filter: vk::Filter,
     pub min_filter: vk::Filter,
     pub mipmap_mode: vk::SamplerMipmapMode,
@@ -80,7 +80,7 @@ pub struct SamplerProperties {
 impl Default for SamplerProperties {
     fn default() -> Self {
         Self {
-            create_flags: vk::SamplerCreateFlags::empty(),
+            flags: vk::SamplerCreateFlags::empty(),
             mag_filter: vk::Filter::NEAREST,
             min_filter: vk::Filter::NEAREST,
             mipmap_mode: vk::SamplerMipmapMode::NEAREST,
@@ -99,7 +99,7 @@ impl Default for SamplerProperties {
 impl SamplerProperties {
     pub fn create_info_builder(&self) -> vk::SamplerCreateInfoBuilder {
         vk::SamplerCreateInfo::builder()
-            .flags(self.create_flags)
+            .flags(self.flags)
             .mag_filter(self.mag_filter)
             .min_filter(self.min_filter)
             .mipmap_mode(self.mipmap_mode)
