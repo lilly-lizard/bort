@@ -196,15 +196,13 @@ pub fn allocation_info_from_flags(
 }
 
 /// For allocating memory that can be accessed and mapped from the cpu. Prefered flags include
-/// memory that is host coherent (doesn't require flushing) and device local (fast gpu access)
+/// device local (fast gpu access) and host coherent (doesn't require flushing). Good for staging
+/// buffers.
 pub fn allocation_info_cpu_accessible() -> AllocationCreateInfo {
-    AllocationCreateInfo {
-        //flags: bort_vma::AllocationCreateFlags::HOST_ACCESS_RANDOM,
-        required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE,
-        preferred_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL
-            | vk::MemoryPropertyFlags::HOST_COHERENT,
-        ..Default::default()
-    }
+    allocation_info_from_flags(
+        vk::MemoryPropertyFlags::HOST_VISIBLE,
+        vk::MemoryPropertyFlags::DEVICE_LOCAL | vk::MemoryPropertyFlags::HOST_COHERENT,
+    )
 }
 
 // Memory Error

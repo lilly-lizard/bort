@@ -6,8 +6,6 @@ use std::sync::Arc;
 /// so it's easy to find all allocation callback args, just in case I want to use them in the future.
 pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None;
 
-// Memory Allocator
-
 pub struct MemoryAllocator {
     inner: Arc<bort_vma::Allocator>,
 

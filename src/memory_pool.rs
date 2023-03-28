@@ -34,7 +34,7 @@ impl MemoryPool {
         let inner =
             bort_vma::AllocatorPool::new(memory_allocator.inner_arc().clone(), create_info)?;
 
-        let properties = MemoryPoolPropeties::from(create_info);
+        let properties = MemoryPoolPropeties::from_create_info(create_info);
 
         Ok(Self {
             inner,
@@ -69,6 +69,10 @@ impl AllocAccess for MemoryPool {
     }
 }
 
+// `bort_vma::PoolCreateInfo` would have been pretty good here (unlike the ash create_infos and
+// their dangling pnext pointers) but that would require explicit lifetime specifiers for
+// `MemoryPool` which propogates up every stuct containing it which is kinda a pain in the ass
+// for goshenite...
 #[derive(Clone, Copy)]
 pub struct MemoryPoolPropeties {
     /// Use combination of `VmaPoolCreateFlagBits`.
@@ -139,10 +143,8 @@ impl MemoryPoolPropeties {
             .priority(self.priority)
             .min_allocation_alignment(self.min_allocation_alignment)
     }
-}
 
-impl From<&bort_vma::PoolCreateInfo<'_>> for MemoryPoolPropeties {
-    fn from(value: &bort_vma::PoolCreateInfo) -> Self {
+    pub fn from_create_info(value: &bort_vma::PoolCreateInfo) -> Self {
         Self {
             flags: value.get_flags(),
             memory_type_index: value.get_memory_type_index(),

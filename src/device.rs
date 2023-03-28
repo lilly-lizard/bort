@@ -1,5 +1,6 @@
 use crate::{
-    string_to_c_string_vec, ApiVersion, Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE,
+    string_to_c_string_vec, ApiVersion, DebugCallback, Instance, PhysicalDevice,
+    ALLOCATION_CALLBACK_NONE,
 };
 use ash::vk;
 use std::{error, ffi::NulError, fmt, sync::Arc};
@@ -11,6 +12,7 @@ pub trait DeviceOwned {
 
 pub struct Device {
     inner: ash::Device,
+    debug_callback_ref: Option<Arc<DebugCallback>>,
 
     // dependencies
     physical_device: Arc<PhysicalDevice>,
@@ -26,6 +28,7 @@ impl Device {
         mut features_1_2: vk::PhysicalDeviceVulkan12Features,
         extension_names: impl IntoIterator<Item = String>,
         layer_names: impl IntoIterator<Item = String>,
+        debug_callback_ref: Option<Arc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
@@ -75,8 +78,37 @@ impl Device {
 
         Ok(Self {
             inner,
+            debug_callback_ref,
             physical_device,
         })
+    }
+
+    pub fn new_from_create_info_builder(
+        physical_device: Arc<PhysicalDevice>,
+        create_info_builder: vk::DeviceCreateInfoBuilder,
+        debug_callback_ref: Option<Arc<DebugCallback>>,
+    ) -> Result<Self, DeviceError> {
+        let inner = unsafe {
+            physical_device.instance().inner().create_device(
+                physical_device.handle(),
+                &create_info_builder,
+                ALLOCATION_CALLBACK_NONE,
+            )
+        }
+        .map_err(|vk_res| DeviceError::Creation(vk_res))?;
+
+        Ok(Self {
+            inner,
+            debug_callback_ref,
+            physical_device,
+        })
+    }
+
+    /// Store a reference to a debug callback. The means that the debug callback won't be dropped
+    /// (and destroyed) until this device is! Handy to make sure that you still get validation
+    /// while device resources are being dropped/destroyed.
+    pub fn set_debug_callback_ref(&mut self, debug_callback_ref: Option<Arc<DebugCallback>>) {
+        self.debug_callback_ref = debug_callback_ref;
     }
 
     pub fn wait_idle(&self) -> Result<(), DeviceError> {
@@ -101,6 +133,11 @@ impl Device {
     #[inline]
     pub fn instance(&self) -> &Arc<Instance> {
         self.physical_device.instance()
+    }
+
+    #[inline]
+    pub fn debug_callback_ref(&self) -> &Option<Arc<DebugCallback>> {
+        &self.debug_callback_ref
     }
 }
 

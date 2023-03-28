@@ -20,13 +20,6 @@ impl ApiVersion {
     }
 }
 
-#[test]
-fn api_version_ordering() {
-    let ver_1_1 = ApiVersion::new(1, 1);
-    let ver_1_2 = ApiVersion::new(1, 2);
-    assert!(ver_1_1 < ver_1_2);
-}
-
 pub struct Instance {
     inner: ash::Instance,
     api_version: ApiVersion,
@@ -92,13 +85,40 @@ impl Instance {
             .enabled_layer_names(&layer_name_ptrs)
             .enabled_extension_names(&extension_name_ptrs);
 
-        let instance = unsafe { entry.create_instance(&create_info, ALLOCATION_CALLBACK_NONE) }
-            .map_err(|e| InstanceError::Creation(e))?;
+        let instance_inner =
+            unsafe { entry.create_instance(&create_info, ALLOCATION_CALLBACK_NONE) }
+                .map_err(|e| InstanceError::Creation(e))?;
 
         Ok(Self {
             entry,
-            inner: instance,
+            inner: instance_inner,
             api_version,
+        })
+    }
+
+    pub fn new_from_create_info_builder(
+        entry: Arc<Entry>,
+        create_info_builder: vk::InstanceCreateInfoBuilder,
+    ) -> Result<Self, InstanceError> {
+        let instance_inner =
+            unsafe { entry.create_instance(&create_info_builder, ALLOCATION_CALLBACK_NONE) }
+                .map_err(|e| InstanceError::Creation(e))?;
+
+        let api_version = if create_info_builder.p_application_info != std::ptr::null() {
+            let api_version_combined =
+                unsafe { *create_info_builder.p_application_info }.api_version;
+            ApiVersion {
+                major: vk::api_version_major(api_version_combined),
+                minor: vk::api_version_minor(api_version_combined),
+            }
+        } else {
+            ApiVersion { major: 0, minor: 0 }
+        };
+
+        Ok(Self {
+            inner: instance_inner,
+            api_version,
+            entry,
         })
     }
 
@@ -224,4 +244,13 @@ impl error::Error for InstanceError {
             Self::Creation(e) => Some(e),
         }
     }
+}
+
+// Tests
+
+#[test]
+fn api_version_ordering() {
+    let ver_1_1 = ApiVersion::new(1, 1);
+    let ver_1_2 = ApiVersion::new(1, 2);
+    assert!(ver_1_1 < ver_1_2);
 }

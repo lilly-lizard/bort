@@ -35,18 +35,18 @@ impl Image {
         })
     }
 
-    pub fn new_from_create_info(
+    pub fn new_from_create_info_builder(
         alloc_access: Arc<dyn AllocAccess>,
         image_create_info_builder: vk::ImageCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let image_create_info = image_create_info_builder.build();
-        let image_properties = ImageProperties::from(&image_create_info);
+        let image_properties =
+            ImageProperties::from_create_info_builder(&image_create_info_builder);
 
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_image(&image_create_info, &allocation_info)
+                .create_image(&image_create_info_builder, &allocation_info)
         }?;
 
         let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
@@ -58,7 +58,7 @@ impl Image {
         })
     }
 
-    /// Create a transient, lazily allocated image.
+    /// Create a (preferably) lazily-allocated transient attachment image.
     pub fn new_tranient(
         memory_allocator: Arc<MemoryAllocator>,
         dimensions: ImageDimensions,
@@ -140,7 +140,7 @@ impl Drop for Image {
 
 // Presets
 
-/// Properties for a (preferably) transient, lazily allocated image.
+/// Properties for a device local and preferably lazily-allocated transient attachment image.
 pub fn transient_image_info(
     dimensions: ImageDimensions,
     format: vk::Format,
@@ -200,6 +200,17 @@ impl Default for ImageProperties {
 }
 
 impl ImageProperties {
+    pub fn subresource_range(&self) -> vk::ImageSubresourceRange {
+        let aspect_mask = aspect_mask_from_format(self.format);
+        vk::ImageSubresourceRange {
+            aspect_mask,
+            base_mip_level: 0,
+            level_count: self.mip_levels,
+            base_array_layer: 0,
+            layer_count: self.dimensions.array_layers(),
+        }
+    }
+
     pub fn new_default(
         format: vk::Format,
         dimensions: ImageDimensions,
@@ -229,20 +240,7 @@ impl ImageProperties {
             .queue_family_indices(&self.queue_family_indices)
     }
 
-    pub fn subresource_range(&self) -> vk::ImageSubresourceRange {
-        let aspect_mask = aspect_mask_from_format(self.format);
-        vk::ImageSubresourceRange {
-            aspect_mask,
-            base_mip_level: 0,
-            level_count: self.mip_levels,
-            base_array_layer: 0,
-            layer_count: self.dimensions.array_layers(),
-        }
-    }
-}
-
-impl From<&vk::ImageCreateInfo> for ImageProperties {
-    fn from(value: &vk::ImageCreateInfo) -> Self {
+    fn from_create_info_builder(value: &vk::ImageCreateInfoBuilder) -> Self {
         let dimensions =
             ImageDimensions::new_from_extent_and_layers(value.extent, value.array_layers);
 
