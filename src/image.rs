@@ -1,5 +1,6 @@
 use crate::{
     AllocAccess, Device, DeviceOwned, ImageAccess, MemoryAllocation, MemoryAllocator, MemoryError,
+    PhysicalDevice,
 };
 use ash::{
     prelude::VkResult,
@@ -434,6 +435,59 @@ impl Default for ImageDimensions {
 }
 
 // Helper Functions
+
+/// Returns a depth stencil format guarenteed by the vulkan spec to be supported as a depth stencil
+/// attachment. Prefers VK_FORMAT_D24_UNORM_S8_UINT.
+///
+/// According to the [vulkan spec](https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap47.html#formats-properties):
+///
+/// _VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT feature must be supported for at least one of_ ...
+/// _VK_FORMAT_D24_UNORM_S8_UINT and VK_FORMAT_D32_SFLOAT_S8_UINT._
+pub fn guaranteed_depth_stencil_format(physical_device: &PhysicalDevice) -> vk::Format {
+    let d24_s8_props = unsafe {
+        physical_device
+            .instance()
+            .inner()
+            .get_physical_device_format_properties(
+                physical_device.handle(),
+                vk::Format::D24_UNORM_S8_UINT,
+            )
+    };
+
+    if d24_s8_props
+        .optimal_tiling_features
+        .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
+    {
+        return vk::Format::D24_UNORM_S8_UINT;
+    } else {
+        return vk::Format::D32_SFLOAT_S8_UINT;
+    }
+}
+
+/// Returns a pure depth format guarenteed by the vulkan spec to be supported as a depth stencil
+/// attachment. Prefers VK_FORMAT_D32_SFLOAT.
+///
+/// According to the [vulkan spec](https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap47.html#formats-properties):
+///
+/// _VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT feature must be supported for at least one of
+/// VK_FORMAT_X8_D24_UNORM_PACK32 and VK_FORMAT_D32_SFLOAT_
+pub fn guaranteed_pure_depth_format(physical_device: &PhysicalDevice) -> vk::Format {
+    let d32_props = unsafe {
+        physical_device
+            .instance()
+            .inner()
+            .get_physical_device_format_properties(physical_device.handle(), vk::Format::D32_SFLOAT)
+    };
+
+    if d32_props
+        .optimal_tiling_features
+        .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
+    {
+        return vk::Format::D32_SFLOAT;
+    } else {
+        return vk::Format::X8_D24_UNORM_PACK32;
+    }
+}
 
 pub fn extent_2d_from_width_height(dimensions: [u32; 2]) -> vk::Extent2D {
     vk::Extent2D {
