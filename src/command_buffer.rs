@@ -47,6 +47,22 @@ impl CommandBuffer {
     pub fn command_pool(&self) -> &Arc<CommandPool> {
         &self.command_pool
     }
+
+    // Commands
+
+    /// vkCmdBeginCommandBuffer
+    pub fn begin(&self, begin_info: &vk::CommandBufferBeginInfoBuilder) -> VkResult<()> {
+        unsafe {
+            self.device()
+                .inner()
+                .begin_command_buffer(self.handle, begin_info)
+        }
+    }
+
+    /// vkCmdEndCommandBuffer
+    pub fn end(&self) -> VkResult<()> {
+        unsafe { self.device().inner().end_command_buffer(self.handle) }
+    }
 }
 
 impl DeviceOwned for CommandBuffer {

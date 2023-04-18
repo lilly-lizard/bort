@@ -198,6 +198,7 @@ pub fn allocation_info_from_flags(
 /// For allocating memory that can be accessed and mapped from the cpu. Prefered flags include
 /// HOST_COHERENT (doesn't require flushing). Good for staging buffers.
 pub fn allocation_info_cpu_accessible() -> AllocationCreateInfo {
+    // more info here: https://asawicki.info/news_1740_vulkan_memory_types_on_pc_and_how_to_use_them
     allocation_info_from_flags(
         vk::MemoryPropertyFlags::HOST_VISIBLE,
         vk::MemoryPropertyFlags::HOST_COHERENT,
