@@ -1,11 +1,14 @@
-use crate::{
-    Device, DeviceOwned, ImageAccess, ImageProperties, ImageViewAccess, ALLOCATION_CALLBACK_NONE,
-};
+use crate::{Device, DeviceOwned, ImageAccess, ImageProperties, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
 use std::sync::Arc;
+
+pub trait ImageViewAccess: DeviceOwned + Send + Sync {
+    fn handle(&self) -> vk::ImageView;
+    fn image_access(&self) -> Arc<dyn ImageAccess>;
+}
 
 pub struct ImageView<I: ImageAccess + 'static> {
     handle: vk::ImageView,

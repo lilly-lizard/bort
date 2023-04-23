@@ -3,7 +3,7 @@ use ash::vk;
 use bort_vma::AllocationCreateInfo;
 use std::{error, fmt, mem, ptr, sync::Arc};
 
-pub trait AllocAccess {
+pub trait AllocAccess: Send + Sync {
     fn vma_alloc_ref(&self) -> &dyn bort_vma::Alloc;
     fn device(&self) -> &Arc<Device>;
 

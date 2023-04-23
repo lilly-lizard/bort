@@ -1,5 +1,5 @@
 use crate::{
-    AllocAccess, Device, DeviceOwned, ImageAccess, MemoryAllocation, MemoryAllocator, MemoryError,
+    AllocAccess, Device, DeviceOwned, MemoryAllocation, MemoryAllocator, MemoryError,
     PhysicalDevice,
 };
 use ash::{
@@ -8,6 +8,11 @@ use ash::{
 };
 use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
+
+pub trait ImageAccess: DeviceOwned + Send + Sync {
+    fn handle(&self) -> vk::Image;
+    fn dimensions(&self) -> ImageDimensions;
+}
 
 pub struct Image {
     handle: vk::Image,
