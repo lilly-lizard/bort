@@ -1,5 +1,9 @@
 use crate::{string_to_c_string_vec, ALLOCATION_CALLBACK_NONE};
-use ash::{extensions::ext::DebugUtils, vk, Entry};
+use ash::{
+    extensions::ext::DebugUtils,
+    vk::{self, make_api_version},
+    Entry,
+};
 use raw_window_handle::RawDisplayHandle;
 use std::{
     error,
@@ -17,6 +21,10 @@ pub struct ApiVersion {
 impl ApiVersion {
     pub fn new(major: u32, minor: u32) -> Self {
         Self { major, minor }
+    }
+
+    pub fn as_vk_uint(&self) -> u32 {
+        make_api_version(0, self.major, self.minor, 0)
     }
 }
 

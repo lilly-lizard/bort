@@ -15,13 +15,22 @@ pub struct MemoryAllocator {
 
 impl MemoryAllocator {
     pub fn new(device: Arc<Device>) -> VkResult<Self> {
+        let api_version_uint = device.instance().api_version().as_vk_uint();
         let allocator_info = AllocatorCreateInfo::new(
             device.instance().inner(),
             device.inner(),
             device.physical_device().handle(),
-        );
-        let inner = Arc::new(bort_vma::Allocator::new(allocator_info)?);
+        )
+        .vulkan_api_version(api_version_uint);
 
+        Self::new_from_create_info(device.clone(), allocator_info)
+    }
+
+    pub fn new_from_create_info(
+        device: Arc<Device>,
+        create_info: AllocatorCreateInfo,
+    ) -> VkResult<Self> {
+        let inner = Arc::new(bort_vma::Allocator::new(create_info)?);
         Ok(Self { inner, device })
     }
 
