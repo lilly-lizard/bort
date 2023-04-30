@@ -1,4 +1,4 @@
-use crate::{Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE};
+use crate::{is_format_linear, is_format_srgb, Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE};
 use ash::{extensions::khr, prelude::VkResult, vk, Entry};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use std::sync::Arc;
@@ -104,4 +104,26 @@ impl Drop for Surface {
                 .destroy_surface(self.handle, ALLOCATION_CALLBACK_NONE)
         };
     }
+}
+
+/// Returns the first SRGB surface format in the vec. Returns `None` is there's none.
+pub fn get_first_srgb_surface_format(
+    surface_formats: &Vec<vk::SurfaceFormatKHR>,
+) -> Option<vk::SurfaceFormatKHR> {
+    surface_formats
+        .iter()
+        .cloned()
+        // use the first SRGB format we find
+        .find(|vk::SurfaceFormatKHR { format, .. }| is_format_srgb(*format))
+}
+
+/// Returns the first linear surface format in the vec. Returns `None` is there's none.
+pub fn get_first_linear_surface_format(
+    surface_formats: &Vec<vk::SurfaceFormatKHR>,
+) -> Option<vk::SurfaceFormatKHR> {
+    surface_formats
+        .iter()
+        .cloned()
+        // use the first linear format we find
+        .find(|vk::SurfaceFormatKHR { format, .. }| is_format_linear(*format))
 }
