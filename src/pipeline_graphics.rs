@@ -1,6 +1,6 @@
 use crate::{
-    from_create_info_ptr, Device, DeviceOwned, FromCreateInfo, PipelineAccess, PipelineCache,
-    PipelineLayout, RenderPass, ShaderStage, ALLOCATION_CALLBACK_NONE,
+    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, RenderPass, ShaderStage,
+    ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
@@ -223,6 +223,31 @@ impl Drop for GraphicsPipeline {
 }
 
 // Properties
+
+/// Allows usage of `from_create_info_ptr`
+trait FromCreateInfo<VkCreateInfo> {
+    fn from_create_info(value: &VkCreateInfo) -> Self;
+}
+
+/// If `vk_create_info_ptr` isn't null, this function dereferences it then returns the result of
+/// `from_create_info`. Otherwise returns `Default::default()`.
+///
+/// Safety:
+/// - if `vk_create_info_ptr` is not null, it must point to something
+unsafe fn from_create_info_ptr<Properties, VkCreateInfo>(
+    vk_create_info_ptr: *const VkCreateInfo,
+) -> Properties
+where
+    Properties: FromCreateInfo<VkCreateInfo> + Default,
+    VkCreateInfo: Copy + Clone,
+{
+    if vk_create_info_ptr != std::ptr::null() {
+        let vk_create_info = unsafe { *vk_create_info_ptr };
+        Properties::from_create_info(&vk_create_info)
+    } else {
+        Default::default()
+    }
+}
 
 /// Note: doesn't include shader stages, render pass, pipeline layout or pipeline cache
 #[derive(Clone, Default)]

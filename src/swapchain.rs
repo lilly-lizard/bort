@@ -1,7 +1,7 @@
 use crate::{
     default_component_mapping, default_subresource_range, extent_2d_from_width_height,
-    is_format_srgb, Device, DeviceOwned, Fence, ImageAccess, ImageDimensions, ImageViewProperties,
-    Semaphore, Surface, ALLOCATION_CALLBACK_NONE,
+    is_format_linear, is_format_srgb, Device, DeviceOwned, Fence, ImageAccess, ImageDimensions,
+    ImageViewProperties, Semaphore, Surface, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     extensions::khr,
@@ -464,17 +464,26 @@ pub fn choose_composite_alpha(
         .expect("driver should support at least one type of composite alpha!")
 }
 
-/// Returns the first SRGB surface format in the vec.
+/// Returns the first SRGB surface format in the vec. Returns `None` is there's none.
 pub fn get_first_srgb_surface_format(
     surface_formats: &Vec<vk::SurfaceFormatKHR>,
-) -> vk::SurfaceFormatKHR {
+) -> Option<vk::SurfaceFormatKHR> {
     surface_formats
         .iter()
         .cloned()
         // use the first SRGB format we find
         .find(|vk::SurfaceFormatKHR { format, .. }| is_format_srgb(*format))
-        // otherwise just go with the first format
-        .unwrap_or(surface_formats[0])
+}
+
+/// Returns the first linear surface format in the vec. Returns `None` is there's none.
+pub fn get_first_linear_surface_format(
+    surface_formats: &Vec<vk::SurfaceFormatKHR>,
+) -> Option<vk::SurfaceFormatKHR> {
+    surface_formats
+        .iter()
+        .cloned()
+        // use the first linear format we find
+        .find(|vk::SurfaceFormatKHR { format, .. }| is_format_linear(*format))
 }
 
 #[derive(Debug, Clone)]
