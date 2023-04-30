@@ -106,7 +106,7 @@ impl Drop for Surface {
     }
 }
 
-/// Returns the first SRGB surface format in the vec. Returns `None` is there's none.
+/// Returns the first surface format with a linear image format in the vec. Returns `None` is there's none.
 pub fn get_first_srgb_surface_format(
     surface_formats: &Vec<vk::SurfaceFormatKHR>,
 ) -> Option<vk::SurfaceFormatKHR> {
@@ -117,7 +117,7 @@ pub fn get_first_srgb_surface_format(
         .find(|vk::SurfaceFormatKHR { format, .. }| is_format_srgb(*format))
 }
 
-/// Returns the first linear surface format in the vec. Returns `None` is there's none.
+/// Returns the first surface format with a linear image format in the vec. Returns `None` is there's none.
 pub fn get_first_linear_surface_format(
     surface_formats: &Vec<vk::SurfaceFormatKHR>,
 ) -> Option<vk::SurfaceFormatKHR> {
