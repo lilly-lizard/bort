@@ -1,6 +1,6 @@
 # Bort
 
-Is a pretty unambitious, lightweight vulkan wrapper on top of [ash](https://github.com/ash-rs/ash) and [vulkan memory allocator](https://github.com/lilly-lizard/bort-vma) aiming to reduce some boilerplate, call destructors with `Drop`, reference count resource dependencies, store create-info properties, provide useful defaults for create-info properties etc.
+Is a pretty unambitious, lightweight vulkan wrapper on top of [ash](https://github.com/ash-rs/ash) and [VMA](https://github.com/lilly-lizard/bort-vma) aiming to reduce some boilerplate, call destructors with `Drop`, reference count resource dependencies, store create-info properties, provide useful defaults for create-info properties etc.
 
 ![Bort under attack](/assets/bort-under-attack.jpg)
 
