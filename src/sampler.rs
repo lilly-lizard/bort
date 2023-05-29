@@ -5,6 +5,7 @@ use ash::{
 };
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct Sampler {
     handle: vk::Sampler,
     properties: SamplerProperties,
@@ -97,8 +98,11 @@ impl Default for SamplerProperties {
 }
 
 impl SamplerProperties {
-    pub fn create_info_builder(&self) -> vk::SamplerCreateInfoBuilder {
-        vk::SamplerCreateInfo::builder()
+    pub fn write_create_info_builder<'a>(
+        &'a self,
+        builder: vk::SamplerCreateInfoBuilder<'a>,
+    ) -> vk::SamplerCreateInfoBuilder {
+        builder
             .flags(self.flags)
             .mag_filter(self.mag_filter)
             .min_filter(self.min_filter)
@@ -115,5 +119,38 @@ impl SamplerProperties {
             .max_lod(self.max_lod)
             .border_color(self.border_color)
             .unnormalized_coordinates(self.unnormalized_coordinates)
+    }
+
+    pub fn create_info_builder(&self) -> vk::SamplerCreateInfoBuilder {
+        self.write_create_info_builder(vk::SamplerCreateInfo::builder())
+    }
+
+    pub fn from_create_info_builder(create_info: &vk::SamplerCreateInfoBuilder) -> Self {
+        Self {
+            flags: create_info.flags,
+            mag_filter: create_info.mag_filter,
+            min_filter: create_info.min_filter,
+            mipmap_mode: create_info.mipmap_mode,
+            address_mode: [
+                create_info.address_mode_u,
+                create_info.address_mode_v,
+                create_info.address_mode_w,
+            ],
+            mip_lod_bias: create_info.mip_lod_bias,
+            max_anisotropy: if create_info.anisotropy_enable != 0 {
+                Some(create_info.max_anisotropy)
+            } else {
+                None
+            },
+            compare_op: if create_info.compare_enable != 0 {
+                Some(create_info.compare_op)
+            } else {
+                None
+            },
+            min_lod: create_info.min_lod,
+            max_lod: create_info.max_lod,
+            border_color: create_info.border_color,
+            unnormalized_coordinates: create_info.unnormalized_coordinates != 0,
+        }
     }
 }

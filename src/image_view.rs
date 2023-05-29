@@ -155,13 +155,13 @@ impl ImageViewProperties {
         self.write_create_info_builder(vk::ImageViewCreateInfo::builder(), image_handle)
     }
 
-    pub fn from_create_info_builder(value: &vk::ImageViewCreateInfoBuilder) -> Self {
+    pub fn from_create_info_builder(create_info: &vk::ImageViewCreateInfoBuilder) -> Self {
         Self {
-            flags: value.flags,
-            view_type: value.view_type,
-            component_mapping: value.components,
-            format: value.format,
-            subresource_range: value.subresource_range,
+            flags: create_info.flags,
+            view_type: create_info.view_type,
+            component_mapping: create_info.components,
+            format: create_info.format,
+            subresource_range: create_info.subresource_range,
         }
     }
 }
