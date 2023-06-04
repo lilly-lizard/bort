@@ -29,12 +29,33 @@ impl Sampler {
         })
     }
 
+    pub fn new_from_create_info_builder(
+        device: Arc<Device>,
+        create_info_builder: vk::SamplerCreateInfoBuilder,
+    ) -> VkResult<Self> {
+        let properties = SamplerProperties::from_create_info_builder(&create_info_builder);
+
+        let handle = unsafe {
+            device
+                .inner()
+                .create_sampler(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+        }?;
+
+        Ok(Self {
+            handle,
+            properties,
+            device,
+        })
+    }
+
     // Getters
 
+    #[inline]
     pub fn handle(&self) -> vk::Sampler {
         self.handle
     }
 
+    #[inline]
     pub fn properties(&self) -> &SamplerProperties {
         &self.properties
     }

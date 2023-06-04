@@ -55,11 +55,19 @@ impl RenderPass {
         })
     }
 
-    pub fn new_from_create_info_builder(
+    /// Safety:
+    ///
+    /// For each subpass:
+    /// - if `subpass_description.p_color_attachments` is not null it must point to an array with
+    ///   `subpass_description.color_attachment_count` many elements.
+    /// - if `subpass_description.p_input_attachments` is not null it must point to an array with
+    ///   `subpass_description.input_attachment_count` many elements.
+    pub unsafe fn new_from_create_info_builder(
         device: Arc<Device>,
         create_info_builder: vk::RenderPassCreateInfoBuilder,
     ) -> VkResult<Self> {
-        let properties = RenderPassProperties::from_create_info_builder(&create_info_builder);
+        let properties =
+            unsafe { RenderPassProperties::from_create_info_builder(&create_info_builder) };
 
         let handle = unsafe {
             device
@@ -76,10 +84,12 @@ impl RenderPass {
 
     // Getters
 
+    #[inline]
     pub fn handle(&self) -> vk::RenderPass {
         self.handle
     }
 
+    #[inline]
     pub fn properties(&self) -> &RenderPassProperties {
         &self.properties
     }
@@ -122,7 +132,9 @@ impl RenderPassProperties {
     ///   `subpass_description.color_attachment_count` many elements.
     /// - if `subpass_description.p_input_attachments` is not null it must point to an array with
     ///   `subpass_description.input_attachment_count` many elements.
-    pub fn from_create_info_builder(create_info_builder: &vk::RenderPassCreateInfoBuilder) -> Self {
+    pub unsafe fn from_create_info_builder(
+        create_info_builder: &vk::RenderPassCreateInfoBuilder,
+    ) -> Self {
         let mut attachment_descriptions = Vec::<vk::AttachmentDescription>::new();
         if create_info_builder.p_attachments != std::ptr::null() {
             for i in 0..create_info_builder.attachment_count {
