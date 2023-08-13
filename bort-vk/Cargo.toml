@@ -1,12 +1,14 @@
 [package]
 name = "bort-vk"
 version = "0.2.0"
-edition = "2021"
+description = "lightweight vulkan wrapper"
 license = "MIT"
-keywords = ["vulkan", "wrapper", "ash"]
+keywords = ["vulkan", "wrapper", "ash", "3D", "graphics"]
+categories = ["rendering::graphics-api"]
 readme = "../README.md"
 repository = "https://github.com/lilly-lizard/bort"
 homepage = "https://github.com/lilly-lizard/bort"
+edition = "2021"
 
 [dependencies]
 # ash is a lightweight vulkan wrapper
