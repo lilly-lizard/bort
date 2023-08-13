@@ -52,7 +52,7 @@ fn main() {
     build.define("VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT", "1");
 
     // Add the files we build
-    build.file("src/wrapper.cpp");
+    build.file("wrapper/vma_lib.cpp");
 
     let target = env::var("TARGET").unwrap();
     if target.contains("darwin") {
