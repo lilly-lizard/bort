@@ -1,0 +1,72 @@
+[package]
+name = "bort-vma"
+version = "0.2.3"
+authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
+description = "Rust ffi bindings and idiomatic wrapper for AMD Vulkan Memory Allocator (VMA)"
+homepage = "https://github.com/lilly-lizard/bort-vma"
+repository = "https://github.com/lilly-lizard/bort-vma"
+documentation = "https://docs.rs/bort-vma"
+readme = "README.md"
+keywords = ["vulkan", "vma", "ash", "memory", "allocator"]
+categories = ["api-bindings", "rendering", "rendering::engine", "rendering::graphics-api", ]
+license = "MIT/Apache-2.0"
+build = "build.rs"
+include = [
+    "src/*.rs",
+    "gen/bindings.rs",
+    "build.rs",
+    "Cargo.toml",
+    "vendor/VulkanMemoryAllocator/include/vk_mem_alloc.h",
+    "vendor/Vulkan-Headers/include/vk_platform.h",
+    "vendor/Vulkan-Headers/include/vulkan_core.h",
+    "vendor/Vulkan-Headers/include/vulkan.h",
+    "wrapper/vma_lib.cpp",
+]
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "lilly-lizard/bort-vma" }
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+ash = { version = "0.37", default-features = false }
+bitflags = "2.0"
+
+[build-dependencies]
+cc = "1.0"
+
+[build-dependencies.bindgen]
+version = "0.64"
+optional = true
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+
+[features]
+default = ["loaded"]
+generate_bindings=["bindgen"]
+linked=["ash/linked"]
+loaded=["ash/loaded"]
+
+# vma compile flags:
+
+# defines VMA_VULKAN_VERSION=1003000
+vulkan-1-3=[]
+# defines VMA_VULKAN_VERSION=1002000
+vulkan-1-2=[]
+# defines VMA_VULKAN_VERSION=1001000
+vulkan-1-1=[]
+# defines VMA_VULKAN_VERSION=1000000
+vulkan-1-0=[]
+# Enable VMA memory recording for debugging (equivilent to VMA_RECORDING_ENABLED cmake option).
+recording-enabled=[]
+# Every allocation will have its own memory block (equivilent to VMA_DEBUG_ALWAYS_DEDICATED_MEMORY cmake option).
+debug-always-dedicated-memory=[]
+# Automatically fill new allocations and destroyed allocations with some bit pattern (equivilent to VMA_DEBUG_INITIALIZE_ALLOCATIONS cmake option).
+debug-initialize-allocations=[]
+# Enable single mutex protecting all entry calls to the library (equivilent to VMA_DEBUG_GLOBAL_MUTEX cmake option).
+debug-global-mutex=[]
+# Never exceed VkPhysicalDeviceLimits::maxMemoryAllocationCount and return error (equivilent to VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT cmake option).
+debug-dont-exceed-max-memory-allocation-count=[]
