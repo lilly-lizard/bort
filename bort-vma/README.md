@@ -1,4 +1,4 @@
-vk-mem
+bort-vma
 ========
 
 ![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -117,21 +117,6 @@ export DYLD_LIBRARY_PATH=$SDK_PATH/macOS/lib
 export VK_ICD_FILENAMES=$SDK_PATH/macOS/etc/vulkan/icd.d/MoltenVK_icd.json
 export VK_LAYER_PATH=$SDK_PATH/macOS/etc/vulkan/explicit_layer.d
 cargo test
-```
-
-## Usage
-
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-vk-mem = "0.2.3"
-```
-
-and add this to your crate root:
-
-```rust
-extern crate vk_mem;
 ```
 
 ## Compiling using MinGW W64
