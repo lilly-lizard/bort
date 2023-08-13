@@ -16,4 +16,4 @@ ash = "0.37.2"
 ash-window = "0.12"
 raw-window-handle = "0.5"
 # AMD vulkan memory allocator bindings (https://github.com/lilly-lizard/bort-vma)
-bort-vma = { path = "../bort-vma" }
+bort-vma = { version = "0.3.1", path = "../bort-vma" }
