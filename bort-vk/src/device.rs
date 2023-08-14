@@ -46,6 +46,7 @@ impl Device {
             .map(|cstring| cstring.as_ptr())
             .collect::<Vec<_>>();
 
+        #[allow(deprecated)]
         let mut device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(queue_create_infos)
             .enabled_extension_names(&extension_name_ptrs)
