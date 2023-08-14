@@ -41,7 +41,7 @@ impl Image {
         })
     }
 
-    pub fn new_from_create_info_builder(
+    pub fn new_from_create_info(
         alloc_access: Arc<dyn AllocAccess>,
         image_create_info_builder: vk::ImageCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,

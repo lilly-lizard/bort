@@ -45,7 +45,10 @@ impl MemoryAllocation {
         }
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
+    /// Doesn't perform any GPU synchronization.
+    ///
+    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
     pub fn write_struct<T>(&mut self, data: T, write_offset: usize) -> Result<(), MemoryError> {
         let data_size = mem::size_of_val(&data);
 
@@ -74,7 +77,10 @@ impl MemoryAllocation {
         Ok(())
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
+    /// Doesn't perform any GPU synchronization.
+    ///
+    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
     pub fn write_iter<I, T>(&mut self, data: I, write_offset: usize) -> Result<(), MemoryError>
     where
         I: IntoIterator<Item = T>,
@@ -128,6 +134,7 @@ impl MemoryAllocation {
             .unmap_memory(&mut self.inner)
     }
 
+    /// Flushes if the allocated memory isn't host coherent.
     pub fn flush_allocation(
         &mut self,
         write_offset: usize,
@@ -155,6 +162,7 @@ impl MemoryAllocation {
         &self.inner
     }
 
+    /// Access the `bort_vma::Allocation` handle that `self` contains.
     #[inline]
     pub fn inner_mut(&mut self) -> &mut bort_vma::Allocation {
         &mut self.inner
@@ -165,6 +173,7 @@ impl MemoryAllocation {
         self.memory_type
     }
 
+    /// Returns self as a dynamic allocation type.
     #[inline]
     pub fn alloc_access(&self) -> &Arc<dyn AllocAccess> {
         &self.alloc_access

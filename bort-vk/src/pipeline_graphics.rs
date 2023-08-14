@@ -71,7 +71,7 @@ impl GraphicsPipeline {
     ///   - [`MultisampleState::from_create_info`]
     ///   - [`ColorBlendState::from_create_info`]
     ///   - [`DynamicState::from_create_info`]
-    pub unsafe fn new_from_create_info_builder(
+    pub unsafe fn new_from_create_info(
         pipeline_layout: Arc<PipelineLayout>,
         create_info_builder: vk::GraphicsPipelineCreateInfoBuilder,
         pipeline_cache: Option<&PipelineCache>,

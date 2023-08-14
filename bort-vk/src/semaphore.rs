@@ -13,10 +13,10 @@ pub struct Semaphore {
 impl Semaphore {
     pub fn new(device: Arc<Device>) -> VkResult<Self> {
         let create_info_builder = vk::SemaphoreCreateInfo::builder();
-        Self::new_from_create_info_builder(device, create_info_builder)
+        Self::new_from_create_info(device, create_info_builder)
     }
 
-    pub fn new_from_create_info_builder(
+    pub fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::SemaphoreCreateInfoBuilder,
     ) -> VkResult<Self> {

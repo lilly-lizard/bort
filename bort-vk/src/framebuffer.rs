@@ -41,7 +41,7 @@ impl Framebuffer {
 
     /// Note: this fn doesn't check that the render pass handle in `create_info_builder` is equal to
     /// that of `render_pass`!
-    pub fn new_from_create_info_builder(
+    pub fn new_from_create_info(
         render_pass: Arc<RenderPass>,
         create_info_builder: vk::FramebufferCreateInfoBuilder,
     ) -> VkResult<Self> {

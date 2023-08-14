@@ -6,6 +6,8 @@ use ash::{
 use bort_vma::{Alloc, AllocationCreateInfo};
 use std::sync::Arc;
 
+/// Contains a [VkBuffer](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkBuffer.html)
+/// and a memory allocation.
 pub struct Buffer {
     handle: vk::Buffer,
     properties: BufferProperties,
@@ -34,7 +36,7 @@ impl Buffer {
         ))
     }
 
-    pub fn new_from_create_info_builder(
+    pub fn new_from_create_info(
         alloc_access: Arc<dyn AllocAccess>,
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
@@ -69,13 +71,18 @@ impl Buffer {
             memory_allocation,
         }
     }
-
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    /// Writes `data` to the buffer memory allocation. Will flush if memory isn't host coherent.
+    /// Doesn't perform any GPU synchronization.
+    ///
+    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
     pub fn write_struct<T>(&mut self, data: T, mem_offset: usize) -> Result<(), MemoryError> {
         self.memory_allocation.write_struct(data, mem_offset)
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    /// Writes `data` to the buffer memory allocation. Will flush if memory isn't host coherent.
+    /// Doesn't perform any GPU synchronization.
+    ///
+    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
     pub fn write_iter<I, T>(&mut self, data: I, mem_offset: usize) -> Result<(), MemoryError>
     where
         I: IntoIterator<Item = T>,

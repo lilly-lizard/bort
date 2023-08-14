@@ -29,7 +29,7 @@ impl Sampler {
         })
     }
 
-    pub fn new_from_create_info_builder(
+    pub fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::SamplerCreateInfoBuilder,
     ) -> VkResult<Self> {

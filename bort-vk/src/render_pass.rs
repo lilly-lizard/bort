@@ -62,7 +62,7 @@ impl RenderPass {
     ///   `subpass_description.color_attachment_count` many elements.
     /// - if `subpass_description.p_input_attachments` is not null it must point to an array with
     ///   `subpass_description.input_attachment_count` many elements.
-    pub unsafe fn new_from_create_info_builder(
+    pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::RenderPassCreateInfoBuilder,
     ) -> VkResult<Self> {

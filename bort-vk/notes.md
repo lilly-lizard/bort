@@ -28,6 +28,6 @@ review command_pool and buffer again...
 - `From<&vk::*CreateInfoBuilder>`
 
 other:
-- `new_from_create_info_builder()` fn for associated struct
+- `new_from_create_info()` fn for associated struct
 - // Properties comment
 - inline getters
