@@ -49,53 +49,57 @@ impl MemoryAllocation {
     /// Doesn't perform any GPU synchronization.
     ///
     /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
-    pub fn write_struct<T>(&mut self, data: T, write_offset: usize) -> Result<(), MemoryError> {
-        let data_size = mem::size_of_val(&data);
+    pub fn write_struct<T>(
+        &mut self,
+        write_data: T,
+        write_offset: usize,
+    ) -> Result<(), MemoryError> {
+        let data_size = mem::size_of_val(&write_data);
 
         let allocation_size = self.size as usize;
         if data_size > allocation_size - write_offset {
-            return Err(MemoryError::WriteDataSize {
+            return Err(MemoryError::AccessDataSize {
                 data_size,
                 allocation_size,
-                write_offset,
+                offset: write_offset,
             });
         }
 
         let mapped_memory = unsafe { self.map_memory() }?;
         let offset_mapped_memory = unsafe { mapped_memory.offset(write_offset as isize) } as *mut T;
 
-        unsafe { ptr::write::<T>(offset_mapped_memory, data) };
+        unsafe { ptr::write::<T>(offset_mapped_memory, write_data) };
 
         let flush_res = self.flush_allocation(write_offset, data_size);
-        if let Err(e) = flush_res {
-            unsafe { self.unmap_memory() };
-            return Err(e);
-        }
 
         unsafe { self.unmap_memory() };
 
-        Ok(())
+        flush_res
     }
 
     /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
     /// Doesn't perform any GPU synchronization.
     ///
     /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
-    pub fn write_iter<I, T>(&mut self, data: I, write_offset: usize) -> Result<(), MemoryError>
+    pub fn write_iter<I, T>(
+        &mut self,
+        write_data: I,
+        write_offset: usize,
+    ) -> Result<(), MemoryError>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
     {
-        let data = data.into_iter();
+        let write_data_iter = write_data.into_iter();
         let item_size = mem::size_of::<T>();
-        let data_size = data.len() * item_size;
+        let data_size = write_data_iter.len() * item_size;
 
         let allocation_size = self.size as usize;
         if data_size > allocation_size - write_offset {
-            return Err(MemoryError::WriteDataSize {
+            return Err(MemoryError::AccessDataSize {
                 data_size,
                 allocation_size,
-                write_offset,
+                offset: write_offset,
             });
         }
 
@@ -104,21 +108,43 @@ impl MemoryAllocation {
             unsafe { mapped_memory.offset(write_offset as isize) } as *mut T;
 
         unsafe {
-            for element in data {
+            for element in write_data_iter {
                 ptr::write::<T>(offset_mapped_memory, element);
                 offset_mapped_memory = offset_mapped_memory.offset(1);
             }
         }
 
         let flush_res = self.flush_allocation(write_offset, data_size);
-        if let Err(e) = flush_res {
-            unsafe { self.unmap_memory() };
-            return Err(e);
-        }
 
         unsafe { self.unmap_memory() };
 
-        Ok(())
+        flush_res
+    }
+
+    /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
+    /// Doesn't perform any GPU synchronization.
+    ///
+    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
+    pub fn read_struct<T>(&mut self, read_offset: usize) -> Result<T, MemoryError> {
+        let data_size = mem::size_of::<T>();
+
+        let allocation_size = self.size as usize;
+        if data_size > allocation_size - read_offset {
+            return Err(MemoryError::AccessDataSize {
+                data_size,
+                allocation_size,
+                offset: read_offset,
+            });
+        }
+
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let offset_mapped_memory = unsafe { mapped_memory.offset(read_offset as isize) } as *mut T;
+
+        let read_data = unsafe { ptr::read::<T>(offset_mapped_memory) };
+
+        unsafe { self.unmap_memory() };
+
+        Ok(read_data)
     }
 
     pub unsafe fn map_memory(&mut self) -> Result<*mut u8, MemoryError> {
@@ -134,24 +160,18 @@ impl MemoryAllocation {
             .unmap_memory(&mut self.inner)
     }
 
-    /// Flushes if the allocated memory isn't host coherent.
+    /// Flushes allocated memory. Note that the VMA function only runs is the memory is host
+    /// visible and isn't host coherent.
+    #[inline]
     pub fn flush_allocation(
         &mut self,
         write_offset: usize,
         data_size: usize,
     ) -> Result<(), MemoryError> {
-        // don't need to flush if memory is host coherent
-        if !self
-            .memory_property_flags()
-            .contains(vk::MemoryPropertyFlags::HOST_COHERENT)
-        {
-            self.alloc_access
-                .vma_allocator()
-                .flush_allocation(&self.inner, write_offset, data_size)
-                .map_err(|e| MemoryError::Flushing(e))?;
-        }
-
-        Ok(())
+        self.alloc_access
+            .vma_allocator()
+            .flush_allocation(&self.inner, write_offset, data_size)
+            .map_err(|e| MemoryError::Flushing(e))
     }
 
     // Getters
@@ -219,10 +239,10 @@ pub fn allocation_info_cpu_accessible() -> AllocationCreateInfo {
 #[derive(Debug, Clone)]
 pub enum MemoryError {
     Mapping(vk::Result),
-    WriteDataSize {
+    AccessDataSize {
         data_size: usize,
         allocation_size: usize,
-        write_offset: usize,
+        offset: usize,
     },
     Flushing(vk::Result),
 }
@@ -233,15 +253,15 @@ impl fmt::Display for MemoryError {
             Self::Mapping(e) => {
                 write!(f, "failed map allocation memory: {}", e)
             }
-            Self::WriteDataSize {
+            Self::AccessDataSize {
                 data_size,
                 allocation_size,
-                write_offset,
+                offset,
             } => {
                 write!(
                     f,
-                    "invalid data size to be written: data size = {}, allocation size = {}, write offset = {}",
-                    data_size, allocation_size, write_offset
+                    "invalid data size access parameters: data size = {}, allocation size = {}, write offset = {}",
+                    data_size, allocation_size, offset
                 )
             }
             Self::Flushing(e) => write!(f, "failed to flush memory: {}", e),
@@ -253,7 +273,7 @@ impl error::Error for MemoryError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Mapping(e) => Some(e),
-            Self::WriteDataSize { .. } => None,
+            Self::AccessDataSize { .. } => None,
             Self::Flushing(e) => Some(e),
         }
     }

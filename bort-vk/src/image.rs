@@ -7,7 +7,7 @@ use ash::{
     vk::{self, Handle},
 };
 use bort_vma::{Alloc, AllocationCreateInfo};
-use std::sync::Arc;
+use std::{error, fmt, sync::Arc};
 
 pub trait ImageAccess: DeviceOwned + Send + Sync {
     fn handle(&self) -> vk::Image;
@@ -77,18 +77,23 @@ impl Image {
         Self::new(memory_allocator, image_properties, allocation_info)
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail
     pub fn write_struct<T>(&mut self, data: T, mem_offset: usize) -> Result<(), MemoryError> {
         self.memory_allocation.write_struct(data, mem_offset)
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` writing will fail
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail
     pub fn write_iter<I, T>(&mut self, data: I, mem_offset: usize) -> Result<(), MemoryError>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
     {
         self.memory_allocation.write_iter(data, mem_offset)
+    }
+
+    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail
+    pub fn read_struct_at_offset<T>(&mut self, mem_offset: usize) -> Result<T, MemoryError> {
+        self.memory_allocation.read_struct(mem_offset)
     }
 
     // Getters
@@ -152,12 +157,11 @@ pub fn transient_image_info(
     format: vk::Format,
     additional_usage: vk::ImageUsageFlags,
 ) -> (ImageProperties, AllocationCreateInfo) {
-    let image_properties = ImageProperties {
-        dimensions,
+    let image_properties = ImageProperties::new_default(
         format,
-        usage: vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | additional_usage,
-        ..ImageProperties::default()
-    };
+        dimensions,
+        vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | additional_usage,
+    );
 
     let allocation_info = AllocationCreateInfo {
         //usage: bort_vma::MemoryUsage::GpuLazy,
@@ -217,6 +221,7 @@ impl ImageProperties {
         }
     }
 
+    #[inline]
     pub fn new_default(
         format: vk::Format,
         dimensions: ImageDimensions,
@@ -541,4 +546,58 @@ pub fn aspect_mask_from_format(format: vk::Format) -> vk::ImageAspectFlags {
     }
 
     aspect
+}
+
+// Image Access Error
+
+#[derive(Debug, Clone)]
+pub enum ImageAccessError {
+    /// `requested_coordinates` and `image_dimensions` are different enum variants
+    IncompatibleDimensions {
+        requested_coordinates: ImageDimensions,
+        image_dimensions: ImageDimensions,
+    },
+    InvalidDimensions {
+        requested_coordinates: ImageDimensions,
+        image_dimensions: ImageDimensions,
+    },
+    MemoryError(MemoryError),
+}
+
+impl fmt::Display for ImageAccessError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MemoryError(e) => e.fmt(f),
+            Self::IncompatibleDimensions {
+                requested_coordinates,
+                image_dimensions,
+            } => {
+                write!(
+                    f,
+                    "incompatible coordinate/dimension types: requested coordinates = {:?}, image dimensions = {:?}",
+                    requested_coordinates, image_dimensions
+                )
+            }
+            Self::InvalidDimensions {
+                requested_coordinates,
+                image_dimensions,
+            } => {
+                write!(
+                    f,
+                    "invalid coordinates/dimensions: requested coordinates = {:?}, image dimensions = {:?}",
+                    requested_coordinates, image_dimensions
+                )
+            }
+        }
+    }
+}
+
+impl error::Error for ImageAccessError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::MemoryError(e) => Some(e),
+            Self::IncompatibleDimensions { .. } => None,
+            Self::InvalidDimensions { .. } => None,
+        }
+    }
 }
