@@ -27,6 +27,10 @@ impl Fence {
         Ok(Self { handle, device })
     }
 
+    pub fn reset(&self) -> VkResult<()> {
+        unsafe { self.device.inner().reset_fences(&[self.handle]) }
+    }
+
     // Getters
 
     #[inline]

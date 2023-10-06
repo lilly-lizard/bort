@@ -1,4 +1,4 @@
-use crate::{Device, DeviceOwned};
+use crate::{Device, DeviceError, DeviceOwned};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
@@ -15,15 +15,26 @@ pub struct Queue {
 }
 
 impl Queue {
+    /// Uses vkGetDeviceQueue
     pub fn new(device: Arc<Device>, family_index: u32, queue_index: u32) -> Self {
-        // todo https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap5.html#vkGetDeviceQueue2
-
         let handle = unsafe { device.inner().get_device_queue(family_index, queue_index) };
 
         Self {
             handle,
             family_index,
             queue_index,
+            device,
+        }
+    }
+
+    /// Uses vkGetDeviceQueue2
+    pub fn new_v2(device: Arc<Device>, queue_info: vk::DeviceQueueInfo2Builder) -> Self {
+        let handle = unsafe { device.inner().get_device_queue2(&queue_info) };
+
+        Self {
+            handle,
+            family_index: queue_info.queue_family_index,
+            queue_index: queue_info.queue_index,
             device,
         }
     }
@@ -40,6 +51,10 @@ impl Queue {
                 fence_handle.unwrap_or_default(),
             )
         }
+    }
+
+    pub fn wait_idle(&self) -> Result<(), DeviceError> {
+        self.device.queue_wait_idle(self)
     }
 
     // Getters

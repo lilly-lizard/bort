@@ -1,5 +1,5 @@
 use crate::{
-    string_to_c_string_vec, ApiVersion, DebugCallback, Instance, PhysicalDevice,
+    string_to_c_string_vec, ApiVersion, DebugCallback, Instance, PhysicalDevice, Queue,
     ALLOCATION_CALLBACK_NONE,
 };
 use ash::vk;
@@ -114,6 +114,11 @@ impl Device {
 
     pub fn wait_idle(&self) -> Result<(), DeviceError> {
         let res = unsafe { self.inner.device_wait_idle() };
+        res.map_err(|vk_res| DeviceError::WaitIdle(vk_res))
+    }
+
+    pub fn queue_wait_idle(&self, queue: &Queue) -> Result<(), DeviceError> {
+        let res = unsafe { self.inner.queue_wait_idle(queue.handle()) };
         res.map_err(|vk_res| DeviceError::WaitIdle(vk_res))
     }
 
