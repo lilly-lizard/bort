@@ -16,6 +16,8 @@ pub struct Queue {
 
 impl Queue {
     pub fn new(device: Arc<Device>, family_index: u32, queue_index: u32) -> Self {
+        // todo https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap5.html#vkGetDeviceQueue2
+
         let handle = unsafe { device.inner().get_device_queue(family_index, queue_index) };
 
         Self {
