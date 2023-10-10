@@ -36,7 +36,7 @@ impl<I: ImageAccess + 'static> ImageView<I> {
         })
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         image: Arc<I>,
         create_info_builder: vk::ImageViewCreateInfoBuilder,
     ) -> VkResult<Self> {

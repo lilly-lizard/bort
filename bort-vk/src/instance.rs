@@ -104,7 +104,7 @@ impl Instance {
         })
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         entry: Arc<Entry>,
         create_info_builder: vk::InstanceCreateInfoBuilder,
     ) -> Result<Self, InstanceError> {

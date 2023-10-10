@@ -35,7 +35,7 @@ impl DebugCallback {
         })
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         instance: Arc<Instance>,
         create_info_builder: vk::DebugUtilsMessengerCreateInfoEXTBuilder,
     ) -> VkResult<Self> {

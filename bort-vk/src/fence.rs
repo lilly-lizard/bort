@@ -14,7 +14,17 @@ pub struct Fence {
 }
 
 impl Fence {
-    pub fn new(
+    pub fn new_signalled(device: Arc<Device>) -> VkResult<Self> {
+        let create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+        unsafe { Self::new_from_create_info(device, create_info) }
+    }
+
+    pub fn new_unsignalled(device: Arc<Device>) -> VkResult<Self> {
+        let create_info = vk::FenceCreateInfo::builder();
+        unsafe { Self::new_from_create_info(device, create_info) }
+    }
+
+    pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::FenceCreateInfoBuilder,
     ) -> VkResult<Self> {
@@ -27,6 +37,16 @@ impl Fence {
         Ok(Self { handle, device })
     }
 
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkWaitForFences.html>
+    pub fn wait(&self, timeout_nanoseconds: u64) -> VkResult<()> {
+        unsafe {
+            self.device
+                .inner()
+                .wait_for_fences(&[self.handle], true, timeout_nanoseconds)
+        }
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkResetFences.html>
     pub fn reset(&self) -> VkResult<()> {
         unsafe { self.device.inner().reset_fences(&[self.handle]) }
     }

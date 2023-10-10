@@ -36,10 +36,10 @@ impl ShaderModule {
         let code = read_spv(spirv).map_err(|e| ShaderError::SpirVDecode(e))?;
         let create_info = vk::ShaderModuleCreateInfo::builder().code(&code);
 
-        Self::new_from_create_info(device, create_info)
+        unsafe { Self::new_from_create_info(device, create_info) }
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::ShaderModuleCreateInfoBuilder,
     ) -> Result<Self, ShaderError> {

@@ -30,7 +30,7 @@ impl CommandPool {
         })
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::CommandPoolCreateInfoBuilder,
     ) -> VkResult<Self> {
@@ -59,10 +59,19 @@ impl CommandPool {
             .command_buffer_count(command_buffer_count)
             .command_pool(self.handle);
 
-        self.allocate_command_buffers_from_allocate_info(allocate_info_builder)
+        unsafe { self.allocate_command_buffers_from_allocate_info(allocate_info_builder) }
     }
 
-    pub fn allocate_command_buffers_from_allocate_info(
+    #[inline]
+    pub fn allocate_command_buffer(
+        self: &Arc<Self>,
+        level: vk::CommandBufferLevel,
+    ) -> VkResult<CommandBuffer> {
+        let mut vec = self.allocate_command_buffers(level, 1)?;
+        Ok(vec.remove(0))
+    }
+
+    pub unsafe fn allocate_command_buffers_from_allocate_info(
         self: &Arc<Self>,
         allocate_info_builder: vk::CommandBufferAllocateInfoBuilder,
     ) -> VkResult<Vec<CommandBuffer>> {

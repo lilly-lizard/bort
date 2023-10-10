@@ -30,7 +30,7 @@ impl DescriptorPool {
         })
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::DescriptorPoolCreateInfoBuilder,
     ) -> VkResult<Self> {

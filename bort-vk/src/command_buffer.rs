@@ -65,6 +65,16 @@ impl CommandBuffer {
     }
 }
 
+impl Drop for CommandBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            self.device()
+                .inner()
+                .free_command_buffers(self.command_pool.handle(), &[self.handle])
+        }
+    }
+}
+
 impl DeviceOwned for CommandBuffer {
     #[inline]
     fn device(&self) -> &Arc<Device> {

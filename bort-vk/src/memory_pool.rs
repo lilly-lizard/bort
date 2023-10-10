@@ -27,7 +27,7 @@ impl MemoryPool {
         })
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         memory_allocator: Arc<MemoryAllocator>,
         create_info: &bort_vma::PoolCreateInfo,
     ) -> VkResult<Self> {

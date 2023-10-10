@@ -63,7 +63,7 @@ impl Queue {
         self.handle
     }
 
-    pub fn famliy_index(&self) -> u32 {
+    pub fn family_index(&self) -> u32 {
         self.family_index
     }
 

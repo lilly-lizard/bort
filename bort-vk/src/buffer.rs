@@ -36,7 +36,7 @@ impl Buffer {
         ))
     }
 
-    pub fn new_from_create_info(
+    pub unsafe fn new_from_create_info(
         alloc_access: Arc<dyn AllocAccess>,
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,

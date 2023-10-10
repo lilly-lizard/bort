@@ -51,6 +51,17 @@ impl DescriptorSet {
     }
 }
 
+impl Drop for DescriptorSet {
+    fn drop(&mut self) {
+        unsafe {
+            let _res = self
+                .device()
+                .inner()
+                .free_descriptor_sets(self.descriptor_pool.handle(), &[self.handle]);
+        }
+    }
+}
+
 impl DeviceOwned for DescriptorSet {
     #[inline]
     fn device(&self) -> &Arc<Device> {
