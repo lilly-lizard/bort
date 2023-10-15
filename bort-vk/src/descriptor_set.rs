@@ -53,6 +53,15 @@ impl DescriptorSet {
 
 impl Drop for DescriptorSet {
     fn drop(&mut self) {
+        let reset_flag_set = self
+            .descriptor_pool
+            .properties()
+            .flags
+            .contains(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
+        if !reset_flag_set {
+            return; // this set can only be freed by the pool
+        }
+
         unsafe {
             let _res = self
                 .device()

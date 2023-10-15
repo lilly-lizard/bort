@@ -1,3 +1,6 @@
+//! See [here](https://asawicki.info/news_1740_vulkan_memory_types_on_pc_and_how_to_use_them) for advice
+//! on vulkan memory types on PC.
+
 use crate::{device::Device, AllocAccess};
 use ash::prelude::VkResult;
 use bort_vma::AllocatorCreateInfo;
