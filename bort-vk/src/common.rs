@@ -5,9 +5,12 @@ use std::{
     str::Utf8Error,
 };
 
-pub fn string_to_c_string_vec(
-    source: impl IntoIterator<Item = String>,
-) -> Result<Vec<CString>, NulError> {
+pub fn string_to_c_string_vec<S>(
+    source: impl IntoIterator<Item = S>,
+) -> Result<Vec<CString>, NulError>
+where
+    S: Into<Vec<u8>>,
+{
     source
         .into_iter()
         .map(|name| Ok(CString::new(name)?))

@@ -1,13 +1,12 @@
 use crate::{string_to_c_string_vec, ALLOCATION_CALLBACK_NONE};
 use ash::{
-    extensions::ext::DebugUtils,
     vk::{self, make_api_version},
     Entry,
 };
 use raw_window_handle::RawDisplayHandle;
 use std::{
     error,
-    ffi::{CStr, CString, NulError},
+    ffi::{CString, NulError},
     fmt,
     sync::Arc,
 };
@@ -37,16 +36,17 @@ pub struct Instance {
 }
 
 impl Instance {
-    /// No need to specify display extensions or debug validation layer/extension, this function will figure that out for you.
-    pub fn new(
+    pub fn new<S>(
         entry: Arc<Entry>,
         api_version: ApiVersion,
         app_name: &str,
         display_handle: RawDisplayHandle,
-        enable_debug_validation: bool,
-        additional_layer_names: impl IntoIterator<Item = String>,
-        additional_extension_names: impl IntoIterator<Item = String>,
-    ) -> Result<Self, InstanceError> {
+        layer_names: impl IntoIterator<Item = S>,
+        extension_names: impl IntoIterator<Item = S>,
+    ) -> Result<Self, InstanceError>
+    where
+        S: Into<Vec<u8>>,
+    {
         let app_name =
             CString::new(app_name).map_err(|e| InstanceError::AppNameStringConversion(e))?;
         let appinfo = vk::ApplicationInfo::builder()
@@ -61,16 +61,16 @@ impl Instance {
                 0,
             ));
 
-        let layer_name_cstrings = string_to_c_string_vec(additional_layer_names)
+        let layer_name_cstrings = string_to_c_string_vec(layer_names)
             .map_err(|e| InstanceError::LayerStringConversion(e))?;
-        let extension_name_cstrings = string_to_c_string_vec(additional_extension_names)
+        let extension_name_cstrings = string_to_c_string_vec(extension_names)
             .map_err(|e| InstanceError::ExtensionStringConversion(e))?;
 
         let mut extension_name_ptrs = extension_name_cstrings
             .iter()
             .map(|cstring| cstring.as_ptr())
             .collect::<Vec<_>>();
-        let mut layer_name_ptrs = layer_name_cstrings
+        let layer_name_ptrs = layer_name_cstrings
             .iter()
             .map(|cstring| cstring.as_ptr())
             .collect::<Vec<_>>();
@@ -78,15 +78,6 @@ impl Instance {
         let display_extension_names = ash_window::enumerate_required_extensions(display_handle)
             .map_err(|e| InstanceError::UnsupportedRawDisplayHandle(e))?;
         extension_name_ptrs.extend_from_slice(display_extension_names);
-
-        let validation_layer_name =
-            unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
-        if enable_debug_validation {
-            layer_name_ptrs.push(validation_layer_name.as_ptr());
-        }
-        if enable_debug_validation {
-            extension_name_ptrs.push(DebugUtils::name().as_ptr());
-        }
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&appinfo)
