@@ -112,6 +112,11 @@ impl Buffer {
     pub fn memory_allocation(&self) -> &MemoryAllocation {
         &self.memory_allocation
     }
+
+    #[inline]
+    pub fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation {
+        &mut self.memory_allocation
+    }
 }
 
 impl DeviceOwned for Buffer {
