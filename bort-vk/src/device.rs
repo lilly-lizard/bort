@@ -19,13 +19,15 @@ pub struct Device {
 }
 
 impl Device {
-    /// `features_1_1` and `features_1_2` might get ignored depending on the `instance` api version.
+    /// `features_1_1`, `features_1_2` and `features_1_3` might get ignored depending on the
+    /// `instance` api version.
     pub fn new<'a>(
         physical_device: Arc<PhysicalDevice>,
         queue_create_infos: &'a [vk::DeviceQueueCreateInfo],
         features_1_0: vk::PhysicalDeviceFeatures,
         features_1_1: vk::PhysicalDeviceVulkan11Features,
         features_1_2: vk::PhysicalDeviceVulkan12Features,
+        features_1_3: vk::PhysicalDeviceVulkan13Features,
         extension_names: impl IntoIterator<Item = String>,
         layer_names: impl IntoIterator<Item = String>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
@@ -37,6 +39,7 @@ impl Device {
                 features_1_0,
                 features_1_1,
                 features_1_2,
+                features_1_3,
                 extension_names,
                 layer_names,
                 debug_callback_ref,
@@ -45,7 +48,8 @@ impl Device {
         }
     }
 
-    /// `features_1_1` and `features_1_2` might get ignored depending on the `instance` api version.
+    /// `features_1_1`, `features_1_2` and `features_1_3` might get ignored depending on the
+    /// `instance` api version.
     ///
     /// Note that each member of `p_next_structs` can only be one type (known at compile time) due
     /// to the way `ash::DeviceCreateInfoBuilder::push_next` takes its input. Just treat it like an
@@ -60,6 +64,7 @@ impl Device {
         features_1_0: vk::PhysicalDeviceFeatures,
         mut features_1_1: vk::PhysicalDeviceVulkan11Features,
         mut features_1_2: vk::PhysicalDeviceVulkan12Features,
+        mut features_1_3: vk::PhysicalDeviceVulkan13Features,
         extension_names: impl IntoIterator<Item = String>,
         layer_names: impl IntoIterator<Item = String>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
@@ -101,28 +106,21 @@ impl Device {
             if instance.api_version() >= ApiVersion::new(1, 2) {
                 device_create_info = device_create_info.push_next(&mut features_1_2);
             }
+
+            if instance.api_version() >= ApiVersion::new(1, 3) {
+                device_create_info = device_create_info.push_next(&mut features_1_3);
+            }
         }
 
         for p_next_struct in &mut p_next_structs {
             device_create_info = device_create_info.push_next(p_next_struct);
         }
 
-        let inner = unsafe {
-            instance.inner().create_device(
-                physical_device.handle(),
-                &device_create_info,
-                ALLOCATION_CALLBACK_NONE,
-            )
-        }
-        .map_err(|vk_res| DeviceError::Creation(vk_res))?;
-
-        Ok(Self {
-            inner,
-            debug_callback_ref,
-            physical_device,
-        })
+        Self::new_from_create_info(physical_device, device_create_info, debug_callback_ref)
     }
 
+    /// Safety:
+    /// No busted pointers in `create_info_builder` or its referenced structs (e.g. p_next chain).
     pub unsafe fn new_from_create_info(
         physical_device: Arc<PhysicalDevice>,
         create_info_builder: vk::DeviceCreateInfoBuilder,
