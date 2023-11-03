@@ -2,7 +2,7 @@ use crate::{
     string_to_c_string_vec, ApiVersion, DebugCallback, Instance, PhysicalDevice, Queue,
     ALLOCATION_CALLBACK_NONE,
 };
-use ash::vk;
+use ash::vk::{self, ExtendsDeviceCreateInfo};
 use std::{error, ffi::NulError, fmt, sync::Arc};
 
 pub trait DeviceOwned {
@@ -19,8 +19,42 @@ pub struct Device {
 }
 
 impl Device {
-    /// `features_1_1` and `features_1_2` may be ignored depending on the `instance` api version.
+    /// `features_1_1` and `features_1_2` might get ignored depending on the `instance` api version.
     pub fn new<'a>(
+        physical_device: Arc<PhysicalDevice>,
+        queue_create_infos: &'a [vk::DeviceQueueCreateInfo],
+        features_1_0: vk::PhysicalDeviceFeatures,
+        features_1_1: vk::PhysicalDeviceVulkan11Features,
+        features_1_2: vk::PhysicalDeviceVulkan12Features,
+        extension_names: impl IntoIterator<Item = String>,
+        layer_names: impl IntoIterator<Item = String>,
+        debug_callback_ref: Option<Arc<DebugCallback>>,
+    ) -> Result<Self, DeviceError> {
+        unsafe {
+            Self::new_with_p_next_chain(
+                physical_device,
+                queue_create_infos,
+                features_1_0,
+                features_1_1,
+                features_1_2,
+                extension_names,
+                layer_names,
+                debug_callback_ref,
+                Vec::<vk::PhysicalDeviceFeatures2>::new(),
+            )
+        }
+    }
+
+    /// `features_1_1` and `features_1_2` might get ignored depending on the `instance` api version.
+    ///
+    /// Note that each member of `p_next_structs` can only be one type (known at compile time) due
+    /// to the way `ash::DeviceCreateInfoBuilder::push_next` takes its input. Just treat it like an
+    /// `Option` (either 0 or 1 element) and create your own p_next chain in the one element you
+    /// pass to this.
+    ///
+    /// Safety:
+    /// No busted pointers in the last element of `p_next_structs`.
+    pub unsafe fn new_with_p_next_chain<'a>(
         physical_device: Arc<PhysicalDevice>,
         queue_create_infos: &'a [vk::DeviceQueueCreateInfo],
         features_1_0: vk::PhysicalDeviceFeatures,
@@ -29,6 +63,7 @@ impl Device {
         extension_names: impl IntoIterator<Item = String>,
         layer_names: impl IntoIterator<Item = String>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
+        mut p_next_structs: Vec<impl ExtendsDeviceCreateInfo>,
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
@@ -66,6 +101,10 @@ impl Device {
             if instance.api_version() >= ApiVersion::new(1, 2) {
                 device_create_info = device_create_info.push_next(&mut features_1_2);
             }
+        }
+
+        for p_next_struct in &mut p_next_structs {
+            device_create_info = device_create_info.push_next(p_next_struct);
         }
 
         let inner = unsafe {
