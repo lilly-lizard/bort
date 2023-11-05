@@ -22,7 +22,7 @@ include = [
     "vendor/Vulkan-Headers/include/vulkan.h",
     "wrapper/vma_lib.cpp",
 ]
-edition = "2018"
+edition = "2021"
 
 [badges]
 travis-ci = { repository = "lilly-lizard/bort-vma" }
