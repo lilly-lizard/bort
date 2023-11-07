@@ -3,3 +3,4 @@ members = [
 	'bort-vk',
 	'bort-vma'
 ]
+resolver = "2"
