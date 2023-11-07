@@ -1,6 +1,6 @@
 [package]
 name = "bort-vma"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Graham Wihlidal <graham@wihlidal.ca>"]
 description = "Rust ffi bindings and idiomatic wrapper for AMD Vulkan Memory Allocator (VMA)"
 homepage = "https://github.com/lilly-lizard/bort"
@@ -17,8 +17,10 @@ include = [
     "build.rs",
     "Cargo.toml",
     "vendor/VulkanMemoryAllocator/include/vk_mem_alloc.h",
-    "vendor/Vulkan-Headers/include/vulkan/*",
     "vendor/Vulkan-Headers/include/vk_video/*",
+    "vendor/Vulkan-Headers/include/vulkan/vulkan_core.h",
+    "vendor/Vulkan-Headers/include/vulkan/vulkan.h",
+    "vendor/Vulkan-Headers/include/vulkan/vk_platform.h",
     "wrapper/vma_lib.cpp",
 ]
 edition = "2021"
