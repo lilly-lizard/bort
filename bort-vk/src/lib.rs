@@ -1,3 +1,8 @@
+#[cfg(feature = "raw-window-handle-05")]
+pub use raw_window_handle_05 as raw_window_handle;
+#[cfg(feature = "raw-window-handle-06")]
+pub use raw_window_handle_06 as raw_window_handle;
+
 mod buffer;
 mod command_buffer;
 mod command_pool;
@@ -29,7 +34,8 @@ mod shader_module;
 mod surface;
 mod swapchain;
 
-// so you can access everything from the `bort_vma` namespace instead of typing something like `bort_vma::pipeline_compute::ComputePipeline`
+// so you can access everything from the `bort_vma` namespace instead of typing something like
+// `bort_vma::pipeline_compute::ComputePipeline`
 pub use buffer::*;
 pub use command_buffer::*;
 pub use command_pool::*;

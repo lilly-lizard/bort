@@ -1,13 +1,19 @@
 use crate::{string_to_c_string_vec, ALLOCATION_CALLBACK_NONE};
 use ash::{
+    extensions::{ext, khr},
+    prelude::VkResult,
     vk::{self, make_api_version},
     Entry,
 };
-use raw_window_handle::RawDisplayHandle;
+#[cfg(feature = "raw-window-handle-05")]
+use raw_window_handle_05::RawDisplayHandle;
+#[cfg(feature = "raw-window-handle-06")]
+use raw_window_handle_06::RawDisplayHandle;
 use std::{
     error,
     ffi::{CString, NulError},
     fmt,
+    os::raw::c_char,
     sync::Arc,
 };
 
@@ -75,7 +81,7 @@ impl Instance {
             .map(|cstring| cstring.as_ptr())
             .collect::<Vec<_>>();
 
-        let display_extension_names = ash_window::enumerate_required_extensions(display_handle)
+        let display_extension_names = enumerate_required_extensions(display_handle)
             .map_err(|e| InstanceError::UnsupportedRawDisplayHandle(e))?;
         extension_name_ptrs.extend_from_slice(display_extension_names);
 
@@ -190,6 +196,74 @@ impl Instance {
     }
 }
 
+/// Query the required instance extensions for creating a surface from a display handle.
+///
+/// _Note: this function was copied from [ash](https://github.com/ash-rs/ash) to allow for better
+/// dependency control._
+///
+/// This [`RawDisplayHandle`] can typically be acquired from a window, but is usually also
+/// accessible earlier through an "event loop" concept to allow querying required instance
+/// extensions and creation of a compatible Vulkan instance prior to creating a window.
+///
+/// The returned extensions will include all extension dependencies.
+pub fn enumerate_required_extensions(
+    display_handle: RawDisplayHandle,
+) -> VkResult<&'static [*const c_char]> {
+    let extensions = match display_handle {
+        RawDisplayHandle::Windows(_) => {
+            const WINDOWS_EXTS: [*const c_char; 2] = [
+                khr::Surface::name().as_ptr(),
+                khr::Win32Surface::name().as_ptr(),
+            ];
+            &WINDOWS_EXTS
+        }
+
+        RawDisplayHandle::Wayland(_) => {
+            const WAYLAND_EXTS: [*const c_char; 2] = [
+                khr::Surface::name().as_ptr(),
+                khr::WaylandSurface::name().as_ptr(),
+            ];
+            &WAYLAND_EXTS
+        }
+
+        RawDisplayHandle::Xlib(_) => {
+            const XLIB_EXTS: [*const c_char; 2] = [
+                khr::Surface::name().as_ptr(),
+                khr::XlibSurface::name().as_ptr(),
+            ];
+            &XLIB_EXTS
+        }
+
+        RawDisplayHandle::Xcb(_) => {
+            const XCB_EXTS: [*const c_char; 2] = [
+                khr::Surface::name().as_ptr(),
+                khr::XcbSurface::name().as_ptr(),
+            ];
+            &XCB_EXTS
+        }
+
+        RawDisplayHandle::Android(_) => {
+            const ANDROID_EXTS: [*const c_char; 2] = [
+                khr::Surface::name().as_ptr(),
+                khr::AndroidSurface::name().as_ptr(),
+            ];
+            &ANDROID_EXTS
+        }
+
+        RawDisplayHandle::AppKit(_) | RawDisplayHandle::UiKit(_) => {
+            const METAL_EXTS: [*const c_char; 2] = [
+                khr::Surface::name().as_ptr(),
+                ext::MetalSurface::name().as_ptr(),
+            ];
+            &METAL_EXTS
+        }
+
+        _ => return Err(vk::Result::ERROR_EXTENSION_NOT_PRESENT),
+    };
+
+    Ok(extensions)
+}
+
 impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
@@ -197,6 +271,8 @@ impl Drop for Instance {
         }
     }
 }
+
+// ~~ Error ~~
 
 #[derive(Debug, Clone)]
 pub enum InstanceError {
@@ -245,7 +321,7 @@ impl error::Error for InstanceError {
     }
 }
 
-// Tests
+// ~~ Tests ~~
 
 #[test]
 fn api_version_ordering() {
