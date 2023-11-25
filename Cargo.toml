@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	'bort-vk',
-	'bort-vma'
+	'bort-vma',
+    "examples/*",
 ]
 resolver = "2"

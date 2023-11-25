@@ -1,0 +1,21 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "triangle"
+path = "main.rs"
+test = false
+bench = false
+doc = false
+
+[dependencies]
+bort-vk = { path = "../../bort-vk" }
+bort-vma = { path = "../../bort-vma" }
+ash = "0.37.3"
+winit = "0.29"
+raw-window-handle = "0.6"
+bytemuck = { version = "1.7", features = ["derive"] }
+log = "0.4"
