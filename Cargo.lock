@@ -168,7 +168,7 @@ dependencies = [
 
 [[package]]
 name = "bort-vk"
-version = "0.3.0"
+version = "0.2.5"
 dependencies = [
  "ash",
  "bort-vma",

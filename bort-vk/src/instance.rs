@@ -24,11 +24,11 @@ pub struct ApiVersion {
 }
 
 impl ApiVersion {
-    pub fn new(major: u32, minor: u32) -> Self {
+    pub const fn new(major: u32, minor: u32) -> Self {
         Self { major, minor }
     }
 
-    pub fn as_vk_uint(&self) -> u32 {
+    pub const fn as_vk_uint(&self) -> u32 {
         make_api_version(0, self.major, self.minor, 0)
     }
 }

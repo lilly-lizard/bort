@@ -16,15 +16,26 @@ pub struct Queue {
 
 impl Queue {
     /// Uses vkGetDeviceQueue
-    pub fn new(device: Arc<Device>, family_index: u32, queue_index: u32) -> Self {
+    pub fn new(
+        device: Arc<Device>,
+        family_index: u32,
+        queue_index: u32,
+    ) -> Result<Self, QueueError> {
         let handle = unsafe { device.inner().get_device_queue(family_index, queue_index) };
+        if handle == vk::Queue::null() {
+            return Err(QueueError::NoQueueHandle {
+                device_handle: device.inner().handle(),
+                family_index,
+                queue_index,
+            });
+        }
 
-        Self {
+        Ok(Self {
             handle,
             family_index,
             queue_index,
             device,
-        }
+        })
     }
 
     /// Uses vkGetDeviceQueue2
@@ -83,3 +94,34 @@ impl DeviceOwned for Queue {
         self.handle.as_raw()
     }
 }
+
+// ~~ Errors ~~
+
+#[derive(Debug, Clone, Copy)]
+pub enum QueueError {
+    NoQueueHandle {
+        device_handle: vk::Device,
+        family_index: u32,
+        queue_index: u32,
+    },
+}
+
+impl std::fmt::Display for QueueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::NoQueueHandle {
+                device_handle,
+                family_index,
+                queue_index,
+            } => write!(
+                f,
+                "queue family {} and index {} not found in device {}",
+                family_index,
+                queue_index,
+                device_handle.as_raw()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for QueueError {}

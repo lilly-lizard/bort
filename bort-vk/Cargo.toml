@@ -1,6 +1,6 @@
 [package]
 name = "bort-vk"
-version = "0.2.4"
+version = "0.2.5"
 description = "lightweight vulkan wrapper"
 license = "MIT"
 keywords = ["vulkan", "wrapper", "ash", "3D", "graphics"]
