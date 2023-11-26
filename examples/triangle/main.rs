@@ -1,18 +1,21 @@
-use ash::vk;
+use ash::{prelude::VkResult, vk};
 use bort_vk::{
-    choose_composite_alpha, is_format_srgb, ApiVersion, CommandPool, CommandPoolProperties, Device,
-    ImageView, Instance, MemoryAllocator, PhysicalDevice, Queue, Surface, Swapchain,
-    SwapchainProperties,
+    choose_composite_alpha, is_format_srgb, ApiVersion, ColorBlendState, CommandPool,
+    CommandPoolProperties, Device, DynamicState, Fence, Framebuffer, FramebufferProperties,
+    GraphicsPipeline, GraphicsPipelineProperties, ImageView, ImageViewAccess, Instance,
+    PhysicalDevice, PipelineLayout, PipelineLayoutProperties, Queue, RenderPass, Semaphore,
+    ShaderModule, ShaderStage, Subpass, Surface, Swapchain, SwapchainProperties, ViewportState,
 };
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use std::{error::Error, sync::Arc};
+use std::{error::Error, ffi::CString, sync::Arc};
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 
 const TITLE: &str = "Triangle (bort example)";
 const DEFAULT_WINDOW_SIZE: [u32; 2] = [700, 500];
 const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 2 };
+const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
@@ -93,16 +96,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let queue_create_info = vk::DeviceQueueCreateInfo::builder()
         .queue_family_index(queue_family_index as u32)
         .queue_priorities(&queue_priorities);
-    let queue_create_infos = [queue_create_info.build()];
 
     let device = Arc::new(Device::new(
         physical_device.clone(),
-        &queue_create_infos,
+        &[queue_create_info.build()],
         Default::default(),
         Default::default(),
         Default::default(),
         Default::default(),
-        [],
+        ["VK_KHR_swapchain".to_string()],
         [],
         None,
     )?);
@@ -113,13 +115,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let surface_capabilities =
         surface.get_physical_device_surface_capabilities(&physical_device)?;
-    let swapchain_image_count = surface_capabilities.min_image_count + 1;
+    let preferred_swapchain_image_count = surface_capabilities.min_image_count + 1;
     let surface_format = surface.get_physical_device_surface_formats(&physical_device)?[0];
     let composite_alpha = choose_composite_alpha(surface_capabilities);
     let swapchain_properties = SwapchainProperties::new_default(
         &device,
         &surface,
-        swapchain_image_count,
+        preferred_swapchain_image_count,
         surface_format,
         composite_alpha,
         vk::ImageUsageFlags::COLOR_ATTACHMENT,
@@ -137,15 +139,112 @@ fn main() -> Result<(), Box<dyn Error>> {
         .swapchain_images()
         .iter()
         .map(|swapchain_image| {
-            ImageView::new(swapchain_image.clone(), swapchain.image_view_properties())
+            let image_view =
+                ImageView::new(swapchain_image.clone(), swapchain.image_view_properties())?;
+            Ok(Arc::new(image_view))
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    info!("created swapchain image views");
+        .collect::<VkResult<Vec<_>>>()?;
+    info!(
+        "created {} swapchain image views",
+        swapchain_image_views.len()
+    );
 
-    // todo render pass
+    let swapchain_attachment_description = vk::AttachmentDescription::builder()
+        .format(surface_format.format)
+        .samples(vk::SampleCountFlags::TYPE_1)
+        .load_op(vk::AttachmentLoadOp::CLEAR)
+        .store_op(vk::AttachmentStoreOp::STORE)
+        .initial_layout(vk::ImageLayout::UNDEFINED)
+        .final_layout(vk::ImageLayout::PRESENT_SRC_KHR);
 
-    let memory_allocator = Arc::new(MemoryAllocator::new(device.clone())?);
-    info!("created memory allocator");
+    let swapchain_attachemnt_reference = vk::AttachmentReference::builder()
+        .attachment(0)
+        .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+
+    let subpass = Subpass::new(&[swapchain_attachemnt_reference.build()], None, &[]);
+
+    let image_aquire_subpass_dependency = vk::SubpassDependency::builder()
+        .src_subpass(vk::SUBPASS_EXTERNAL)
+        .dst_subpass(0)
+        .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+        .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+        .src_access_mask(vk::AccessFlags::empty())
+        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE);
+
+    let render_pass = Arc::new(RenderPass::new(
+        device.clone(),
+        [swapchain_attachment_description.build()],
+        [subpass],
+        [image_aquire_subpass_dependency.build()],
+    )?);
+    info!("created render pass");
+
+    let pipeline_layout_properties = PipelineLayoutProperties::new(Vec::new(), Vec::new());
+    let pipeline_layout = Arc::new(PipelineLayout::new(
+        device.clone(),
+        pipeline_layout_properties,
+    )?);
+
+    let mut vertex_spv_file = std::io::Cursor::new(&include_bytes!("./triangle.vert.spv")[..]);
+    let vert_shader = Arc::new(ShaderModule::new_from_spirv(
+        device.clone(),
+        &mut vertex_spv_file,
+    )?);
+    let vert_stage = ShaderStage::new(
+        vk::ShaderStageFlags::VERTEX,
+        vert_shader,
+        CString::new("main")?,
+        None,
+    );
+
+    let mut frag_spv_file = std::io::Cursor::new(&include_bytes!("./triangle.frag.spv")[..]);
+    let frag_shader = Arc::new(ShaderModule::new_from_spirv(
+        device.clone(),
+        &mut frag_spv_file,
+    )?);
+    let frag_stage = ShaderStage::new(
+        vk::ShaderStageFlags::FRAGMENT,
+        frag_shader,
+        CString::new("main")?,
+        None,
+    );
+
+    let dynamic_state =
+        DynamicState::new_default(vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
+    let viewport_state = ViewportState::new_dynamic(1, 1);
+    let color_blend_state =
+        ColorBlendState::new_default(vec![ColorBlendState::blend_state_disabled()]);
+
+    let mut pipeline_properties = GraphicsPipelineProperties::default();
+    pipeline_properties.subpass_index = 0;
+    pipeline_properties.dynamic_state = dynamic_state;
+    pipeline_properties.color_blend_state = color_blend_state;
+    pipeline_properties.viewport_state = viewport_state;
+
+    let pipeline = GraphicsPipeline::new(
+        pipeline_layout,
+        pipeline_properties,
+        &[vert_stage, frag_stage],
+        &render_pass,
+        None,
+    )?;
+    info!("created graphics pipeline");
+
+    let framebuffers = swapchain_image_views
+        .into_iter()
+        .map(|swapchain_image_view| {
+            let attachments: Vec<Arc<dyn ImageViewAccess>> = vec![swapchain_image_view.clone()];
+
+            let framebuffer_properties = FramebufferProperties::new_default(
+                attachments,
+                swapchain_image_view.image().dimensions(),
+            );
+
+            let framebuffer = Framebuffer::new(render_pass.clone(), framebuffer_properties)?;
+            Ok(Arc::new(framebuffer))
+        })
+        .collect::<VkResult<Vec<_>>>()?;
+    info!("created {} framebuffers", framebuffers.len());
 
     let command_pool_properties = CommandPoolProperties {
         flags: vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
@@ -153,6 +252,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let command_pool = Arc::new(CommandPool::new(device.clone(), command_pool_properties)?);
     info!("created command pool");
+
+    let command_buffers = command_pool
+        .allocate_command_buffers(vk::CommandBufferLevel::PRIMARY, framebuffers.len() as u32)?;
+    info!("allocated command buffers");
+
+    let mut image_available_semaphores: Vec<Semaphore> = Vec::new();
+    let mut render_finished_semaphores: Vec<Semaphore> = Vec::new();
+    let mut in_flight_fences: Vec<Fence> = Vec::new();
+    for _ in 0..MAX_FRAMES_IN_FLIGHT {
+        image_available_semaphores.push(Semaphore::new(device.clone())?);
+        render_finished_semaphores.push(Semaphore::new(device.clone())?);
+        in_flight_fences.push(Fence::new_signalled(device.clone())?);
+    }
+    info!("created semaphores and fences");
 
     Ok(())
 }
