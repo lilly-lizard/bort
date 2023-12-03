@@ -308,10 +308,15 @@ impl SwapchainProperties {
             .get_physical_device_surface_capabilities(device.physical_device())
             .map_err(|e| SwapchainError::GetPhysicalDeviceSurfaceCapabilities(e))?;
 
-        let image_count = max(
-            min(preferred_image_count, surface_capabilities.max_image_count),
-            surface_capabilities.min_image_count,
-        );
+        let mut image_count = preferred_image_count;
+        // max_image_count == 0 when there is no limits
+        if surface_capabilities.max_image_count != 0 {
+            // clamp between max and min
+            image_count = max(
+                min(image_count, surface_capabilities.max_image_count),
+                surface_capabilities.min_image_count,
+            );
+        }
 
         let extent = match surface_capabilities.current_extent.width {
             std::u32::MAX => vk::Extent2D {
