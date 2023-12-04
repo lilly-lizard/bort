@@ -10,12 +10,18 @@ use bort_vk::{
 use log::{debug, error, info, trace, warn};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use std::{error::Error, ffi::CString, sync::Arc};
-use winit::{event_loop::EventLoop, window::WindowBuilder};
+use winit::{
+    event::{ElementState, Event, KeyEvent, WindowEvent},
+    event_loop::EventLoop,
+    keyboard::{KeyCode, PhysicalKey},
+    window::WindowBuilder,
+};
 
 const TITLE: &str = "Triangle (bort example)";
 const DEFAULT_WINDOW_SIZE: [u32; 2] = [700, 500];
 const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 2 };
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
+const FENCE_TIMEOUT: u64 = 0;
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
@@ -266,6 +272,31 @@ fn main() -> Result<(), Box<dyn Error>> {
         in_flight_fences.push(Fence::new_signalled(device.clone())?);
     }
     info!("created semaphores and fences");
+
+    let mut current_frame = 0_usize;
+
+    event_loop.run(move |event, elwt| {
+        if let Event::WindowEvent { event, .. } = event {
+            match event {
+                WindowEvent::CloseRequested => elwt.exit(),
+                WindowEvent::KeyboardInput {
+                    event:
+                        KeyEvent {
+                            physical_key: PhysicalKey::Code(KeyCode::Escape),
+                            state: ElementState::Released,
+                            ..
+                        },
+                    ..
+                } => elwt.exit(),
+                WindowEvent::RedrawRequested => {
+                    // draw frame
+
+                    in_flight_fences[current_frame].wait(FENCE_TIMEOUT)?;
+                }
+                _ => (),
+            }
+        }
+    })?;
 
     Ok(())
 }
