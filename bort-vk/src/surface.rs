@@ -1,10 +1,7 @@
 use crate::{is_format_linear, is_format_srgb, Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE};
-use ash::{
-    extensions::khr,
-    prelude::VkResult,
-    vk::{self, HINSTANCE, HWND},
-    Entry,
-};
+#[cfg(feature = "raw-window-handle-06")]
+use ash::vk::{HINSTANCE, HWND};
+use ash::{extensions::khr, prelude::VkResult, vk, Entry};
 #[cfg(feature = "raw-window-handle-05")]
 use raw_window_handle_05::{RawDisplayHandle, RawWindowHandle};
 #[cfg(feature = "raw-window-handle-06")]
