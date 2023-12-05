@@ -19,3 +19,4 @@ winit = "0.29"
 raw-window-handle = "0.6"
 bytemuck = { version = "1.7", features = ["derive"] }
 log = "0.4"
+env_logger = "0.10"
