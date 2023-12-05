@@ -63,6 +63,18 @@ impl CommandBuffer {
     pub fn end(&self) -> VkResult<()> {
         unsafe { self.device().inner().end_command_buffer(self.handle) }
     }
+
+    /// Note: this will fail if the command pool wasn't created with `vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER`
+    /// set.
+    ///
+    /// vkResetCommandBuffer
+    pub fn reset(&self, reset_flags: vk::CommandBufferResetFlags) -> VkResult<()> {
+        unsafe {
+            self.device()
+                .inner()
+                .reset_command_buffer(self.handle, reset_flags)
+        }
+    }
 }
 
 impl Drop for CommandBuffer {

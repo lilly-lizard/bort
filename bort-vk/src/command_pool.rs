@@ -90,6 +90,14 @@ impl CommandPool {
         Ok(command_buffers)
     }
 
+    pub fn reset(&self, reset_flags: vk::CommandPoolResetFlags) -> VkResult<()> {
+        unsafe {
+            self.device
+                .inner()
+                .reset_command_pool(self.handle, reset_flags)
+        }
+    }
+
     // Getters
 
     pub fn handle(&self) -> vk::CommandPool {
