@@ -1,4 +1,4 @@
-use crate::{CommandPool, Device, DeviceOwned};
+use crate::{CommandPool, Device, DeviceOwned, PipelineAccess};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
@@ -64,6 +64,7 @@ impl CommandBuffer {
         unsafe { self.device().inner().end_command_buffer(self.handle) }
     }
 
+    /// vkCmdBeginRenderPass
     pub fn begin_render_pass(
         &self,
         begin_info: &vk::RenderPassBeginInfoBuilder,
@@ -73,6 +74,59 @@ impl CommandBuffer {
             self.device()
                 .inner()
                 .cmd_begin_render_pass(self.handle, &begin_info, subpass_contents)
+        }
+    }
+
+    /// vkCmdEndRenderPass
+    pub fn end_render_pass(&self) {
+        unsafe { self.device().inner().cmd_end_render_pass(self.handle) }
+    }
+
+    /// vkCmdBindPipeline
+    pub fn bind_pipeline(&self, pipeline: &dyn PipelineAccess) {
+        unsafe {
+            self.device().inner().cmd_bind_pipeline(
+                self.handle,
+                pipeline.bind_point(),
+                pipeline.handle(),
+            )
+        }
+    }
+
+    /// vkCmdSetViewport
+    pub fn set_viewports(&self, viewports: &[vk::Viewport], first_viewport: u32) {
+        unsafe {
+            self.device()
+                .inner()
+                .cmd_set_viewport(self.handle, first_viewport, viewports)
+        }
+    }
+
+    /// vkCmdSetScissor
+    pub fn set_scissors(&self, scissors: &[vk::Rect2D], first_scissor: u32) {
+        unsafe {
+            self.device()
+                .inner()
+                .cmd_set_scissor(self.handle, first_scissor, scissors)
+        }
+    }
+
+    /// vkCmdDraw
+    pub fn draw(
+        &self,
+        vertex_count: u32,
+        instance_count: u32,
+        first_vertex: u32,
+        first_instance: u32,
+    ) {
+        unsafe {
+            self.device().inner().cmd_draw(
+                self.handle,
+                vertex_count,
+                instance_count,
+                first_vertex,
+                first_instance,
+            )
         }
     }
 

@@ -351,10 +351,10 @@ impl TriangleExample {
             None,
         );
 
-        let (swaphain_image_index, _is_suboptimal) = match aquire_res {
+        let (swapchain_image_index, _is_suboptimal) = match aquire_res {
             Ok(aquire_ret) => aquire_ret,
             Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                self.recreate_swapchain();
+                self.recreate_swapchain()?;
                 return Ok(());
             }
             Err(e) => return Err(e),
@@ -363,6 +363,45 @@ impl TriangleExample {
         self.in_flight_fences[self.current_frame].reset()?;
 
         self.command_buffers[self.current_frame].reset(vk::CommandBufferResetFlags::empty())?;
+        self.record_commands(
+            &self.command_buffers[self.current_frame],
+            swapchain_image_index as usize,
+        )?;
+
+        let wait_semaphores = [self.image_available_semaphores[self.current_frame].handle()];
+        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let signal_semaphores = [self.render_finished_semaphores[self.current_frame].handle()];
+        let submit_command_buffers = [self.command_buffers[self.current_frame].handle()];
+
+        let submit_info = vk::SubmitInfo::builder()
+            .wait_semaphores(&wait_semaphores)
+            .wait_dst_stage_mask(&wait_stages)
+            .signal_semaphores(&signal_semaphores)
+            .command_buffers(&submit_command_buffers);
+
+        self.queue.submit(
+            &[submit_info.build()],
+            Some(self.in_flight_fences[self.current_frame].handle()),
+        )?;
+
+        let present_swapchains = [self.swapchain.handle()];
+        let present_indices = [swapchain_image_index];
+        let present_info = vk::PresentInfoKHR::builder()
+            .wait_semaphores(&signal_semaphores)
+            .swapchains(&present_swapchains)
+            .image_indices(&present_indices);
+
+        let present_res = self.swapchain.queue_present(&self.queue, &present_info);
+
+        match present_res {
+            Ok(false) => (),
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) | Err(vk::Result::SUBOPTIMAL_KHR) | Ok(true) => {
+                self.recreate_swapchain()?
+            }
+            Err(e) => return Err(e),
+        };
+
+        self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
         Ok(())
     }
@@ -376,17 +415,31 @@ impl TriangleExample {
         command_buffer.begin(&command_buffer_begin_info)?;
 
         let clear_values = [vk::ClearValue::default()];
+        let render_extent = self.framebuffers[swapchain_image_index].whole_rect();
+        let viewport = self.framebuffers[self.current_frame].whole_viewport();
+
         let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
             .render_pass(self.render_pass.handle())
             .framebuffer(self.framebuffers[swapchain_image_index].handle())
-            .render_area(self.framebuffers[swapchain_image_index].whole_rect())
+            .render_area(render_extent)
             .clear_values(&clear_values);
         command_buffer.begin_render_pass(&render_pass_begin_info, vk::SubpassContents::INLINE);
+
+        command_buffer.bind_pipeline(&self.pipeline);
+
+        command_buffer.set_viewports(&[viewport], 0);
+        command_buffer.set_scissors(&[render_extent], 0);
+
+        command_buffer.draw(3, 1, 0, 0);
+
+        command_buffer.end_render_pass();
+
+        command_buffer.end()?;
 
         Ok(())
     }
 
-    pub fn recreate_swapchain(&mut self) {
+    pub fn recreate_swapchain(&mut self) -> VkResult<()> {
         todo!();
     }
 }

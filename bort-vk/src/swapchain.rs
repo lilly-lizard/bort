@@ -1,7 +1,7 @@
 use crate::{
     default_component_mapping, default_subresource_range, extent_2d_from_width_height, Device,
-    DeviceOwned, Fence, ImageAccess, ImageDimensions, ImageViewProperties, Semaphore, Surface,
-    ALLOCATION_CALLBACK_NONE,
+    DeviceOwned, Fence, ImageAccess, ImageDimensions, ImageViewProperties, Queue, Semaphore,
+    Surface, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     extensions::khr,
@@ -186,6 +186,17 @@ impl Swapchain {
             component_mapping,
             subresource_range,
             ..ImageViewProperties::default()
+        }
+    }
+
+    pub fn queue_present(
+        &self,
+        queue: &Queue,
+        present_info: &vk::PresentInfoKHRBuilder,
+    ) -> VkResult<bool> {
+        unsafe {
+            self.swapchain_loader
+                .queue_present(queue.handle(), present_info)
         }
     }
 

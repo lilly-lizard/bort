@@ -198,6 +198,11 @@ impl PipelineAccess for GraphicsPipeline {
     fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
         &self.pipeline_layout
     }
+
+    #[inline]
+    fn bind_point(&self) -> vk::PipelineBindPoint {
+        vk::PipelineBindPoint::GRAPHICS
+    }
 }
 
 impl DeviceOwned for GraphicsPipeline {

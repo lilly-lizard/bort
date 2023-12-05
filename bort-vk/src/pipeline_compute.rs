@@ -67,6 +67,10 @@ impl PipelineAccess for ComputePipeline {
     fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
         &self.pipeline_layout
     }
+
+    fn bind_point(&self) -> vk::PipelineBindPoint {
+        vk::PipelineBindPoint::COMPUTE
+    }
 }
 
 impl DeviceOwned for ComputePipeline {
