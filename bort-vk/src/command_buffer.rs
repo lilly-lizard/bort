@@ -64,6 +64,18 @@ impl CommandBuffer {
         unsafe { self.device().inner().end_command_buffer(self.handle) }
     }
 
+    pub fn begin_render_pass(
+        &self,
+        begin_info: &vk::RenderPassBeginInfoBuilder,
+        subpass_contents: vk::SubpassContents,
+    ) {
+        unsafe {
+            self.device()
+                .inner()
+                .cmd_begin_render_pass(self.handle, &begin_info, subpass_contents)
+        }
+    }
+
     /// Note: this will fail if the command pool wasn't created with `vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER`
     /// set.
     ///

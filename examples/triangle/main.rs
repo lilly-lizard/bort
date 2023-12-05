@@ -1,10 +1,11 @@
 use ash::{prelude::VkResult, vk};
 use bort_vk::{
-    choose_composite_alpha, is_format_srgb, ApiVersion, ColorBlendState, CommandPool,
-    CommandPoolProperties, Device, DynamicState, Fence, Framebuffer, FramebufferProperties,
-    GraphicsPipeline, GraphicsPipelineProperties, ImageView, ImageViewAccess, Instance,
-    PhysicalDevice, PipelineLayout, PipelineLayoutProperties, Queue, RenderPass, Semaphore,
-    ShaderModule, ShaderStage, Subpass, Surface, Swapchain, SwapchainProperties, ViewportState,
+    choose_composite_alpha, is_format_srgb, ApiVersion, ColorBlendState, CommandBuffer,
+    CommandPool, CommandPoolProperties, Device, DynamicState, Fence, Framebuffer,
+    FramebufferProperties, GraphicsPipeline, GraphicsPipelineProperties, ImageView,
+    ImageViewAccess, Instance, PhysicalDevice, PipelineLayout, PipelineLayoutProperties, Queue,
+    RenderPass, Semaphore, ShaderModule, ShaderStage, Subpass, Surface, Swapchain,
+    SwapchainProperties, ViewportState,
 };
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
@@ -14,7 +15,7 @@ use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
-    window::WindowBuilder,
+    window::{Window, WindowBuilder},
 };
 
 const TITLE: &str = "Triangle (bort example)";
@@ -38,9 +39,6 @@ pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
 fn main() -> Result<(), Box<dyn Error>> {
     info!("starting triangle example...");
 
-    let entry = create_entry()?;
-    info!("vulkan loaded");
-
     let event_loop = EventLoop::new()?;
     let window_builder =
         WindowBuilder::new()
@@ -50,230 +48,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 DEFAULT_WINDOW_SIZE[1],
             ));
     let window = window_builder.build(&event_loop)?;
-    let display_handle = window.display_handle()?;
-    let window_handle = window.window_handle()?;
     info!("created window");
 
-    let empty_str_vec = Vec::<&str>::new();
-    let instance = Arc::new(Instance::new(
-        entry.clone(),
-        API_VERSION,
-        TITLE,
-        display_handle.as_raw(),
-        empty_str_vec.clone(),
-        empty_str_vec,
-    )?);
-    info!("created vulkan instance");
-
-    let surface = Arc::new(Surface::new(
-        &entry,
-        instance.clone(),
-        display_handle.as_raw(),
-        window_handle.as_raw(),
-    )?);
-    info!("created surface");
-
-    let physical_device_handles = unsafe { instance.inner().enumerate_physical_devices() }?;
-    let physical_device_handle = physical_device_handles
-        .get(0)
-        .ok_or(BortExampleError::NoPhysicalDevice)?;
-    let physical_device = Arc::new(PhysicalDevice::new(
-        instance.clone(),
-        *physical_device_handle,
-    )?);
-    info!("created physical device");
-
-    let (queue_family_index, _queue_family_properties) = physical_device
-        .queue_family_properties()
-        .into_iter()
-        .enumerate() // because we want the queue family index
-        .find(|&(queue_family_index, queue_family_properties)| {
-            let graphics_support = queue_family_properties
-                .queue_flags
-                .contains(vk::QueueFlags::GRAPHICS);
-            let surface_support = surface
-                .get_physical_device_surface_support(&physical_device, queue_family_index as u32)
-                .unwrap_or(false);
-            graphics_support && surface_support
-        })
-        .ok_or(BortExampleError::NoSuitableQueueFamily)?;
-
-    let queue_priorities = [1.0];
-    let queue_create_info = vk::DeviceQueueCreateInfo::builder()
-        .queue_family_index(queue_family_index as u32)
-        .queue_priorities(&queue_priorities);
-
-    let device = Arc::new(Device::new(
-        physical_device.clone(),
-        &[queue_create_info.build()],
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        ["VK_KHR_swapchain".to_string()],
-        [],
-        None,
-    )?);
-    info!("created logical device");
-
-    let queue = Arc::new(Queue::new(device.clone(), queue_family_index as u32, 0)?);
-    info!("created queue");
-
-    let surface_capabilities =
-        surface.get_physical_device_surface_capabilities(&physical_device)?;
-    let preferred_swapchain_image_count = surface_capabilities.min_image_count + 1;
-    let surface_format = surface.get_physical_device_surface_formats(&physical_device)?[0];
-    let composite_alpha = choose_composite_alpha(surface_capabilities);
-    let swapchain_properties = SwapchainProperties::new_default(
-        &device,
-        &surface,
-        preferred_swapchain_image_count,
-        surface_format,
-        composite_alpha,
-        vk::ImageUsageFlags::COLOR_ATTACHMENT,
-        window.inner_size().into(),
-    )?;
-    let swapchain = Arc::new(Swapchain::new(
-        device.clone(),
-        surface.clone(),
-        swapchain_properties,
-    )?);
-    let shaders_write_linear_color = is_format_srgb(swapchain.properties().surface_format.format);
-    info!("created swapchain");
-
-    let swapchain_image_views = swapchain
-        .swapchain_images()
-        .iter()
-        .map(|swapchain_image| {
-            let image_view =
-                ImageView::new(swapchain_image.clone(), swapchain.image_view_properties())?;
-            Ok(Arc::new(image_view))
-        })
-        .collect::<VkResult<Vec<_>>>()?;
-    info!(
-        "created {} swapchain image views",
-        swapchain_image_views.len()
-    );
-
-    let swapchain_attachment_description = vk::AttachmentDescription::builder()
-        .format(surface_format.format)
-        .samples(vk::SampleCountFlags::TYPE_1)
-        .load_op(vk::AttachmentLoadOp::CLEAR)
-        .store_op(vk::AttachmentStoreOp::STORE)
-        .initial_layout(vk::ImageLayout::UNDEFINED)
-        .final_layout(vk::ImageLayout::PRESENT_SRC_KHR);
-
-    let swapchain_attachemnt_reference = vk::AttachmentReference::builder()
-        .attachment(0)
-        .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
-
-    let subpass = Subpass::new(&[swapchain_attachemnt_reference.build()], None, &[]);
-
-    let image_aquire_subpass_dependency = vk::SubpassDependency::builder()
-        .src_subpass(vk::SUBPASS_EXTERNAL)
-        .dst_subpass(0)
-        .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-        .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-        .src_access_mask(vk::AccessFlags::empty())
-        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE);
-
-    let render_pass = Arc::new(RenderPass::new(
-        device.clone(),
-        [swapchain_attachment_description.build()],
-        [subpass],
-        [image_aquire_subpass_dependency.build()],
-    )?);
-    info!("created render pass");
-
-    let pipeline_layout_properties = PipelineLayoutProperties::new(Vec::new(), Vec::new());
-    let pipeline_layout = Arc::new(PipelineLayout::new(
-        device.clone(),
-        pipeline_layout_properties,
-    )?);
-
-    let mut vertex_spv_file = std::io::Cursor::new(&include_bytes!("./triangle.vert.spv")[..]);
-    let vert_shader = Arc::new(ShaderModule::new_from_spirv(
-        device.clone(),
-        &mut vertex_spv_file,
-    )?);
-    let vert_stage = ShaderStage::new(
-        vk::ShaderStageFlags::VERTEX,
-        vert_shader,
-        CString::new("main")?,
-        None,
-    );
-
-    let mut frag_spv_file = std::io::Cursor::new(&include_bytes!("./triangle.frag.spv")[..]);
-    let frag_shader = Arc::new(ShaderModule::new_from_spirv(
-        device.clone(),
-        &mut frag_spv_file,
-    )?);
-    let frag_stage = ShaderStage::new(
-        vk::ShaderStageFlags::FRAGMENT,
-        frag_shader,
-        CString::new("main")?,
-        None,
-    );
-
-    let dynamic_state =
-        DynamicState::new_default(vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
-    let viewport_state = ViewportState::new_dynamic(1, 1);
-    let color_blend_state =
-        ColorBlendState::new_default(vec![ColorBlendState::blend_state_disabled()]);
-
-    let mut pipeline_properties = GraphicsPipelineProperties::default();
-    pipeline_properties.subpass_index = 0;
-    pipeline_properties.dynamic_state = dynamic_state;
-    pipeline_properties.color_blend_state = color_blend_state;
-    pipeline_properties.viewport_state = viewport_state;
-
-    let pipeline = GraphicsPipeline::new(
-        pipeline_layout,
-        pipeline_properties,
-        &[vert_stage, frag_stage],
-        &render_pass,
-        None,
-    )?;
-    info!("created graphics pipeline");
-
-    let framebuffers = swapchain_image_views
-        .into_iter()
-        .map(|swapchain_image_view| {
-            let attachments: Vec<Arc<dyn ImageViewAccess>> = vec![swapchain_image_view.clone()];
-
-            let framebuffer_properties = FramebufferProperties::new_default(
-                attachments,
-                swapchain_image_view.image().dimensions(),
-            );
-
-            let framebuffer = Framebuffer::new(render_pass.clone(), framebuffer_properties)?;
-            Ok(Arc::new(framebuffer))
-        })
-        .collect::<VkResult<Vec<_>>>()?;
-    info!("created {} framebuffers", framebuffers.len());
-
-    let command_pool_properties = CommandPoolProperties {
-        flags: vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
-        queue_family_index: queue_family_index as u32,
-    };
-    let command_pool = Arc::new(CommandPool::new(device.clone(), command_pool_properties)?);
-    info!("created command pool");
-
-    let command_buffers = command_pool
-        .allocate_command_buffers(vk::CommandBufferLevel::PRIMARY, framebuffers.len() as u32)?;
-    info!("allocated command buffers");
-
-    let mut image_available_semaphores: Vec<Semaphore> = Vec::new();
-    let mut render_finished_semaphores: Vec<Semaphore> = Vec::new();
-    let mut in_flight_fences: Vec<Fence> = Vec::new();
-    for _ in 0..MAX_FRAMES_IN_FLIGHT {
-        image_available_semaphores.push(Semaphore::new(device.clone())?);
-        render_finished_semaphores.push(Semaphore::new(device.clone())?);
-        in_flight_fences.push(Fence::new_signalled(device.clone())?);
-    }
-    info!("created semaphores and fences");
-
-    let mut current_frame = 0_usize;
+    let mut engine = TriangleExample::new(&window)?;
 
     event_loop.run(move |event, elwt| {
         if let Event::WindowEvent { event, .. } = event {
@@ -289,9 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     ..
                 } => elwt.exit(),
                 WindowEvent::RedrawRequested => {
-                    // draw frame
-
-                    in_flight_fences[current_frame].wait(FENCE_TIMEOUT)?;
+                    engine.draw_frame().unwrap();
                 }
                 _ => (),
             }
@@ -299,6 +74,321 @@ fn main() -> Result<(), Box<dyn Error>> {
     })?;
 
     Ok(())
+}
+
+struct TriangleExample {
+    queue: Arc<Queue>,
+    swapchain: Arc<Swapchain>,
+    pipeline: GraphicsPipeline,
+    render_pass: Arc<RenderPass>,
+
+    // per swapchain image
+    framebuffers: Vec<Arc<Framebuffer>>,
+    command_buffers: Vec<CommandBuffer>,
+
+    // per frame in flight
+    image_available_semaphores: Vec<Semaphore>,
+    render_finished_semaphores: Vec<Semaphore>,
+    in_flight_fences: Vec<Fence>,
+    current_frame: usize,
+}
+
+impl TriangleExample {
+    pub fn new(window: &Window) -> Result<Self, Box<dyn Error>> {
+        let display_handle = window.display_handle()?;
+        let window_handle = window.window_handle()?;
+
+        let entry = create_entry()?;
+        info!("vulkan loaded");
+
+        let empty_str_vec = Vec::<&str>::new();
+        let instance = Arc::new(Instance::new(
+            entry.clone(),
+            API_VERSION,
+            TITLE,
+            display_handle.as_raw(),
+            empty_str_vec.clone(),
+            empty_str_vec,
+        )?);
+        info!("created vulkan instance");
+
+        let surface = Arc::new(Surface::new(
+            &entry,
+            instance.clone(),
+            display_handle.as_raw(),
+            window_handle.as_raw(),
+        )?);
+        info!("created surface");
+
+        let physical_device_handles = unsafe { instance.inner().enumerate_physical_devices() }?;
+        let physical_device_handle = physical_device_handles
+            .get(0)
+            .ok_or(BortExampleError::NoPhysicalDevice)?;
+        let physical_device = Arc::new(PhysicalDevice::new(
+            instance.clone(),
+            *physical_device_handle,
+        )?);
+        info!("created physical device");
+
+        let (queue_family_index, _queue_family_properties) = physical_device
+            .queue_family_properties()
+            .into_iter()
+            .enumerate() // because we want the queue family index
+            .find(|&(queue_family_index, queue_family_properties)| {
+                let graphics_support = queue_family_properties
+                    .queue_flags
+                    .contains(vk::QueueFlags::GRAPHICS);
+                let surface_support = surface
+                    .get_physical_device_surface_support(
+                        &physical_device,
+                        queue_family_index as u32,
+                    )
+                    .unwrap_or(false);
+                graphics_support && surface_support
+            })
+            .ok_or(BortExampleError::NoSuitableQueueFamily)?;
+
+        let queue_priorities = [1.0];
+        let queue_create_info = vk::DeviceQueueCreateInfo::builder()
+            .queue_family_index(queue_family_index as u32)
+            .queue_priorities(&queue_priorities);
+
+        let device = Arc::new(Device::new(
+            physical_device.clone(),
+            &[queue_create_info.build()],
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            ["VK_KHR_swapchain".to_string()],
+            [],
+            None,
+        )?);
+        info!("created logical device");
+
+        let queue = Arc::new(Queue::new(device.clone(), queue_family_index as u32, 0)?);
+        info!("created queue");
+
+        let surface_capabilities =
+            surface.get_physical_device_surface_capabilities(&physical_device)?;
+        let preferred_swapchain_image_count = surface_capabilities.min_image_count + 1;
+        let surface_format = surface.get_physical_device_surface_formats(&physical_device)?[0];
+        let composite_alpha = choose_composite_alpha(surface_capabilities);
+        let swapchain_properties = SwapchainProperties::new_default(
+            &device,
+            &surface,
+            preferred_swapchain_image_count,
+            surface_format,
+            composite_alpha,
+            vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            window.inner_size().into(),
+        )?;
+        let swapchain = Arc::new(Swapchain::new(
+            device.clone(),
+            surface.clone(),
+            swapchain_properties,
+        )?);
+        let shaders_write_linear_color =
+            is_format_srgb(swapchain.properties().surface_format.format);
+        info!("created swapchain");
+
+        let swapchain_image_views = swapchain
+            .swapchain_images()
+            .iter()
+            .map(|swapchain_image| {
+                let image_view =
+                    ImageView::new(swapchain_image.clone(), swapchain.image_view_properties())?;
+                Ok(Arc::new(image_view))
+            })
+            .collect::<VkResult<Vec<_>>>()?;
+        info!(
+            "created {} swapchain image views",
+            swapchain_image_views.len()
+        );
+
+        let swapchain_attachment_description = vk::AttachmentDescription::builder()
+            .format(surface_format.format)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR);
+
+        let swapchain_attachemnt_reference = vk::AttachmentReference::builder()
+            .attachment(0)
+            .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+
+        let subpass = Subpass::new(&[swapchain_attachemnt_reference.build()], None, &[]);
+
+        let image_aquire_subpass_dependency = vk::SubpassDependency::builder()
+            .src_subpass(vk::SUBPASS_EXTERNAL)
+            .dst_subpass(0)
+            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .src_access_mask(vk::AccessFlags::empty())
+            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE);
+
+        let render_pass = Arc::new(RenderPass::new(
+            device.clone(),
+            [swapchain_attachment_description.build()],
+            [subpass],
+            [image_aquire_subpass_dependency.build()],
+        )?);
+        info!("created render pass");
+
+        let pipeline_layout_properties = PipelineLayoutProperties::new(Vec::new(), Vec::new());
+        let pipeline_layout = Arc::new(PipelineLayout::new(
+            device.clone(),
+            pipeline_layout_properties,
+        )?);
+
+        let mut vertex_spv_file = std::io::Cursor::new(&include_bytes!("./triangle.vert.spv")[..]);
+        let vert_shader = Arc::new(ShaderModule::new_from_spirv(
+            device.clone(),
+            &mut vertex_spv_file,
+        )?);
+        let vert_stage = ShaderStage::new(
+            vk::ShaderStageFlags::VERTEX,
+            vert_shader,
+            CString::new("main")?,
+            None,
+        );
+
+        let mut frag_spv_file = std::io::Cursor::new(&include_bytes!("./triangle.frag.spv")[..]);
+        let frag_shader = Arc::new(ShaderModule::new_from_spirv(
+            device.clone(),
+            &mut frag_spv_file,
+        )?);
+        let frag_stage = ShaderStage::new(
+            vk::ShaderStageFlags::FRAGMENT,
+            frag_shader,
+            CString::new("main")?,
+            None,
+        );
+
+        let dynamic_state =
+            DynamicState::new_default(vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
+        let viewport_state = ViewportState::new_dynamic(1, 1);
+        let color_blend_state =
+            ColorBlendState::new_default(vec![ColorBlendState::blend_state_disabled()]);
+
+        let mut pipeline_properties = GraphicsPipelineProperties::default();
+        pipeline_properties.subpass_index = 0;
+        pipeline_properties.dynamic_state = dynamic_state;
+        pipeline_properties.color_blend_state = color_blend_state;
+        pipeline_properties.viewport_state = viewport_state;
+
+        let pipeline = GraphicsPipeline::new(
+            pipeline_layout,
+            pipeline_properties,
+            &[vert_stage, frag_stage],
+            &render_pass,
+            None,
+        )?;
+        info!("created graphics pipeline");
+
+        let framebuffers = swapchain_image_views
+            .into_iter()
+            .map(|swapchain_image_view| {
+                let attachments: Vec<Arc<dyn ImageViewAccess>> = vec![swapchain_image_view.clone()];
+
+                let framebuffer_properties = FramebufferProperties::new_default(
+                    attachments,
+                    swapchain_image_view.image().dimensions(),
+                );
+
+                let framebuffer = Framebuffer::new(render_pass.clone(), framebuffer_properties)?;
+                Ok(Arc::new(framebuffer))
+            })
+            .collect::<VkResult<Vec<_>>>()?;
+        info!("created {} framebuffers", framebuffers.len());
+
+        let command_pool_properties = CommandPoolProperties {
+            flags: vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+            queue_family_index: queue_family_index as u32,
+        };
+        let command_pool = Arc::new(CommandPool::new(device.clone(), command_pool_properties)?);
+        info!("created command pool");
+
+        let command_buffers = command_pool
+            .allocate_command_buffers(vk::CommandBufferLevel::PRIMARY, framebuffers.len() as u32)?;
+        info!("allocated command buffers");
+
+        let mut image_available_semaphores: Vec<Semaphore> = Vec::new();
+        let mut render_finished_semaphores: Vec<Semaphore> = Vec::new();
+        let mut in_flight_fences: Vec<Fence> = Vec::new();
+        for _ in 0..MAX_FRAMES_IN_FLIGHT {
+            image_available_semaphores.push(Semaphore::new(device.clone())?);
+            render_finished_semaphores.push(Semaphore::new(device.clone())?);
+            in_flight_fences.push(Fence::new_signalled(device.clone())?);
+        }
+        info!("created semaphores and fences");
+
+        let current_frame = 0_usize;
+
+        Ok(Self {
+            queue,
+            swapchain,
+            pipeline,
+            render_pass,
+
+            framebuffers,
+            command_buffers,
+
+            image_available_semaphores,
+            render_finished_semaphores,
+            in_flight_fences,
+            current_frame,
+        })
+    }
+
+    pub fn draw_frame(&mut self) -> VkResult<()> {
+        self.in_flight_fences[self.current_frame].wait(FENCE_TIMEOUT)?;
+
+        let aquire_res = self.swapchain.aquire_next_image(
+            FENCE_TIMEOUT,
+            Some(&self.image_available_semaphores[self.current_frame]),
+            None,
+        );
+
+        let (swaphain_image_index, _is_suboptimal) = match aquire_res {
+            Ok(aquire_ret) => aquire_ret,
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                self.recreate_swapchain();
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        };
+
+        self.in_flight_fences[self.current_frame].reset()?;
+
+        self.command_buffers[self.current_frame].reset(vk::CommandBufferResetFlags::empty())?;
+
+        Ok(())
+    }
+
+    fn record_commands(
+        &self,
+        command_buffer: &CommandBuffer,
+        swapchain_image_index: usize,
+    ) -> VkResult<()> {
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder();
+        command_buffer.begin(&command_buffer_begin_info)?;
+
+        let clear_values = [vk::ClearValue::default()];
+        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            .render_pass(self.render_pass.handle())
+            .framebuffer(self.framebuffers[swapchain_image_index].handle())
+            .render_area(self.framebuffers[swapchain_image_index].whole_rect())
+            .clear_values(&clear_values);
+        command_buffer.begin_render_pass(&render_pass_begin_info, vk::SubpassContents::INLINE);
+
+        Ok(())
+    }
+
+    pub fn recreate_swapchain(&mut self) {
+        todo!();
+    }
 }
 
 // ~~ Errors ~~
