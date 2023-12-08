@@ -9,13 +9,7 @@ use ash::{
 use raw_window_handle_05::RawDisplayHandle;
 #[cfg(feature = "raw-window-handle-06")]
 use raw_window_handle_06::RawDisplayHandle;
-use std::{
-    error,
-    ffi::{CString, NulError},
-    fmt,
-    os::raw::c_char,
-    sync::Arc,
-};
+use std::{error, ffi::NulError, fmt, os::raw::c_char, sync::Arc};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ApiVersion {
@@ -35,17 +29,21 @@ impl ApiVersion {
 
 pub struct Instance {
     inner: ash::Instance,
-    api_version: ApiVersion,
+    /// The highest version of vulkan that the application is designed to use.
+    /// [More info here](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkApplicationInfo.html)
+    max_api_version: ApiVersion,
 
     // dependencies
     entry: Arc<Entry>,
 }
 
 impl Instance {
+    /// This function will figure out the required surface extensions based on `display_handle`
+    /// so there's no need to supply them.
+    /// e.g. VK_KHR_surface and platform specific ones like VK_KHR_win32_surface.
     pub fn new<S>(
         entry: Arc<Entry>,
-        api_version: ApiVersion,
-        app_name: &str,
+        max_api_version: ApiVersion,
         display_handle: RawDisplayHandle,
         layer_names: impl IntoIterator<Item = S>,
         extension_names: impl IntoIterator<Item = S>,
@@ -53,19 +51,7 @@ impl Instance {
     where
         S: Into<Vec<u8>>,
     {
-        let app_name =
-            CString::new(app_name).map_err(|e| InstanceError::AppNameStringConversion(e))?;
-        let appinfo = vk::ApplicationInfo::builder()
-            .application_name(&app_name)
-            .application_version(0)
-            .engine_name(&app_name)
-            .engine_version(0)
-            .api_version(vk::make_api_version(
-                0,
-                api_version.major,
-                api_version.minor,
-                0,
-            ));
+        let appinfo = vk::ApplicationInfo::builder().api_version(max_api_version.as_vk_uint());
 
         let layer_name_cstrings = string_to_c_string_vec(layer_names)
             .map_err(|e| InstanceError::LayerStringConversion(e))?;
@@ -81,7 +67,7 @@ impl Instance {
             .map(|cstring| cstring.as_ptr())
             .collect::<Vec<_>>();
 
-        let display_extension_names = enumerate_required_extensions(display_handle)
+        let display_extension_names = required_surface_extensions(display_handle)
             .map_err(|e| InstanceError::UnsupportedRawDisplayHandle(e))?;
         extension_name_ptrs.extend_from_slice(display_extension_names);
 
@@ -97,7 +83,7 @@ impl Instance {
         Ok(Self {
             entry,
             inner: instance_inner,
-            api_version,
+            max_api_version,
         })
     }
 
@@ -109,7 +95,7 @@ impl Instance {
             unsafe { entry.create_instance(&create_info_builder, ALLOCATION_CALLBACK_NONE) }
                 .map_err(|e| InstanceError::Creation(e))?;
 
-        let api_version = if create_info_builder.p_application_info != std::ptr::null() {
+        let max_api_version = if create_info_builder.p_application_info != std::ptr::null() {
             let api_version_combined =
                 unsafe { *create_info_builder.p_application_info }.api_version;
             ApiVersion {
@@ -122,7 +108,7 @@ impl Instance {
 
         Ok(Self {
             inner: instance_inner,
-            api_version,
+            max_api_version,
             entry,
         })
     }
@@ -143,7 +129,7 @@ impl Instance {
         &self,
         physical_device_handle: vk::PhysicalDevice,
     ) -> Option<vk::PhysicalDeviceVulkan11Features> {
-        if self.api_version < ApiVersion::new(1, 1) {
+        if self.max_api_version < ApiVersion::new(1, 1) {
             return None;
         }
 
@@ -162,7 +148,7 @@ impl Instance {
         &self,
         physical_device_handle: vk::PhysicalDevice,
     ) -> Option<vk::PhysicalDeviceVulkan12Features> {
-        if self.api_version < ApiVersion::new(1, 2) {
+        if self.max_api_version < ApiVersion::new(1, 2) {
             return None;
         }
 
@@ -186,8 +172,8 @@ impl Instance {
     }
 
     #[inline]
-    pub fn api_version(&self) -> ApiVersion {
-        self.api_version
+    pub fn max_api_version(&self) -> ApiVersion {
+        self.max_api_version
     }
 
     #[inline]
@@ -206,7 +192,7 @@ impl Instance {
 /// extensions and creation of a compatible Vulkan instance prior to creating a window.
 ///
 /// The returned extensions will include all extension dependencies.
-pub fn enumerate_required_extensions(
+pub fn required_surface_extensions(
     display_handle: RawDisplayHandle,
 ) -> VkResult<&'static [*const c_char]> {
     let extensions = match display_handle {

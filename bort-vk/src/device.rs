@@ -93,21 +93,21 @@ impl Device {
             .enabled_layer_names(&layer_name_ptrs);
 
         let mut features_2 = vk::PhysicalDeviceFeatures2::builder();
-        if instance.api_version() <= ApiVersion::new(1, 0) {
+        let max_api_version = instance.max_api_version();
+
+        if max_api_version <= ApiVersion::new(1, 0) {
             device_create_info = device_create_info.enabled_features(&features_1_0);
         } else {
             features_2 = features_2.features(features_1_0);
             device_create_info = device_create_info.push_next(&mut features_2);
 
-            if instance.api_version() >= ApiVersion::new(1, 1) {
+            if max_api_version >= ApiVersion::new(1, 1) {
                 device_create_info = device_create_info.push_next(&mut features_1_1)
             }
-
-            if instance.api_version() >= ApiVersion::new(1, 2) {
+            if max_api_version >= ApiVersion::new(1, 2) {
                 device_create_info = device_create_info.push_next(&mut features_1_2);
             }
-
-            if instance.api_version() >= ApiVersion::new(1, 3) {
+            if max_api_version >= ApiVersion::new(1, 3) {
                 device_create_info = device_create_info.push_next(&mut features_1_3);
             }
         }
