@@ -454,6 +454,18 @@ impl TriangleExample {
     }
 }
 
+impl Drop for TriangleExample {
+    fn drop(&mut self) {
+        info!("dropping main class...");
+
+        let wait_res = self.queue.device().wait_idle();
+        if let Err(e) = wait_res {
+            error!("{}", e);
+            return;
+        }
+    }
+}
+
 fn swapchain_properties(
     surface: &Surface,
     device: &Device,
