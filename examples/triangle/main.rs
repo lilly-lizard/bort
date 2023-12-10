@@ -29,7 +29,9 @@ const DEFAULT_WINDOW_SIZE: [u32; 2] = [700, 500];
 const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 0 };
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const FENCE_TIMEOUT: u64 = 1_000_000_000;
-pub const ENABLE_VULKAN_VALIDATION: bool = cfg!(debug_assertions);
+const ENABLE_VULKAN_VALIDATION: bool = cfg!(debug_assertions);
+const VALIDATION_LAYER_NAME: &str = "VK_LAYER_KHRONOS_validation";
+const DEBUG_UTILS_EXTENSION_NAME: &str = "VK_EXT_debug_utils";
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
@@ -112,17 +114,49 @@ impl TriangleExample {
         let entry = create_entry()?;
         info!("vulkan loaded");
 
-        let empty_str_vec = Vec::<&str>::new();
+        let mut enable_validation = ENABLE_VULKAN_VALIDATION;
+        let mut instance_layers = Vec::<&str>::new();
+        let mut instance_extensions = Vec::<&str>::new();
+
+        if enable_validation {
+            let layer_properties = entry.enumerate_instance_layer_properties()?;
+            let extension_properties = entry.enumerate_instance_extension_properties(None)?;
+
+            let validation_layer_installed = layer_properties.iter().any(|layer_prop| {
+                let layer_name = unsafe { CStr::from_ptr(layer_prop.layer_name.as_ptr()) }
+                    .to_str()
+                    .unwrap();
+
+                layer_name == VALIDATION_LAYER_NAME
+            });
+
+            let debug_utils_supported = extension_properties.iter().any(|extension_prop| {
+                let extension_name =
+                    unsafe { CStr::from_ptr(extension_prop.extension_name.as_ptr()) }
+                        .to_str()
+                        .unwrap();
+
+                extension_name == DEBUG_UTILS_EXTENSION_NAME
+            });
+
+            if validation_layer_installed && debug_utils_supported {
+                instance_layers.push(VALIDATION_LAYER_NAME);
+                instance_extensions.push(DEBUG_UTILS_EXTENSION_NAME);
+            } else {
+                enable_validation = false;
+            }
+        }
+
         let instance = Arc::new(Instance::new(
             entry.clone(),
             API_VERSION,
             display_handle.as_raw(),
-            empty_str_vec.clone(),
-            empty_str_vec,
+            instance_layers,
+            instance_extensions,
         )?);
         info!("created vulkan instance");
 
-        let debug_callback = if ENABLE_VULKAN_VALIDATION {
+        let debug_callback = if enable_validation {
             let debug_callback_properties = DebugCallbackProperties::default();
             let debug_callback = DebugCallback::new(
                 instance.clone(),
