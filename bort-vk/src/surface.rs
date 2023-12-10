@@ -216,15 +216,24 @@ pub unsafe fn create_surface(
 
         #[cfg(target_os = "macos")]
         (RawDisplayHandle::AppKit(_), RawWindowHandle::AppKit(window)) => {
-            use raw_window_metal::{appkit, Layer};
+            use ash::extensions::ext::MetalSurface;
+            #[cfg(feature = "raw-window-handle-05")]
+            use raw_window_metal_03::{appkit, Layer};
+            #[cfg(feature = "raw-window-handle-06")]
+            use raw_window_metal_04::{appkit, Layer};
 
+            #[cfg(feature = "raw-window-handle-05")]
             let layer = match appkit::metal_layer_from_handle(window) {
                 Layer::Existing(layer) | Layer::Allocated(layer) => layer.cast(),
                 Layer::None => return Err(vk::Result::ERROR_INITIALIZATION_FAILED),
             };
+            #[cfg(feature = "raw-window-handle-06")]
+            let layer = match appkit::metal_layer_from_handle(window) {
+                Layer::Existing(layer) | Layer::Allocated(layer) => layer.cast(),
+            };
 
             let surface_desc = vk::MetalSurfaceCreateInfoEXT::builder().layer(&*layer);
-            let surface_fn = ext::MetalSurface::new(entry, instance);
+            let surface_fn = MetalSurface::new(entry, instance);
             surface_fn.create_metal_surface(&surface_desc, allocation_callbacks)
         }
 
