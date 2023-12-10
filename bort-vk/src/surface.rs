@@ -6,7 +6,7 @@ use ash::{extensions::khr, prelude::VkResult, vk, Entry};
 use raw_window_handle_05::{RawDisplayHandle, RawWindowHandle};
 #[cfg(feature = "raw-window-handle-06")]
 use raw_window_handle_06::{RawDisplayHandle, RawWindowHandle};
-use std::sync::Arc;
+use std::{error, fmt, sync::Arc};
 
 pub struct Surface {
     handle: vk::SurfaceKHR,
@@ -22,7 +22,7 @@ impl Surface {
         instance: Arc<Instance>,
         raw_display_handle: RawDisplayHandle,
         raw_window_handle: RawWindowHandle,
-    ) -> VkResult<Self> {
+    ) -> Result<Self, SurfaceCreationError> {
         let handle = unsafe {
             create_surface(
                 entry,
@@ -134,13 +134,16 @@ pub unsafe fn create_surface(
     display_handle: RawDisplayHandle,
     window_handle: RawWindowHandle,
     allocation_callbacks: Option<&vk::AllocationCallbacks>,
-) -> VkResult<vk::SurfaceKHR> {
+) -> Result<vk::SurfaceKHR, SurfaceCreationError> {
     match (display_handle, window_handle) {
         (RawDisplayHandle::Windows(_), RawWindowHandle::Win32(window)) => {
             #[cfg(feature = "raw-window-handle-05")]
             let hinstance = window.hinstance;
             #[cfg(feature = "raw-window-handle-06")]
-            let hinstance = window.hinstance.expect("todo").get() as HINSTANCE;
+            let hinstance = window
+                .hinstance
+                .ok_or(SurfaceCreationError::NoWin32HINSTANCE)?
+                .get() as HINSTANCE;
 
             #[cfg(feature = "raw-window-handle-05")]
             let hwnd = window.hwnd;
@@ -151,7 +154,9 @@ pub unsafe fn create_surface(
                 .hinstance(hinstance)
                 .hwnd(hwnd);
             let surface_fn = khr::Win32Surface::new(entry, instance);
-            surface_fn.create_win32_surface(&surface_desc, allocation_callbacks)
+            let surface_handle =
+                surface_fn.create_win32_surface(&surface_desc, allocation_callbacks)?;
+            Ok(surface_handle)
         }
 
         (RawDisplayHandle::Wayland(display), RawWindowHandle::Wayland(window)) => {
@@ -169,27 +174,37 @@ pub unsafe fn create_surface(
                 .display(display_wl)
                 .surface(surface_wl);
             let surface_fn = khr::WaylandSurface::new(entry, instance);
-            surface_fn.create_wayland_surface(&surface_desc, allocation_callbacks)
+            let surface_handle =
+                surface_fn.create_wayland_surface(&surface_desc, allocation_callbacks)?;
+            Ok(surface_handle)
         }
 
         (RawDisplayHandle::Xlib(display), RawWindowHandle::Xlib(window)) => {
             #[cfg(feature = "raw-window-handle-05")]
             let display_x = display.display;
             #[cfg(feature = "raw-window-handle-06")]
-            let display_x = display.display.expect("todo").as_ptr();
+            let display_x = display
+                .display
+                .ok_or(SurfaceCreationError::NoXlibDisplayPointer)?
+                .as_ptr();
 
             let surface_desc = vk::XlibSurfaceCreateInfoKHR::builder()
                 .dpy(display_x.cast())
                 .window(window.window);
             let surface_fn = khr::XlibSurface::new(entry, instance);
-            surface_fn.create_xlib_surface(&surface_desc, allocation_callbacks)
+            let surface_handle =
+                surface_fn.create_xlib_surface(&surface_desc, allocation_callbacks)?;
+            Ok(surface_handle)
         }
 
         (RawDisplayHandle::Xcb(display), RawWindowHandle::Xcb(window)) => {
             #[cfg(feature = "raw-window-handle-05")]
             let connection_xcb = display.connection;
             #[cfg(feature = "raw-window-handle-06")]
-            let connection_xcb = display.connection.expect("todo").as_ptr();
+            let connection_xcb = display
+                .connection
+                .ok_or(SurfaceCreationError::NoXcbConnectionPointer)?
+                .as_ptr();
 
             #[cfg(feature = "raw-window-handle-05")]
             let window_xcb = window.window;
@@ -200,7 +215,9 @@ pub unsafe fn create_surface(
                 .connection(connection_xcb)
                 .window(window_xcb);
             let surface_fn = khr::XcbSurface::new(entry, instance);
-            surface_fn.create_xcb_surface(&surface_desc, allocation_callbacks)
+            let surface_handle =
+                surface_fn.create_xcb_surface(&surface_desc, allocation_callbacks)?;
+            Ok(surface_handle)
         }
 
         (RawDisplayHandle::Android(_), RawWindowHandle::AndroidNdk(window)) => {
@@ -211,7 +228,9 @@ pub unsafe fn create_surface(
 
             let surface_desc = vk::AndroidSurfaceCreateInfoKHR::builder().window(window_android);
             let surface_fn = khr::AndroidSurface::new(entry, instance);
-            surface_fn.create_android_surface(&surface_desc, allocation_callbacks)
+            let surface_handle =
+                surface_fn.create_android_surface(&surface_desc, allocation_callbacks)?;
+            Ok(surface_handle)
         }
 
         #[cfg(target_os = "macos")]
@@ -234,7 +253,9 @@ pub unsafe fn create_surface(
 
             let surface_desc = vk::MetalSurfaceCreateInfoEXT::builder().layer(&*layer);
             let surface_fn = MetalSurface::new(entry, instance);
-            surface_fn.create_metal_surface(&surface_desc, allocation_callbacks)
+            let surface_handle =
+                surface_fn.create_metal_surface(&surface_desc, allocation_callbacks)?;
+            Ok(surface_handle)
         }
 
         #[cfg(target_os = "ios")]
@@ -248,10 +269,15 @@ pub unsafe fn create_surface(
 
             let surface_desc = vk::MetalSurfaceCreateInfoEXT::builder().layer(&*layer);
             let surface_fn = ext::MetalSurface::new(entry, instance);
-            surface_fn.create_metal_surface(&surface_desc, allocation_callbacks)
+            let surface_handle =
+                surface_fn.create_metal_surface(&surface_desc, allocation_callbacks)?;
+            Ok(surface_handle)
         }
 
-        _ => Err(vk::Result::ERROR_EXTENSION_NOT_PRESENT),
+        _ => Err(SurfaceCreationError::UnsupportedDisplaySystem(
+            display_handle,
+            window_handle,
+        )),
     }
 }
 
@@ -284,4 +310,54 @@ pub fn get_first_linear_surface_format(
         .cloned()
         // use the first linear format we find
         .find(|vk::SurfaceFormatKHR { format, .. }| is_format_linear(*format))
+}
+
+// ~~ Errors ~~
+
+#[derive(Clone, Copy, Debug)]
+pub enum SurfaceCreationError {
+    VkResult(vk::Result),
+    NoXcbConnectionPointer,
+    NoXlibDisplayPointer,
+    NoWin32HINSTANCE,
+    UnsupportedDisplaySystem(RawDisplayHandle, RawWindowHandle),
+}
+
+impl fmt::Display for SurfaceCreationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::VkResult(e) => write!(f, "{}", e),
+            Self::NoXcbConnectionPointer => write!(
+                f,
+                "the XCB display handle is missing a valid xcb_connection_t* pointer which is required
+                to create a surface"
+            ),
+            Self::NoXlibDisplayPointer => write!(
+                f,
+                "the X11 display handle is missing a valid Display* pointer which is required
+                to create a surface"
+            ),
+            Self::NoWin32HINSTANCE => write!(
+                f,
+                "the Win32 window handle is missing a valid HINSTANCE which is required
+                to create a surface"
+            ),
+            Self::UnsupportedDisplaySystem(display_handle, window_handle) => write!(
+                f,
+                "the display and window handles represent a windowing system that is currently unsupported.\n
+                display handle = {:?}\n
+                window handle = {:?}",
+                display_handle,
+                window_handle
+            )
+        }
+    }
+}
+
+impl error::Error for SurfaceCreationError {}
+
+impl From<vk::Result> for SurfaceCreationError {
+    fn from(res: vk::Result) -> Self {
+        Self::VkResult(res)
+    }
 }
