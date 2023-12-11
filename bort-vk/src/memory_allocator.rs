@@ -18,7 +18,7 @@ pub struct MemoryAllocator {
 
 impl MemoryAllocator {
     pub fn new(device: Arc<Device>) -> VkResult<Self> {
-        let api_version_uint = device.instance().api_version().as_vk_uint();
+        let api_version_uint = device.instance().max_api_version().as_vk_uint();
         let allocator_info = AllocatorCreateInfo::new(
             device.instance().inner(),
             device.inner(),

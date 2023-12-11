@@ -1,17 +1,22 @@
 use ash::{prelude::VkResult, vk};
 use bort_vk::{
     choose_composite_alpha, is_format_srgb, ApiVersion, ColorBlendState, CommandBuffer,
-    CommandPool, CommandPoolProperties, Device, DeviceOwned, DynamicState, Fence, Framebuffer,
-    FramebufferProperties, GraphicsPipeline, GraphicsPipelineProperties, ImageView,
-    ImageViewAccess, Instance, PhysicalDevice, PipelineLayout, PipelineLayoutProperties, Queue,
-    RenderPass, Semaphore, ShaderModule, ShaderStage, Subpass, Surface, Swapchain, SwapchainImage,
-    SwapchainProperties, ViewportState,
+    CommandPool, CommandPoolProperties, DebugCallback, DebugCallbackProperties, Device,
+    DeviceOwned, DynamicState, Fence, Framebuffer, FramebufferProperties, GraphicsPipeline,
+    GraphicsPipelineProperties, ImageView, ImageViewAccess, Instance, PhysicalDevice,
+    PipelineLayout, PipelineLayoutProperties, Queue, RenderPass, Semaphore, ShaderModule,
+    ShaderStage, Subpass, Surface, Swapchain, SwapchainImage, SwapchainProperties, ViewportState,
 };
 use env_logger::Env;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use std::{error::Error, ffi::CString, sync::Arc};
+use std::{
+    borrow::Cow,
+    error::Error,
+    ffi::{CStr, CString},
+    sync::Arc,
+};
 use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
     event_loop::EventLoop,
@@ -21,9 +26,12 @@ use winit::{
 
 const TITLE: &str = "Triangle (bort example)";
 const DEFAULT_WINDOW_SIZE: [u32; 2] = [700, 500];
-const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 2 };
+const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 0 };
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const FENCE_TIMEOUT: u64 = 1_000_000_000;
+const ENABLE_VULKAN_VALIDATION: bool = cfg!(debug_assertions);
+const VALIDATION_LAYER_NAME: &str = "VK_LAYER_KHRONOS_validation";
+const DEBUG_UTILS_EXTENSION_NAME: &str = "VK_EXT_debug_utils";
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
@@ -106,16 +114,61 @@ impl TriangleExample {
         let entry = create_entry()?;
         info!("vulkan loaded");
 
-        let empty_str_vec = Vec::<&str>::new();
+        let mut enable_validation = ENABLE_VULKAN_VALIDATION;
+        let mut instance_layers = Vec::<&str>::new();
+        let mut instance_extensions = Vec::<&str>::new();
+
+        if enable_validation {
+            let layer_properties = entry.enumerate_instance_layer_properties()?;
+            let extension_properties = entry.enumerate_instance_extension_properties(None)?;
+
+            let validation_layer_installed = layer_properties.iter().any(|layer_prop| {
+                let layer_name = unsafe { CStr::from_ptr(layer_prop.layer_name.as_ptr()) }
+                    .to_str()
+                    .unwrap();
+
+                layer_name == VALIDATION_LAYER_NAME
+            });
+
+            let debug_utils_supported = extension_properties.iter().any(|extension_prop| {
+                let extension_name =
+                    unsafe { CStr::from_ptr(extension_prop.extension_name.as_ptr()) }
+                        .to_str()
+                        .unwrap();
+
+                extension_name == DEBUG_UTILS_EXTENSION_NAME
+            });
+
+            if validation_layer_installed && debug_utils_supported {
+                instance_layers.push(VALIDATION_LAYER_NAME);
+                instance_extensions.push(DEBUG_UTILS_EXTENSION_NAME);
+            } else {
+                enable_validation = false;
+            }
+        }
+
         let instance = Arc::new(Instance::new(
             entry.clone(),
             API_VERSION,
-            TITLE,
             display_handle.as_raw(),
-            empty_str_vec.clone(),
-            empty_str_vec,
+            instance_layers,
+            instance_extensions,
         )?);
         info!("created vulkan instance");
+
+        let debug_callback = if enable_validation {
+            let debug_callback_properties = DebugCallbackProperties::default();
+            let debug_callback = DebugCallback::new(
+                instance.clone(),
+                Some(log_vulkan_debug_callback),
+                debug_callback_properties,
+            )?;
+
+            Some(Arc::new(debug_callback))
+        } else {
+            info!("vulkan validation layers disabled");
+            None
+        };
 
         let surface = Arc::new(Surface::new(
             &entry,
@@ -167,7 +220,7 @@ impl TriangleExample {
             Default::default(),
             ["VK_KHR_swapchain".to_string()],
             [],
-            None,
+            debug_callback,
         )?);
         info!("created logical device");
 
@@ -181,7 +234,7 @@ impl TriangleExample {
             surface.clone(),
             swapchain_properties,
         )?);
-        let shaders_should_write_linear_color =
+        let _shaders_should_write_linear_color =
             is_format_srgb(swapchain.properties().surface_format.format);
         info!("created swapchain");
 
@@ -401,6 +454,18 @@ impl TriangleExample {
     }
 }
 
+impl Drop for TriangleExample {
+    fn drop(&mut self) {
+        info!("dropping main class...");
+
+        let wait_res = self.queue.device().wait_idle();
+        if let Err(e) = wait_res {
+            error!("{}", e);
+            return;
+        }
+    }
+}
+
 fn swapchain_properties(
     surface: &Surface,
     device: &Device,
@@ -504,6 +569,43 @@ fn create_framebuffers(
 
     info!("created {} framebuffers", framebuffers.len());
     Ok(framebuffers)
+}
+
+pub unsafe extern "system" fn log_vulkan_debug_callback(
+    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
+    message_type: vk::DebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
+    _user_data: *mut std::os::raw::c_void,
+) -> vk::Bool32 {
+    let callback_data = *p_callback_data;
+
+    let message = if callback_data.p_message.is_null() {
+        Cow::from("")
+    } else {
+        CStr::from_ptr(callback_data.p_message).to_string_lossy()
+    };
+
+    match message_severity {
+        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => {
+            error!("Vulkan [{:?}]:\n{}", message_type, message);
+        }
+        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => {
+            warn!("Vulkan [{:?}]: {}", message_type, message);
+        }
+        vk::DebugUtilsMessageSeverityFlagsEXT::INFO => {
+            info!("Vulkan [{:?}]: {}", message_type, message);
+        }
+        vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE => {
+            trace!("Vulkan [{:?}]: {}", message_type, message);
+        }
+        _ => trace!(
+            "Vulkan [{:?}] (UNKONWN SEVERITY): {}",
+            message_type,
+            message
+        ),
+    }
+
+    vk::FALSE
 }
 
 // ~~ Errors ~~
