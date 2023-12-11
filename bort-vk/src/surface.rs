@@ -274,10 +274,7 @@ pub unsafe fn create_surface(
             Ok(surface_handle)
         }
 
-        _ => Err(SurfaceCreationError::UnsupportedDisplaySystem(
-            display_handle,
-            window_handle,
-        )),
+        _ => Err(SurfaceCreationError::UnsupportedDisplaySystem()),
     }
 }
 
@@ -320,7 +317,7 @@ pub enum SurfaceCreationError {
     NoXcbConnectionPointer,
     NoXlibDisplayPointer,
     NoWin32HINSTANCE,
-    UnsupportedDisplaySystem(RawDisplayHandle, RawWindowHandle),
+    UnsupportedDisplaySystem(),
 }
 
 impl fmt::Display for SurfaceCreationError {
@@ -342,13 +339,9 @@ impl fmt::Display for SurfaceCreationError {
                 "the Win32 window handle is missing a valid HINSTANCE which is required
                 to create a surface"
             ),
-            Self::UnsupportedDisplaySystem(display_handle, window_handle) => write!(
+            Self::UnsupportedDisplaySystem() => write!(
                 f,
-                "the display and window handles represent a windowing system that is currently unsupported.\n
-                display handle = {:?}\n
-                window handle = {:?}",
-                display_handle,
-                window_handle
+                "the display and window handles represent a windowing system that is currently unsupported."
             )
         }
     }
