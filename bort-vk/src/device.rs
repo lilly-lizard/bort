@@ -23,7 +23,7 @@ impl Device {
     /// `instance` api version.
     pub fn new<'a>(
         physical_device: Arc<PhysicalDevice>,
-        queue_create_infos: &'a [vk::DeviceQueueCreateInfo],
+        queue_create_infos: impl IntoIterator<Item = vk::DeviceQueueCreateInfoBuilder<'a>>,
         features_1_0: vk::PhysicalDeviceFeatures,
         features_1_1: vk::PhysicalDeviceVulkan11Features,
         features_1_2: vk::PhysicalDeviceVulkan12Features,
@@ -32,10 +32,14 @@ impl Device {
         layer_names: impl IntoIterator<Item = String>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
+        let queue_create_infos_built = queue_create_infos
+            .into_iter()
+            .map(move |create_info| create_info.build())
+            .collect::<Vec<_>>();
         unsafe {
             Self::new_with_p_next_chain(
                 physical_device,
-                queue_create_infos,
+                &queue_create_infos_built,
                 features_1_0,
                 features_1_1,
                 features_1_2,
