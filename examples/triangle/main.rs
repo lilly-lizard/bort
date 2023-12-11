@@ -178,7 +178,7 @@ impl TriangleExample {
         )?);
         info!("created surface");
 
-        let physical_device_handles = unsafe { instance.inner().enumerate_physical_devices() }?;
+        let physical_device_handles = instance.enumerate_physical_devices()?;
         let physical_device_handle = physical_device_handles
             .get(0)
             .ok_or(BortExampleError::NoPhysicalDevice)?;
@@ -375,8 +375,8 @@ impl TriangleExample {
             .command_buffers(&submit_command_buffers);
 
         self.queue.submit(
-            &[submit_info.build()],
-            Some(self.in_flight_fences[self.current_frame].handle()),
+            [submit_info],
+            Some(&self.in_flight_fences[self.current_frame]),
         )?;
 
         let present_swapchains = [self.swapchain.handle()];
