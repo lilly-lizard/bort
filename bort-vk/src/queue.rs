@@ -1,4 +1,4 @@
-use crate::{Device, DeviceError, DeviceOwned};
+use crate::{Device, DeviceError, DeviceOwned, Fence};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
@@ -50,15 +50,21 @@ impl Queue {
         }
     }
 
-    pub fn submit(
+    pub fn submit<'a>(
         &self,
-        submit_infos: &[vk::SubmitInfo],
-        fence_handle: Option<vk::Fence>,
+        submit_infos: impl IntoIterator<Item = vk::SubmitInfoBuilder<'a>>,
+        fence: Option<&Fence>,
     ) -> VkResult<()> {
+        let vk_submit_infos = submit_infos
+            .into_iter()
+            .map(|submit_info| submit_info.build())
+            .collect::<Vec<_>>();
+        let fence_handle = fence.map(|f| f.handle());
+
         unsafe {
             self.device.inner().queue_submit(
                 self.handle,
-                submit_infos,
+                &vk_submit_infos,
                 fence_handle.unwrap_or_default(),
             )
         }
