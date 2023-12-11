@@ -244,7 +244,7 @@ pub unsafe fn create_surface(
             #[cfg(feature = "raw-window-handle-05")]
             let layer = match appkit::metal_layer_from_handle(window) {
                 Layer::Existing(layer) | Layer::Allocated(layer) => layer.cast(),
-                Layer::None => return Err(vk::Result::ERROR_INITIALIZATION_FAILED),
+                Layer::None => return Err(vk::Result::ERROR_INITIALIZATION_FAILED.into()),
             };
             #[cfg(feature = "raw-window-handle-06")]
             let layer = match appkit::metal_layer_from_handle(window) {
@@ -260,11 +260,19 @@ pub unsafe fn create_surface(
 
         #[cfg(target_os = "ios")]
         (RawDisplayHandle::UiKit(_), RawWindowHandle::UiKit(window)) => {
-            use raw_window_metal::{uikit, Layer};
+            #[cfg(feature = "raw-window-handle-05")]
+            use raw_window_metal_03::{uikit, Layer};
+            #[cfg(feature = "raw-window-handle-06")]
+            use raw_window_metal_04::{uikit, Layer};
 
+            #[cfg(feature = "raw-window-handle-05")]
             let layer = match uikit::metal_layer_from_handle(window) {
                 Layer::Existing(layer) | Layer::Allocated(layer) => layer.cast(),
-                Layer::None => return Err(vk::Result::ERROR_INITIALIZATION_FAILED),
+                Layer::None => return Err(vk::Result::ERROR_INITIALIZATION_FAILED.into()),
+            };
+            #[cfg(feature = "raw-window-handle-06")]
+            let layer = match uikit::metal_layer_from_handle(window) {
+                Layer::Existing(layer) | Layer::Allocated(layer) => layer.cast(),
             };
 
             let surface_desc = vk::MetalSurfaceCreateInfoEXT::builder().layer(&*layer);
