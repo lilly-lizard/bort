@@ -1,8 +1,11 @@
 use crate::{
-    string_to_c_string_vec, ApiVersion, DebugCallback, Instance, PhysicalDevice, Queue,
+    string_to_c_string_vec, ApiVersion, DebugCallback, Fence, Instance, PhysicalDevice, Queue,
     ALLOCATION_CALLBACK_NONE,
 };
-use ash::vk::{self, ExtendsDeviceCreateInfo};
+use ash::{
+    prelude::VkResult,
+    vk::{self, ExtendsDeviceCreateInfo},
+};
 use std::{error, ffi::NulError, fmt, sync::Arc};
 
 pub trait DeviceOwned {
@@ -153,14 +156,50 @@ impl Device {
         self.debug_callback_ref = debug_callback_ref;
     }
 
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkDeviceWaitIdle.html>
     pub fn wait_idle(&self) -> Result<(), DeviceError> {
         let res = unsafe { self.inner.device_wait_idle() };
         res.map_err(|vk_res| DeviceError::WaitIdle(vk_res))
     }
 
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkQueueWaitIdle.html>
     pub fn queue_wait_idle(&self, queue: &Queue) -> Result<(), DeviceError> {
         let res = unsafe { self.inner.queue_wait_idle(queue.handle()) };
         res.map_err(|vk_res| DeviceError::WaitIdle(vk_res))
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkUpdateDescriptorSets.html>
+    pub fn update_descriptor_sets<'a>(
+        &self,
+        descriptor_writes: impl IntoIterator<Item = vk::WriteDescriptorSetBuilder<'a>>,
+        descriptor_copies: impl IntoIterator<Item = vk::CopyDescriptorSetBuilder<'a>>,
+    ) {
+        let descriptor_writes_built = descriptor_writes
+            .into_iter()
+            .map(|descriptor_write| descriptor_write.build())
+            .collect::<Vec<_>>();
+        let descriptor_copies_built = descriptor_copies
+            .into_iter()
+            .map(|descriptor_copy| descriptor_copy.build())
+            .collect::<Vec<_>>();
+        unsafe {
+            self.inner
+                .update_descriptor_sets(&descriptor_writes_built, &descriptor_copies_built)
+        }
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkWaitForFences.html>
+    pub fn wait_for_fences<'a>(
+        &self,
+        fences: impl IntoIterator<Item = &'a Fence>,
+        wait_all: bool,
+        timeout: u64,
+    ) -> VkResult<()> {
+        let fence_hanles = fences
+            .into_iter()
+            .map(|fence| fence.handle())
+            .collect::<Vec<_>>();
+        unsafe { self.inner.wait_for_fences(&fence_hanles, wait_all, timeout) }
     }
 
     // Getters

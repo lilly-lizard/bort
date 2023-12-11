@@ -5,7 +5,7 @@ use ash::{
 };
 use std::sync::Arc;
 
-/// Note: no destructor needed. Just drop pool.
+// Note: no destructor needed. Just drop pool.
 pub struct DescriptorSet {
     handle: vk::DescriptorSet,
     layout: Arc<DescriptorSetLayout>,

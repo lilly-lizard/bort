@@ -1,5 +1,6 @@
 use crate::{
-    Buffer, CommandPool, DescriptorSet, Device, DeviceOwned, PipelineAccess, PipelineLayout,
+    Buffer, CommandPool, DescriptorSet, Device, DeviceOwned, ImageAccess, PipelineAccess,
+    PipelineLayout,
 };
 use ash::{
     prelude::VkResult,
@@ -162,8 +163,25 @@ impl CommandBuffer {
         }
     }
 
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdBindIndexBuffer.html>
+    pub fn bind_index_buffer(
+        &self,
+        buffer: &Buffer,
+        offset: vk::DeviceSize,
+        index_type: vk::IndexType,
+    ) {
+        unsafe {
+            self.device().inner().cmd_bind_index_buffer(
+                self.handle,
+                buffer.handle(),
+                offset,
+                index_type,
+            )
+        }
+    }
+
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdSetViewport.html>
-    pub fn set_viewports(&self, viewports: &[vk::Viewport], first_viewport: u32) {
+    pub fn set_viewports(&self, first_viewport: u32, viewports: &[vk::Viewport]) {
         unsafe {
             self.device()
                 .inner()
@@ -172,7 +190,7 @@ impl CommandBuffer {
     }
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdSetScissor.html>
-    pub fn set_scissors(&self, scissors: &[vk::Rect2D], first_scissor: u32) {
+    pub fn set_scissors(&self, first_scissor: u32, scissors: &[vk::Rect2D]) {
         unsafe {
             self.device()
                 .inner()
@@ -263,6 +281,61 @@ impl CommandBuffer {
         }
 
         Ok(())
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html>
+    pub fn copy_buffer(
+        &self,
+        src_buffer: &Buffer,
+        dst_buffer: &Buffer,
+        regions: &[vk::BufferCopy],
+    ) {
+        unsafe {
+            self.device().inner().cmd_copy_buffer(
+                self.handle,
+                src_buffer.handle(),
+                dst_buffer.handle(),
+                regions,
+            )
+        }
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html>
+    pub fn copy_buffer_to_image(
+        &self,
+        src_buffer: &Buffer,
+        dst_image: &dyn ImageAccess,
+        dst_image_layout: vk::ImageLayout,
+        regions: &[vk::BufferImageCopy],
+    ) {
+        unsafe {
+            self.device().inner().cmd_copy_buffer_to_image(
+                self.handle,
+                src_buffer.handle(),
+                dst_image.handle(),
+                dst_image_layout,
+                regions,
+            )
+        }
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdPushConstants.html>
+    pub fn push_constants(
+        &self,
+        pipeline_layout: &PipelineLayout,
+        stage_flags: vk::ShaderStageFlags,
+        offset: u32,
+        constants: &[u8],
+    ) {
+        unsafe {
+            self.device().inner().cmd_push_constants(
+                self.handle,
+                pipeline_layout.handle(),
+                stage_flags,
+                offset,
+                constants,
+            )
+        }
     }
 }
 
