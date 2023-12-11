@@ -162,6 +162,10 @@ impl Instance {
         Some(features_1_2)
     }
 
+    pub fn enumerate_physical_devices(&self) -> VkResult<Vec<vk::PhysicalDevice>> {
+        unsafe { self.inner.enumerate_physical_devices() }
+    }
+
     // Getters
 
     /// Access the `ash::Instance` struct that `self` contains. Allows you to access vulkan instance
