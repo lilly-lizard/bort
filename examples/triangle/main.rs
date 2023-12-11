@@ -26,7 +26,7 @@ use winit::{
 
 const TITLE: &str = "Triangle (bort example)";
 const DEFAULT_WINDOW_SIZE: [u32; 2] = [700, 500];
-const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 0 };
+const MAX_API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 3 };
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const FENCE_TIMEOUT: u64 = 1_000_000_000;
 const ENABLE_VULKAN_VALIDATION: bool = cfg!(debug_assertions);
@@ -149,7 +149,7 @@ impl TriangleExample {
 
         let instance = Arc::new(Instance::new(
             entry.clone(),
-            API_VERSION,
+            MAX_API_VERSION,
             display_handle.as_raw(),
             instance_layers,
             instance_extensions,
@@ -422,8 +422,8 @@ impl TriangleExample {
 
         command_buffer.bind_pipeline(&self.pipeline);
 
-        command_buffer.set_viewports(&[viewport], 0);
-        command_buffer.set_scissors(&[render_extent], 0);
+        command_buffer.set_viewport(0, &[viewport]);
+        command_buffer.set_scissor(0, &[render_extent]);
 
         command_buffer.draw(3, 1, 0, 0);
 

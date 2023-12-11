@@ -181,7 +181,7 @@ impl CommandBuffer {
     }
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdSetViewport.html>
-    pub fn set_viewports(&self, first_viewport: u32, viewports: &[vk::Viewport]) {
+    pub fn set_viewport(&self, first_viewport: u32, viewports: &[vk::Viewport]) {
         unsafe {
             self.device()
                 .inner()
@@ -190,7 +190,7 @@ impl CommandBuffer {
     }
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdSetScissor.html>
-    pub fn set_scissors(&self, first_scissor: u32, scissors: &[vk::Rect2D]) {
+    pub fn set_scissor(&self, first_scissor: u32, scissors: &[vk::Rect2D]) {
         unsafe {
             self.device()
                 .inner()
