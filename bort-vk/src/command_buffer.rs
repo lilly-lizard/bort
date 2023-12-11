@@ -1,9 +1,11 @@
-use crate::{CommandPool, Device, DeviceOwned, PipelineAccess};
+use crate::{
+    Buffer, CommandPool, DescriptorSet, Device, DeviceOwned, PipelineAccess, PipelineLayout,
+};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 
 pub struct CommandBuffer {
     handle: vk::CommandBuffer,
@@ -130,6 +132,72 @@ impl CommandBuffer {
         }
     }
 
+    /// vkCmdDrawIndexed
+    pub fn draw_indexed(
+        &self,
+        index_count: u32,
+        instance_count: u32,
+        first_index: u32,
+        vertex_offset: i32,
+        first_instance: u32,
+    ) {
+        unsafe {
+            self.device().inner().cmd_draw_indexed(
+                self.handle,
+                index_count,
+                instance_count,
+                first_index,
+                vertex_offset,
+                first_instance,
+            )
+        }
+    }
+
+    /// vkCmdDrawIndexed
+    pub fn draw_indexed_indirect(
+        &self,
+        buffer: &Buffer,
+        offset: vk::DeviceSize,
+        draw_count: u32,
+        stride: u32,
+    ) {
+        unsafe {
+            self.device().inner().cmd_draw_indexed_indirect(
+                self.handle,
+                buffer.handle(),
+                offset,
+                draw_count,
+                stride,
+            )
+        }
+    }
+
+    /// vkCmdExecuteCommands
+    pub fn execute_commands(
+        &self,
+        secondary_command_buffers: &[&CommandBuffer],
+    ) -> Result<(), CommandError> {
+        let any_primary_buffers = secondary_command_buffers
+            .iter()
+            .any(|command_buffer| command_buffer.level == vk::CommandBufferLevel::PRIMARY);
+        if any_primary_buffers {
+            return Err(CommandError::CantExecutePrimaryCommandBuffer);
+        }
+
+        let secondary_command_buffer_handles = secondary_command_buffers
+            .iter()
+            .map(|command_buffer| command_buffer.handle())
+            .collect::<Vec<_>>();
+
+        unsafe {
+            self.device()
+                .inner()
+                .cmd_execute_commands(self.handle, &secondary_command_buffer_handles);
+        }
+
+        Ok(())
+    }
+
     /// Note: this will fail if the command pool wasn't created with `vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER`
     /// set.
     ///
@@ -164,3 +232,23 @@ impl DeviceOwned for CommandBuffer {
         self.handle.as_raw()
     }
 }
+
+// ~~ Errors ~~
+
+#[derive(Clone, Copy, Debug)]
+pub enum CommandError {
+    CantExecutePrimaryCommandBuffer,
+}
+
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CantExecutePrimaryCommandBuffer => write!(
+                f,
+                "attempted to call vkCmdExecuteCommands on a primary command buffer"
+            ),
+        }
+    }
+}
+
+impl Error for CommandError {}
