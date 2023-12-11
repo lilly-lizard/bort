@@ -141,6 +141,7 @@ impl CommandBuffer {
         }
     }
 
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdBindVertexBuffers.html>
     pub fn bind_vertex_buffers<'a>(
         &self,
         first_binding: u32,
@@ -198,7 +199,7 @@ impl CommandBuffer {
         }
     }
 
-    /// vkCmdDrawIndexed
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdDrawIndexed.html>
     pub fn draw_indexed(
         &self,
         index_count: u32,
@@ -219,7 +220,7 @@ impl CommandBuffer {
         }
     }
 
-    /// vkCmdDrawIndexed
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdDrawIndexedIndirect.html>
     pub fn draw_indexed_indirect(
         &self,
         buffer: &Buffer,
@@ -238,7 +239,7 @@ impl CommandBuffer {
         }
     }
 
-    /// vkCmdExecuteCommands
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdExecuteCommands.html>
     pub fn execute_commands(
         &self,
         secondary_command_buffers: &[&CommandBuffer],
@@ -262,18 +263,6 @@ impl CommandBuffer {
         }
 
         Ok(())
-    }
-
-    /// Note: this will fail if the command pool wasn't created with `vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER`
-    /// set.
-    ///
-    /// vkResetCommandBuffer
-    pub fn reset(&self, reset_flags: vk::CommandBufferResetFlags) -> VkResult<()> {
-        unsafe {
-            self.device()
-                .inner()
-                .reset_command_buffer(self.handle, reset_flags)
-        }
     }
 }
 

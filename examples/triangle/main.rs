@@ -213,7 +213,7 @@ impl TriangleExample {
 
         let device = Arc::new(Device::new(
             physical_device.clone(),
-            &[queue_create_info.build()],
+            [queue_create_info],
             Default::default(),
             Default::default(),
             Default::default(),
