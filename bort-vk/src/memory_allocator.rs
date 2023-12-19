@@ -1,13 +1,15 @@
 //! See [here](https://asawicki.info/news_1740_vulkan_memory_types_on_pc_and_how_to_use_them) for advice
 //! on vulkan memory types on PC.
 
-use crate::{device::Device, AllocAccess};
+use crate::{device::Device, AllocatorAccess};
 use ash::prelude::VkResult;
 use bort_vma::AllocatorCreateInfo;
 use std::sync::Arc;
 
 /// so it's easy to find all allocation callback args, just in case I want to use them in the future.
 pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None;
+
+// ~~ Memory Allocator ~~
 
 pub struct MemoryAllocator {
     inner: Arc<bort_vma::Allocator>,
@@ -53,7 +55,7 @@ impl MemoryAllocator {
     }
 }
 
-impl AllocAccess for MemoryAllocator {
+impl AllocatorAccess for MemoryAllocator {
     #[inline]
     fn vma_alloc_ref(&self) -> &dyn bort_vma::Alloc {
         self.inner.as_ref()

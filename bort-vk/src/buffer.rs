@@ -1,4 +1,4 @@
-use crate::{AllocAccess, Device, DeviceOwned, MemoryAllocation, MemoryError};
+use crate::{AllocationAccess, AllocatorAccess, Device, DeviceOwned, MemoryAllocation};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
@@ -16,7 +16,7 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new(
-        alloc_access: Arc<dyn AllocAccess>,
+        alloc_access: Arc<dyn AllocatorAccess>,
         buffer_properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -37,7 +37,7 @@ impl Buffer {
     }
 
     pub unsafe fn new_from_create_info(
-        alloc_access: Arc<dyn AllocAccess>,
+        alloc_access: Arc<dyn AllocatorAccess>,
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -58,7 +58,7 @@ impl Buffer {
     }
 
     fn from_handle_and_allocation(
-        alloc_access: Arc<dyn AllocAccess>,
+        alloc_access: Arc<dyn AllocatorAccess>,
         properties: BufferProperties,
         handle: vk::Buffer,
         vma_allocation: bort_vma::Allocation,
@@ -70,25 +70,6 @@ impl Buffer {
             properties,
             memory_allocation,
         }
-    }
-    /// Writes `data` to the buffer memory allocation. Will flush if memory isn't host coherent.
-    /// Doesn't perform any GPU synchronization.
-    ///
-    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
-    pub fn write_struct<T>(&mut self, data: T, mem_offset: usize) -> Result<(), MemoryError> {
-        self.memory_allocation.write_struct(data, mem_offset)
-    }
-
-    /// Writes `data` to the buffer memory allocation. Will flush if memory isn't host coherent.
-    /// Doesn't perform any GPU synchronization.
-    ///
-    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
-    pub fn write_iter<I, T>(&mut self, data: I, mem_offset: usize) -> Result<(), MemoryError>
-    where
-        I: IntoIterator<Item = T>,
-        I::IntoIter: ExactSizeIterator,
-    {
-        self.memory_allocation.write_iter(data, mem_offset)
     }
 
     // Getters
@@ -104,17 +85,18 @@ impl Buffer {
     }
 
     #[inline]
-    pub fn alloc_access(&self) -> &Arc<dyn AllocAccess> {
-        &self.memory_allocation.alloc_access()
+    pub fn allocator_access(&self) -> &Arc<dyn AllocatorAccess> {
+        &self.memory_allocation.allocator_access()
     }
 
     #[inline]
     pub fn memory_allocation(&self) -> &MemoryAllocation {
         &self.memory_allocation
     }
+}
 
-    #[inline]
-    pub fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation {
+impl AllocationAccess for Buffer {
+    fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation {
         &mut self.memory_allocation
     }
 }
@@ -122,7 +104,7 @@ impl Buffer {
 impl DeviceOwned for Buffer {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.alloc_access().device()
+        &self.allocator_access().device()
     }
 
     #[inline]
@@ -134,7 +116,7 @@ impl DeviceOwned for Buffer {
 impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe {
-            self.alloc_access()
+            self.allocator_access()
                 .clone()
                 .vma_allocator()
                 .destroy_buffer(self.handle, self.memory_allocation.inner_mut());

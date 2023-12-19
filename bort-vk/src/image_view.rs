@@ -5,6 +5,7 @@ use ash::{
 };
 use std::sync::Arc;
 
+/// Unifies image views with different types of images
 pub trait ImageViewAccess: DeviceOwned + Send + Sync {
     fn handle(&self) -> vk::ImageView;
     fn image_access(&self) -> Arc<dyn ImageAccess>;

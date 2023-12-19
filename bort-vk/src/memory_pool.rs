@@ -1,4 +1,4 @@
-use crate::{AllocAccess, Device, MemoryAllocator};
+use crate::{AllocatorAccess, Device, MemoryAllocator};
 use ash::{prelude::VkResult, vk};
 use std::sync::Arc;
 
@@ -58,7 +58,7 @@ impl MemoryPool {
     }
 }
 
-impl AllocAccess for MemoryPool {
+impl AllocatorAccess for MemoryPool {
     fn vma_alloc_ref(&self) -> &dyn bort_vma::Alloc {
         &self.inner
     }

@@ -1,18 +1,15 @@
 use crate::{
-    AllocAccess, Device, DeviceOwned, MemoryAllocation, MemoryAllocator, MemoryError,
-    PhysicalDevice,
+    AllocationAccess, AllocatorAccess, Device, DeviceOwned, ImageAccess, ImageDimensions,
+    MemoryAllocation, MemoryAllocator, PhysicalDevice,
 };
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
 use bort_vma::{Alloc, AllocationCreateInfo};
-use std::{error, fmt, sync::Arc};
+use std::sync::Arc;
 
-pub trait ImageAccess: DeviceOwned + Send + Sync {
-    fn handle(&self) -> vk::Image;
-    fn dimensions(&self) -> ImageDimensions;
-}
+// ~~ Image ~~
 
 pub struct Image {
     handle: vk::Image,
@@ -22,7 +19,7 @@ pub struct Image {
 
 impl Image {
     pub fn new(
-        alloc_access: Arc<dyn AllocAccess>,
+        alloc_access: Arc<dyn AllocatorAccess>,
         image_properties: ImageProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -42,7 +39,7 @@ impl Image {
     }
 
     pub unsafe fn new_from_create_info(
-        alloc_access: Arc<dyn AllocAccess>,
+        alloc_access: Arc<dyn AllocatorAccess>,
         image_create_info_builder: vk::ImageCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -77,25 +74,6 @@ impl Image {
         Self::new(memory_allocator, image_properties, allocation_info)
     }
 
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail
-    pub fn write_struct<T>(&mut self, data: T, mem_offset: usize) -> Result<(), MemoryError> {
-        self.memory_allocation.write_struct(data, mem_offset)
-    }
-
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail
-    pub fn write_iter<I, T>(&mut self, data: I, mem_offset: usize) -> Result<(), MemoryError>
-    where
-        I: IntoIterator<Item = T>,
-        I::IntoIter: ExactSizeIterator,
-    {
-        self.memory_allocation.write_iter(data, mem_offset)
-    }
-
-    /// Note that if memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail
-    pub fn read_struct_at_offset<T>(&mut self, mem_offset: usize) -> Result<T, MemoryError> {
-        self.memory_allocation.read_struct(mem_offset)
-    }
-
     // Getters
 
     #[inline]
@@ -104,8 +82,8 @@ impl Image {
     }
 
     #[inline]
-    pub fn alloc_access(&self) -> &Arc<dyn AllocAccess> {
-        &self.memory_allocation.alloc_access()
+    pub fn allocator_access(&self) -> &Arc<dyn AllocatorAccess> {
+        &self.memory_allocation.allocator_access()
     }
 
     #[inline]
@@ -126,6 +104,12 @@ impl ImageAccess for Image {
     }
 }
 
+impl AllocationAccess for Image {
+    fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation {
+        &mut self.memory_allocation
+    }
+}
+
 impl DeviceOwned for Image {
     #[inline]
     fn device(&self) -> &Arc<Device> {
@@ -141,7 +125,7 @@ impl DeviceOwned for Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            self.alloc_access()
+            self.allocator_access()
                 .clone()
                 .vma_allocator()
                 .destroy_image(self.handle, self.memory_allocation.inner_mut());
@@ -149,7 +133,7 @@ impl Drop for Image {
     }
 }
 
-// Presets
+// ~~ Presets ~~
 
 /// Properties for a device local and preferably lazily-allocated transient attachment image.
 pub fn transient_image_info(
@@ -173,7 +157,7 @@ pub fn transient_image_info(
     (image_properties, allocation_info)
 }
 
-// Image Properties
+// ~~ Image Properties ~~
 
 /// Note: default values for `format`, `dimensions` and `usage` are nothing!
 #[derive(Debug, Clone)]
@@ -272,174 +256,6 @@ impl ImageProperties {
             format: value.format,
             dimensions,
             usage: value.usage,
-        }
-    }
-}
-
-// Image Dimensions
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum ImageDimensions {
-    Dim1d {
-        width: u32,
-        array_layers: u32,
-    },
-    Dim2d {
-        width: u32,
-        height: u32,
-        array_layers: u32,
-    },
-    Dim3d {
-        width: u32,
-        height: u32,
-        depth: u32,
-    },
-}
-
-impl ImageDimensions {
-    pub fn new_from_extent_and_layers(extent_3d: vk::Extent3D, array_layers: u32) -> Self {
-        if array_layers > 1 {
-            if extent_3d.height > 1 {
-                Self::new_2d_array(extent_3d.width, extent_3d.height, array_layers)
-            } else {
-                Self::new_1d_array(extent_3d.width, array_layers)
-            }
-        } else {
-            if extent_3d.depth > 1 {
-                Self::new_3d(extent_3d.width, extent_3d.height, extent_3d.depth)
-            } else if extent_3d.height > 1 {
-                Self::new_2d(extent_3d.width, extent_3d.height)
-            } else {
-                Self::new_1d(extent_3d.width)
-            }
-        }
-    }
-
-    pub fn new_1d(width: u32) -> Self {
-        Self::Dim1d {
-            width,
-            array_layers: 1,
-        }
-    }
-
-    pub fn new_1d_array(width: u32, array_layers: u32) -> Self {
-        Self::Dim1d {
-            width,
-            array_layers,
-        }
-    }
-
-    pub fn new_2d(width: u32, height: u32) -> Self {
-        Self::Dim2d {
-            width,
-            height,
-            array_layers: 1,
-        }
-    }
-
-    pub fn new_2d_array(width: u32, height: u32, array_layers: u32) -> Self {
-        Self::Dim2d {
-            width,
-            height,
-            array_layers,
-        }
-    }
-
-    pub fn new_3d(width: u32, height: u32, depth: u32) -> Self {
-        Self::Dim3d {
-            width,
-            height,
-            depth,
-        }
-    }
-
-    pub fn width(&self) -> u32 {
-        match *self {
-            ImageDimensions::Dim1d { width, .. } => width,
-            ImageDimensions::Dim2d { width, .. } => width,
-            ImageDimensions::Dim3d { width, .. } => width,
-        }
-    }
-
-    pub fn height(&self) -> u32 {
-        match *self {
-            ImageDimensions::Dim1d { .. } => 1,
-            ImageDimensions::Dim2d { height, .. } => height,
-            ImageDimensions::Dim3d { height, .. } => height,
-        }
-    }
-
-    pub fn width_height(&self) -> [u32; 2] {
-        [self.width(), self.height()]
-    }
-
-    pub fn depth(&self) -> u32 {
-        match *self {
-            ImageDimensions::Dim1d { .. } => 1,
-            ImageDimensions::Dim2d { .. } => 1,
-            ImageDimensions::Dim3d { depth, .. } => depth,
-        }
-    }
-
-    pub fn extent_3d(&self) -> vk::Extent3D {
-        vk::Extent3D {
-            width: self.width(),
-            height: self.height(),
-            depth: self.depth(),
-        }
-    }
-
-    pub fn array_layers(&self) -> u32 {
-        match *self {
-            ImageDimensions::Dim1d { array_layers, .. } => array_layers,
-            ImageDimensions::Dim2d { array_layers, .. } => array_layers,
-            ImageDimensions::Dim3d { .. } => 1,
-        }
-    }
-
-    pub fn num_texels(&self) -> u32 {
-        self.width() * self.height() * self.depth() * self.array_layers()
-    }
-
-    pub fn image_type(&self) -> vk::ImageType {
-        match *self {
-            ImageDimensions::Dim1d { .. } => vk::ImageType::TYPE_1D,
-            ImageDimensions::Dim2d { .. } => vk::ImageType::TYPE_2D,
-            ImageDimensions::Dim3d { .. } => vk::ImageType::TYPE_3D,
-        }
-    }
-
-    pub fn default_image_view_type(&self) -> vk::ImageViewType {
-        match self {
-            Self::Dim1d {
-                array_layers: 1, ..
-            } => vk::ImageViewType::TYPE_1D,
-            Self::Dim1d { .. } => vk::ImageViewType::TYPE_1D_ARRAY,
-            Self::Dim2d {
-                array_layers: 1, ..
-            } => vk::ImageViewType::TYPE_2D,
-            Self::Dim2d { .. } => vk::ImageViewType::TYPE_2D_ARRAY,
-            Self::Dim3d { .. } => vk::ImageViewType::TYPE_3D,
-        }
-    }
-
-    pub fn whole_viewport(&self) -> vk::Viewport {
-        vk::Viewport {
-            x: 0.,
-            y: 0.,
-            width: self.width() as f32,
-            height: self.height() as f32,
-            min_depth: 0.,
-            max_depth: 1., // not to be confused with `self.depth()`
-        }
-    }
-}
-
-impl Default for ImageDimensions {
-    fn default() -> Self {
-        Self::Dim1d {
-            width: 1,
-            array_layers: 1,
         }
     }
 }
@@ -546,58 +362,4 @@ pub fn aspect_mask_from_format(format: vk::Format) -> vk::ImageAspectFlags {
     }
 
     aspect
-}
-
-// Image Access Error
-
-#[derive(Debug, Clone)]
-pub enum ImageAccessError {
-    /// `requested_coordinates` and `image_dimensions` are different enum variants
-    IncompatibleDimensions {
-        requested_coordinates: ImageDimensions,
-        image_dimensions: ImageDimensions,
-    },
-    InvalidDimensions {
-        requested_coordinates: ImageDimensions,
-        image_dimensions: ImageDimensions,
-    },
-    MemoryError(MemoryError),
-}
-
-impl fmt::Display for ImageAccessError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MemoryError(e) => e.fmt(f),
-            Self::IncompatibleDimensions {
-                requested_coordinates,
-                image_dimensions,
-            } => {
-                write!(
-                    f,
-                    "incompatible coordinate/dimension types: requested coordinates = {:?}, image dimensions = {:?}",
-                    requested_coordinates, image_dimensions
-                )
-            }
-            Self::InvalidDimensions {
-                requested_coordinates,
-                image_dimensions,
-            } => {
-                write!(
-                    f,
-                    "invalid coordinates/dimensions: requested coordinates = {:?}, image dimensions = {:?}",
-                    requested_coordinates, image_dimensions
-                )
-            }
-        }
-    }
-}
-
-impl error::Error for ImageAccessError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            Self::MemoryError(e) => Some(e),
-            Self::IncompatibleDimensions { .. } => None,
-            Self::InvalidDimensions { .. } => None,
-        }
-    }
 }
