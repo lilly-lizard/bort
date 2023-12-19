@@ -254,8 +254,10 @@ where
     }
 }
 
+/// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html>
+///
 /// Note: doesn't include shader stages, render pass, pipeline layout or pipeline cache
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct GraphicsPipelineProperties {
     pub flags: vk::PipelineCreateFlags,
     pub subpass_index: u32,
@@ -397,7 +399,8 @@ impl GraphicsPipelineProperties {
 
 // Sub-Properties
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineColorBlendAttachmentState.html>"]
+#[derive(Debug, Clone)]
 pub struct ColorBlendState {
     pub flags: vk::PipelineColorBlendStateCreateFlags,
     pub logic_op: Option<vk::LogicOp>,
@@ -507,7 +510,8 @@ impl ColorBlendState {
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineDepthStencilStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct DepthStencilState {
     pub flags: vk::PipelineDepthStencilStateCreateFlags,
     pub depth_test_enable: bool,
@@ -581,7 +585,8 @@ impl FromCreateInfo<vk::PipelineDepthStencilStateCreateInfo> for DepthStencilSta
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineDynamicStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct DynamicState {
     pub flags: vk::PipelineDynamicStateCreateFlags,
     pub dynamic_states: Vec<vk::DynamicState>,
@@ -635,7 +640,8 @@ impl DynamicState {
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineInputAssemblyStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct InputAssemblyState {
     pub flags: vk::PipelineInputAssemblyStateCreateFlags,
     pub topology: vk::PrimitiveTopology,
@@ -681,7 +687,8 @@ impl FromCreateInfo<vk::PipelineInputAssemblyStateCreateInfo> for InputAssemblyS
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineMultisampleStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct MultisampleState {
     pub flags: vk::PipelineMultisampleStateCreateFlags,
     pub rasterization_samples: vk::SampleCountFlags,
@@ -775,7 +782,8 @@ impl MultisampleState {
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineRasterizationStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct RasterizationState {
     pub flags: vk::PipelineRasterizationStateCreateFlags,
     pub depth_clamp_enable: bool,
@@ -853,7 +861,8 @@ impl FromCreateInfo<vk::PipelineRasterizationStateCreateInfo> for RasterizationS
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineTessellationStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct TessellationState {
     pub flags: vk::PipelineTessellationStateCreateFlags,
     pub patch_control_points: u32,
@@ -895,7 +904,8 @@ impl FromCreateInfo<vk::PipelineTessellationStateCreateInfo> for TessellationSta
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineVertexInputStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct VertexInputState {
     pub flags: vk::PipelineVertexInputStateCreateFlags,
     pub vertex_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
@@ -955,7 +965,8 @@ impl VertexInputState {
     }
 }
 
-#[derive(Clone)]
+#[doc = "<https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPipelineViewportStateCreateInfo.html>"]
+#[derive(Debug, Clone)]
 pub struct ViewportState {
     pub flags: vk::PipelineViewportStateCreateFlags,
     pub viewports: Vec<vk::Viewport>,

@@ -90,7 +90,6 @@ impl MemoryAllocation {
     }
 
     /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
-    /// Doesn't perform any GPU synchronization.
     ///
     /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
     pub fn write_struct<T>(
@@ -111,8 +110,8 @@ impl MemoryAllocation {
         flush_res
     }
 
-    /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
-    /// Doesn't perform any GPU synchronization.
+    /// _WARNING:_ This function writes one element at a time. In comparison, the `write_slice`
+    /// function will copy everything in one go (requires the `bytemuck` feature enabled).
     ///
     /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
     pub fn write_iter<I, T>(
@@ -171,7 +170,6 @@ impl MemoryAllocation {
     }
 
     /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
-    /// Doesn't perform any GPU synchronization.
     ///
     /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
     pub fn read_struct<T>(&mut self, allocation_offset: usize) -> Result<T, MemoryError> {
@@ -185,6 +183,30 @@ impl MemoryAllocation {
 
         unsafe { self.unmap_memory() };
         Ok(read_data)
+    }
+
+    fn check_memory_access_parameters(
+        &self,
+        data_size: usize,
+        allocation_offset: usize,
+    ) -> Result<(), MemoryError> {
+        let allocation_size = self.size as usize; // allocation size won't be anywhere near the max of usize/isize despite being u64
+        let allocation_write_size = allocation_size.checked_sub(allocation_offset).ok_or(
+            MemoryError::AllocationOffsetTooBig {
+                allocation_size: self.size,
+                allocation_offset,
+            },
+        )?;
+
+        if data_size > allocation_write_size {
+            return Err(MemoryError::DataSizeTooBig {
+                data_size,
+                allocation_size: self.size,
+                allocation_offset,
+            });
+        }
+
+        Ok(())
     }
 
     pub unsafe fn map_memory(&mut self) -> Result<*mut u8, MemoryError> {
@@ -222,30 +244,6 @@ impl MemoryAllocation {
             .vma_allocator()
             .flush_allocation(&self.inner, allocation_offset, data_size)
             .map_err(|e| MemoryError::Flushing(e))
-    }
-
-    fn check_memory_access_parameters(
-        &self,
-        data_size: usize,
-        allocation_offset: usize,
-    ) -> Result<(), MemoryError> {
-        let allocation_size = self.size as usize;
-        let allocation_write_size = allocation_size.checked_sub(allocation_offset).ok_or(
-            MemoryError::AllocationOffsetTooBig {
-                allocation_size,
-                allocation_offset,
-            },
-        )?;
-
-        if data_size > allocation_write_size {
-            return Err(MemoryError::DataSizeTooBig {
-                data_size,
-                allocation_size,
-                allocation_offset,
-            });
-        }
-
-        Ok(())
     }
 
     // Getters
@@ -315,11 +313,11 @@ pub enum MemoryError {
     Mapping(vk::Result),
     DataSizeTooBig {
         data_size: usize,
-        allocation_size: usize,
+        allocation_size: vk::DeviceSize,
         allocation_offset: usize,
     },
     AllocationOffsetTooBig {
-        allocation_size: usize,
+        allocation_size: vk::DeviceSize,
         allocation_offset: usize,
     },
     Flushing(vk::Result),
