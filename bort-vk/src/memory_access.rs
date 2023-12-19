@@ -18,6 +18,7 @@ pub trait AllocatorAccess: Send + Sync {
 
 // ~~ Allocation Access ~~
 
+/// Allows any struct containing a memory allocation to "inherit" the read/write functions
 pub trait AllocationAccess {
     fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation;
 

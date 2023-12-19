@@ -367,6 +367,7 @@ impl error::Error for MemoryError {
     }
 }
 
+#[cfg(feature = "bytemuck")]
 impl From<PodCastError> for MemoryError {
     fn from(e: PodCastError) -> Self {
         Self::PodCastError(e)
