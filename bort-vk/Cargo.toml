@@ -11,15 +11,18 @@ homepage = "https://github.com/lilly-lizard/bort"
 edition = "2021"
 
 [features]
-default = ["raw-window-handle-06"]
+default = ["raw-window-handle-06", "bytemuck"]
 raw-window-handle-05 = ["dep:raw-window-handle-05", "dep:raw-window-metal-03"]
 raw-window-handle-06 = ["dep:raw-window-handle-06", "dep:raw-window-metal-04"]
+bytemuck = ["dep:bytemuck"]
 
 [dependencies]
 # ash is a lightweight vulkan wrapper
 ash = "0.37.3"
 # AMD vulkan memory allocator bindings (https://github.com/lilly-lizard/bort-vma)
 bort-vma = { version = "0.3.4", path = "../bort-vma" }
+# for an easy way to upload misc data to the gpu from rust
+bytemuck = { version = "1.14", optional = true }
 # raw window handler allows us to create a surface from an os window handle. allow support for
 # multiple versions depending on e.g. winit version.
 raw-window-handle-05 = { package = "raw-window-handle", version = "0.5", features = ["std"], optional = true }

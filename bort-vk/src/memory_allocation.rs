@@ -1,6 +1,8 @@
 use crate::device::Device;
 use ash::vk;
 use bort_vma::AllocationCreateInfo;
+#[cfg(feature = "bytemuck")]
+use bytemuck::{NoUninit, Pod};
 use std::{error, fmt, mem, ptr, sync::Arc};
 
 pub trait AllocAccess: Send + Sync {
@@ -45,6 +47,81 @@ impl MemoryAllocation {
         }
     }
 
+    #[cfg(feature = "bytemuck")]
+    pub fn write_bytes<T>(
+        &mut self,
+        write_data: T,
+        allocation_offset: usize,
+    ) -> Result<(), MemoryError>
+    where
+        T: NoUninit,
+    {
+        let write_bytes = bytemuck::bytes_of(&write_data);
+        let data_size = write_bytes.len();
+
+        let allocation_size = self.size as usize;
+        let allocation_write_size = allocation_size
+            .checked_sub(allocation_offset)
+            .expect("todo");
+        if data_size > allocation_write_size {
+            return Err(MemoryError::AccessDataSize {
+                data_size,
+                allocation_size,
+                offset: allocation_offset,
+            });
+        }
+
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let offset_mapped_memory = unsafe { mapped_memory.offset(allocation_offset as isize) };
+
+        let write_bytes_ptr = write_bytes.as_ptr();
+        unsafe {
+            ptr::copy_nonoverlapping(write_bytes_ptr, offset_mapped_memory, data_size);
+        }
+
+        let flush_res = self.flush_allocation(allocation_offset, data_size);
+
+        unsafe { self.unmap_memory() };
+
+        flush_res
+    }
+
+    #[cfg(feature = "bytemuck")]
+    pub fn write_slice<T>(
+        &mut self,
+        write_data: &[T],
+        allocation_offset: usize,
+    ) -> Result<(), MemoryError>
+    where
+        T: NoUninit,
+    {
+        let write_bytes: &[u8] = bytemuck::try_cast_slice(write_data).expect("TODO");
+        let data_size = write_bytes.len();
+
+        let allocation_size = self.size as usize;
+        if data_size > allocation_size - allocation_offset {
+            return Err(MemoryError::AccessDataSize {
+                data_size,
+                allocation_size,
+                offset: allocation_offset,
+            });
+        }
+
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let offset_mapped_memory = unsafe { mapped_memory.offset(allocation_offset as isize) };
+
+        let write_bytes_ptr = write_bytes.as_ptr();
+        unsafe {
+            ptr::copy_nonoverlapping(write_bytes_ptr, offset_mapped_memory, data_size);
+        }
+
+        let flush_res = self.flush_allocation(allocation_offset, data_size);
+
+        unsafe { self.unmap_memory() };
+
+        flush_res
+    }
+
     /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
     /// Doesn't perform any GPU synchronization.
     ///
@@ -52,25 +129,26 @@ impl MemoryAllocation {
     pub fn write_struct<T>(
         &mut self,
         write_data: T,
-        write_offset: usize,
+        allocation_offset: usize,
     ) -> Result<(), MemoryError> {
         let data_size = mem::size_of_val(&write_data);
 
         let allocation_size = self.size as usize;
-        if data_size > allocation_size - write_offset {
+        if data_size > allocation_size - allocation_offset {
             return Err(MemoryError::AccessDataSize {
                 data_size,
                 allocation_size,
-                offset: write_offset,
+                offset: allocation_offset,
             });
         }
 
         let mapped_memory = unsafe { self.map_memory() }?;
-        let offset_mapped_memory = unsafe { mapped_memory.offset(write_offset as isize) } as *mut T;
+        let offset_mapped_memory =
+            unsafe { mapped_memory.offset(allocation_offset as isize) } as *mut T;
 
         unsafe { ptr::write::<T>(offset_mapped_memory, write_data) };
 
-        let flush_res = self.flush_allocation(write_offset, data_size);
+        let flush_res = self.flush_allocation(allocation_offset, data_size);
 
         unsafe { self.unmap_memory() };
 
@@ -84,7 +162,7 @@ impl MemoryAllocation {
     pub fn write_iter<I, T>(
         &mut self,
         write_data: I,
-        write_offset: usize,
+        allocation_offset: usize,
     ) -> Result<(), MemoryError>
     where
         I: IntoIterator<Item = T>,
@@ -95,17 +173,17 @@ impl MemoryAllocation {
         let data_size = write_data_iter.len() * item_size;
 
         let allocation_size = self.size as usize;
-        if data_size > allocation_size - write_offset {
+        if data_size > allocation_size - allocation_offset {
             return Err(MemoryError::AccessDataSize {
                 data_size,
                 allocation_size,
-                offset: write_offset,
+                offset: allocation_offset,
             });
         }
 
         let mapped_memory = unsafe { self.map_memory() }?;
         let mut offset_mapped_memory =
-            unsafe { mapped_memory.offset(write_offset as isize) } as *mut T;
+            unsafe { mapped_memory.offset(allocation_offset as isize) } as *mut T;
 
         unsafe {
             for element in write_data_iter {
@@ -114,31 +192,68 @@ impl MemoryAllocation {
             }
         }
 
-        let flush_res = self.flush_allocation(write_offset, data_size);
+        let flush_res = self.flush_allocation(allocation_offset, data_size);
 
         unsafe { self.unmap_memory() };
 
         flush_res
     }
 
-    /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
-    /// Doesn't perform any GPU synchronization.
-    ///
-    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
-    pub fn read_struct<T>(&mut self, read_offset: usize) -> Result<T, MemoryError> {
-        let data_size = mem::size_of::<T>();
+    #[cfg(feature = "bytemuck")]
+    pub fn read_vec<T>(
+        &mut self,
+        element_count: usize,
+        allocation_offset: usize,
+    ) -> Result<Vec<T>, MemoryError>
+    where
+        T: Pod,
+    {
+        let type_size = mem::size_of::<T>();
+        let data_size = type_size * element_count;
 
         let allocation_size = self.size as usize;
-        if data_size > allocation_size - read_offset {
+        if data_size > allocation_size - allocation_offset {
             return Err(MemoryError::AccessDataSize {
                 data_size,
                 allocation_size,
-                offset: read_offset,
+                offset: allocation_offset,
             });
         }
 
         let mapped_memory = unsafe { self.map_memory() }?;
-        let offset_mapped_memory = unsafe { mapped_memory.offset(read_offset as isize) } as *mut T;
+        let offset_mapped_memory =
+            unsafe { mapped_memory.offset(allocation_offset as isize) } as *mut T;
+
+        let mut output_vec = Vec::<T>::new();
+        output_vec.resize(element_count, T::zeroed());
+        let output_vec_ptr = output_vec.as_mut_ptr();
+
+        unsafe { ptr::copy_nonoverlapping(offset_mapped_memory, output_vec_ptr, element_count) };
+
+        unsafe { self.unmap_memory() };
+
+        Ok(output_vec)
+    }
+
+    /// Writes `data` to this memory allocation. Will flush if memory isn't host coherent.
+    /// Doesn't perform any GPU synchronization.
+    ///
+    /// If memory wasn't created with `vk::MemoryPropertyFlags::HOST_VISIBLE` this will fail.
+    pub fn read_struct<T>(&mut self, allocation_offset: usize) -> Result<T, MemoryError> {
+        let data_size = mem::size_of::<T>();
+
+        let allocation_size = self.size as usize;
+        if data_size > allocation_size - allocation_offset {
+            return Err(MemoryError::AccessDataSize {
+                data_size,
+                allocation_size,
+                offset: allocation_offset,
+            });
+        }
+
+        let mapped_memory = unsafe { self.map_memory() }?;
+        let offset_mapped_memory =
+            unsafe { mapped_memory.offset(allocation_offset as isize) } as *mut T;
 
         let read_data = unsafe { ptr::read::<T>(offset_mapped_memory) };
 
@@ -165,12 +280,12 @@ impl MemoryAllocation {
     #[inline]
     pub fn flush_allocation(
         &mut self,
-        write_offset: usize,
+        allocation_offset: usize,
         data_size: usize,
     ) -> Result<(), MemoryError> {
         self.alloc_access
             .vma_allocator()
-            .flush_allocation(&self.inner, write_offset, data_size)
+            .flush_allocation(&self.inner, allocation_offset, data_size)
             .map_err(|e| MemoryError::Flushing(e))
     }
 
