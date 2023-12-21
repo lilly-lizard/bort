@@ -1,3 +1,6 @@
+//! Uses code from `ash-window` for surface creation from raw window handle.
+//! Original source found (here)[https://github.com/ash-rs/ash/blob/master/ash-window/src/lib.rs]
+
 use crate::{is_format_linear, is_format_srgb, Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE};
 #[cfg(feature = "raw-window-handle-06")]
 use ash::vk::{HINSTANCE, HWND};

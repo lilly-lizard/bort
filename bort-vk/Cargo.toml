@@ -2,7 +2,7 @@
 name = "bort-vk"
 version = "0.2.6"
 description = "lightweight vulkan wrapper"
-license = "MIT"
+license = "MIT/Apache-2.0"
 keywords = ["vulkan", "wrapper", "ash", "3D", "graphics"]
 categories = ["rendering::graphics-api"]
 readme = "../README.md"
