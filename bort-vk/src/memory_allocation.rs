@@ -160,7 +160,7 @@ impl MemoryAllocation {
             unsafe { self.map_memory_with_offset_unchecked(allocation_offset)? };
 
         let mut output_vec = Vec::<T>::new();
-        output_vec.resize(element_count, T::zeroed());
+        output_vec.resize_with(element_count, T::zeroed);
         let output_vec_ptr = output_vec.as_mut_ptr();
 
         unsafe { ptr::copy_nonoverlapping(offset_mapped_memory, output_vec_ptr, element_count) };
