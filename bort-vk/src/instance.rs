@@ -1,4 +1,4 @@
-use crate::{string_to_c_string_vec, ALLOCATION_CALLBACK_NONE};
+use crate::ALLOCATION_CALLBACK_NONE;
 use ash::{
     extensions::{ext, khr},
     prelude::VkResult,
@@ -9,7 +9,12 @@ use ash::{
 use raw_window_handle_05::RawDisplayHandle;
 #[cfg(feature = "raw-window-handle-06")]
 use raw_window_handle_06::RawDisplayHandle;
-use std::{error, ffi::NulError, fmt, os::raw::c_char, sync::Arc};
+use std::{
+    error,
+    ffi::{CStr, CString, NulError},
+    fmt,
+    sync::Arc,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ApiVersion {
@@ -41,35 +46,43 @@ impl Instance {
     /// This function will figure out the required surface extensions based on `display_handle`
     /// so there's no need to supply them.
     /// e.g. VK_KHR_surface and platform specific ones like VK_KHR_win32_surface.
-    pub fn new<S>(
+    pub fn new_with_display_extensions(
         entry: Arc<Entry>,
         max_api_version: ApiVersion,
         display_handle: RawDisplayHandle,
-        layer_names: impl IntoIterator<Item = S>,
-        extension_names: impl IntoIterator<Item = S>,
-    ) -> Result<Self, InstanceError>
-    where
-        S: Into<Vec<u8>>,
-    {
-        let appinfo = vk::ApplicationInfo::builder().api_version(max_api_version.as_vk_uint());
+        layer_names: impl IntoIterator<Item = CString>,
+        extension_names: impl IntoIterator<Item = CString>,
+    ) -> Result<Self, InstanceError> {
+        let layer_names: Vec<CString> = layer_names.into_iter().collect();
+        let mut extension_names: Vec<CString> = extension_names.into_iter().collect();
 
-        let layer_name_cstrings = string_to_c_string_vec(layer_names)
-            .map_err(|e| InstanceError::LayerStringConversion(e))?;
-        let extension_name_cstrings = string_to_c_string_vec(extension_names)
-            .map_err(|e| InstanceError::ExtensionStringConversion(e))?;
-
-        let mut extension_name_ptrs = extension_name_cstrings
-            .iter()
-            .map(|cstring| cstring.as_ptr())
-            .collect::<Vec<_>>();
-        let layer_name_ptrs = layer_name_cstrings
-            .iter()
-            .map(|cstring| cstring.as_ptr())
-            .collect::<Vec<_>>();
-
-        let display_extension_names = required_surface_extensions(display_handle)
+        let display_extension_name_cstrs = required_surface_extensions(display_handle)
             .map_err(|e| InstanceError::UnsupportedRawDisplayHandle(e))?;
-        extension_name_ptrs.extend_from_slice(display_extension_names);
+        let display_extension_names: Vec<CString> = display_extension_name_cstrs
+            .iter()
+            .map(|&cstr| cstr.to_owned())
+            .collect();
+        extension_names.extend_from_slice(&display_extension_names);
+
+        Self::new(entry, max_api_version, layer_names, extension_names)
+    }
+
+    pub fn new(
+        entry: Arc<Entry>,
+        max_api_version: ApiVersion,
+        layer_names: Vec<CString>,
+        extension_names: Vec<CString>,
+    ) -> Result<Self, InstanceError> {
+        let layer_name_ptrs = layer_names
+            .iter()
+            .map(|cstring| cstring.as_ptr())
+            .collect::<Vec<_>>();
+        let extension_name_ptrs = extension_names
+            .iter()
+            .map(|cstring| cstring.as_ptr())
+            .collect::<Vec<_>>();
+
+        let appinfo = vk::ApplicationInfo::builder().api_version(max_api_version.as_vk_uint());
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&appinfo)
@@ -198,53 +211,39 @@ impl Instance {
 /// The returned extensions will include all extension dependencies.
 pub fn required_surface_extensions(
     display_handle: RawDisplayHandle,
-) -> VkResult<&'static [*const c_char]> {
+) -> VkResult<&'static [&'static CStr]> {
     let extensions = match display_handle {
         RawDisplayHandle::Windows(_) => {
-            const WINDOWS_EXTS: [*const c_char; 2] = [
-                khr::Surface::name().as_ptr(),
-                khr::Win32Surface::name().as_ptr(),
-            ];
+            const WINDOWS_EXTS: [&'static CStr; 2] =
+                [khr::Surface::name(), khr::Win32Surface::name()];
             &WINDOWS_EXTS
         }
 
         RawDisplayHandle::Wayland(_) => {
-            const WAYLAND_EXTS: [*const c_char; 2] = [
-                khr::Surface::name().as_ptr(),
-                khr::WaylandSurface::name().as_ptr(),
-            ];
+            const WAYLAND_EXTS: [&'static CStr; 2] =
+                [khr::Surface::name(), khr::WaylandSurface::name()];
             &WAYLAND_EXTS
         }
 
         RawDisplayHandle::Xlib(_) => {
-            const XLIB_EXTS: [*const c_char; 2] = [
-                khr::Surface::name().as_ptr(),
-                khr::XlibSurface::name().as_ptr(),
-            ];
+            const XLIB_EXTS: [&'static CStr; 2] = [khr::Surface::name(), khr::XlibSurface::name()];
             &XLIB_EXTS
         }
 
         RawDisplayHandle::Xcb(_) => {
-            const XCB_EXTS: [*const c_char; 2] = [
-                khr::Surface::name().as_ptr(),
-                khr::XcbSurface::name().as_ptr(),
-            ];
+            const XCB_EXTS: [&'static CStr; 2] = [khr::Surface::name(), khr::XcbSurface::name()];
             &XCB_EXTS
         }
 
         RawDisplayHandle::Android(_) => {
-            const ANDROID_EXTS: [*const c_char; 2] = [
-                khr::Surface::name().as_ptr(),
-                khr::AndroidSurface::name().as_ptr(),
-            ];
+            const ANDROID_EXTS: [&'static CStr; 2] =
+                [khr::Surface::name(), khr::AndroidSurface::name()];
             &ANDROID_EXTS
         }
 
         RawDisplayHandle::AppKit(_) | RawDisplayHandle::UiKit(_) => {
-            const METAL_EXTS: [*const c_char; 2] = [
-                khr::Surface::name().as_ptr(),
-                ext::MetalSurface::name().as_ptr(),
-            ];
+            const METAL_EXTS: [&'static CStr; 2] =
+                [khr::Surface::name(), ext::MetalSurface::name()];
             &METAL_EXTS
         }
 

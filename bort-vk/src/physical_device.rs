@@ -1,6 +1,12 @@
 use crate::{c_string_to_string, ApiVersion, Instance};
 use ash::vk::{self, api_version_major, api_version_minor};
-use std::{error, fmt, str::Utf8Error, sync::Arc};
+use std::{
+    error,
+    ffi::{CStr, CString},
+    fmt,
+    str::Utf8Error,
+    sync::Arc,
+};
 
 #[derive(Clone)]
 pub struct PhysicalDevice {
@@ -46,11 +52,8 @@ impl PhysicalDevice {
 
         let extension_properties: Vec<ExtensionProperties> = vk_extension_properties
             .into_iter()
-            .map(|props| {
-                ExtensionProperties::new(props)
-                    .map_err(|e| PhysicalDeviceError::ExtensionNameStringConversion(e))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|props| ExtensionProperties::new(props))
+            .collect();
 
         Ok(Self {
             handle,
@@ -79,16 +82,16 @@ impl PhysicalDevice {
 
     pub fn supports_extensions<'a>(
         &self,
-        mut extension_names: impl Iterator<Item = &'static str>,
+        extension_names: impl IntoIterator<Item = CString>,
     ) -> bool {
-        extension_names.all(|extension_name| {
+        extension_names.into_iter().all(|extension_name| {
             self.extension_properties
                 .iter()
-                .any(|props| props.extension_name == *extension_name)
+                .any(|props| props.extension_name == extension_name)
         })
     }
 
-    pub fn supports_extension(&self, extension_name: String) -> bool {
+    pub fn supports_extension(&self, extension_name: CString) -> bool {
         self.extension_properties
             .iter()
             .any(|props| props.extension_name == extension_name)
@@ -128,24 +131,23 @@ impl PhysicalDevice {
 /// Properties of an extension in the loader or a physical device.
 #[derive(Clone, Debug)]
 pub struct ExtensionProperties {
-    pub extension_name: String,
+    pub extension_name: CString,
     pub spec_version: u32,
 }
 
 impl ExtensionProperties {
-    fn new(value: vk::ExtensionProperties) -> Result<Self, Utf8Error> {
-        let extension_name = unsafe { c_string_to_string(value.extension_name.as_ptr()) }?;
-        Ok(Self {
-            extension_name,
+    fn new(value: vk::ExtensionProperties) -> Self {
+        let c_str = unsafe { CStr::from_ptr(value.extension_name.as_ptr()) };
+        Self {
+            extension_name: c_str.to_owned(),
             spec_version: value.spec_version,
-        })
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum PhysicalDeviceError {
     NameStringConversion(Utf8Error),
-    ExtensionNameStringConversion(Utf8Error),
     EnumerateExtensionProperties(vk::Result),
 }
 
@@ -154,9 +156,6 @@ impl fmt::Display for PhysicalDeviceError {
         match self {
             Self::NameStringConversion(e) => {
                 write!(f, "failed to convert device name to string: {}", e)
-            }
-            Self::ExtensionNameStringConversion(e) => {
-                write!(f, "failed to convert extension name to string: {}", e)
             }
             Self::EnumerateExtensionProperties(e) => write!(
                 f,
@@ -171,7 +170,6 @@ impl error::Error for PhysicalDeviceError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::NameStringConversion(e) => Some(e),
-            Self::ExtensionNameStringConversion(e) => Some(e),
             Self::EnumerateExtensionProperties(e) => Some(e),
         }
     }

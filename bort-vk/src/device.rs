@@ -1,12 +1,16 @@
 use crate::{
-    string_to_c_string_vec, ApiVersion, DebugCallback, Fence, Instance, PhysicalDevice, Queue,
-    ALLOCATION_CALLBACK_NONE,
+    ApiVersion, DebugCallback, Fence, Instance, PhysicalDevice, Queue, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
     vk::{self, ExtendsDeviceCreateInfo},
 };
-use std::{error, ffi::NulError, fmt, sync::Arc};
+use std::{
+    error,
+    ffi::{CString, NulError},
+    fmt,
+    sync::Arc,
+};
 
 pub trait DeviceOwned {
     fn device(&self) -> &Arc<Device>;
@@ -31,8 +35,8 @@ impl Device {
         features_1_1: vk::PhysicalDeviceVulkan11Features,
         features_1_2: vk::PhysicalDeviceVulkan12Features,
         features_1_3: vk::PhysicalDeviceVulkan13Features,
-        extension_names: impl IntoIterator<Item = String>,
-        layer_names: impl IntoIterator<Item = String>,
+        extension_names: impl IntoIterator<Item = CString>,
+        layer_names: impl IntoIterator<Item = CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
         let queue_create_infos_built = queue_create_infos
@@ -72,23 +76,21 @@ impl Device {
         mut features_1_1: vk::PhysicalDeviceVulkan11Features,
         mut features_1_2: vk::PhysicalDeviceVulkan12Features,
         mut features_1_3: vk::PhysicalDeviceVulkan13Features,
-        extension_names: impl IntoIterator<Item = String>,
-        layer_names: impl IntoIterator<Item = String>,
+        extension_names: impl IntoIterator<Item = CString>,
+        layer_names: impl IntoIterator<Item = CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
         mut p_next_structs: Vec<impl ExtendsDeviceCreateInfo>,
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
-        let extension_name_cstrings = string_to_c_string_vec(extension_names)
-            .map_err(|e| DeviceError::ExtensionStringConversion(e))?;
-        let layer_name_cstrings = string_to_c_string_vec(layer_names)
-            .map_err(|e| DeviceError::LayerStringConversion(e))?;
+        let layer_names: Vec<CString> = layer_names.into_iter().collect();
+        let extension_names: Vec<CString> = extension_names.into_iter().collect();
 
-        let extension_name_ptrs = extension_name_cstrings
+        let extension_name_ptrs = extension_names
             .iter()
             .map(|cstring| cstring.as_ptr())
             .collect::<Vec<_>>();
-        let layer_name_ptrs = layer_name_cstrings
+        let layer_name_ptrs = layer_names
             .iter()
             .map(|cstring| cstring.as_ptr())
             .collect::<Vec<_>>();

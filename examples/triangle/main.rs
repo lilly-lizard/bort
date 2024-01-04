@@ -1,4 +1,7 @@
-use ash::{prelude::VkResult, vk};
+use ash::{
+    prelude::VkResult,
+    vk::{self, ExtDebugUtilsFn, KhrSwapchainFn},
+};
 use bort_vk::{
     choose_composite_alpha, is_format_srgb, ApiVersion, ColorBlendState, CommandBuffer,
     CommandPool, CommandPoolProperties, DebugCallback, DebugCallbackProperties, Device,
@@ -30,7 +33,8 @@ const MAX_API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 3 };
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const FENCE_TIMEOUT: u64 = 1_000_000_000;
 const ENABLE_VULKAN_VALIDATION: bool = cfg!(debug_assertions);
-const VALIDATION_LAYER_NAME: &str = "VK_LAYER_KHRONOS_validation";
+const VALIDATION_LAYER_NAME: &CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
 const DEBUG_UTILS_EXTENSION_NAME: &str = "VK_EXT_debug_utils";
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
@@ -115,17 +119,15 @@ impl TriangleExample {
         info!("vulkan loaded");
 
         let mut enable_validation = ENABLE_VULKAN_VALIDATION;
-        let mut instance_layers = Vec::<&str>::new();
-        let mut instance_extensions = Vec::<&str>::new();
+        let mut instance_layers = Vec::<CString>::new();
+        let mut instance_extensions = Vec::<CString>::new();
 
         if enable_validation {
             let layer_properties = entry.enumerate_instance_layer_properties()?;
             let extension_properties = entry.enumerate_instance_extension_properties(None)?;
 
             let validation_layer_installed = layer_properties.iter().any(|layer_prop| {
-                let layer_name = unsafe { CStr::from_ptr(layer_prop.layer_name.as_ptr()) }
-                    .to_str()
-                    .unwrap();
+                let layer_name = unsafe { CStr::from_ptr(layer_prop.layer_name.as_ptr()) };
 
                 layer_name == VALIDATION_LAYER_NAME
             });
@@ -140,14 +142,14 @@ impl TriangleExample {
             });
 
             if validation_layer_installed && debug_utils_supported {
-                instance_layers.push(VALIDATION_LAYER_NAME);
-                instance_extensions.push(DEBUG_UTILS_EXTENSION_NAME);
+                instance_layers.push(VALIDATION_LAYER_NAME.to_owned());
+                instance_extensions.push(ExtDebugUtilsFn::name().to_owned());
             } else {
                 enable_validation = false;
             }
         }
 
-        let instance = Arc::new(Instance::new(
+        let instance = Arc::new(Instance::new_with_display_extensions(
             entry.clone(),
             MAX_API_VERSION,
             display_handle.as_raw(),
@@ -211,6 +213,8 @@ impl TriangleExample {
             .queue_family_index(queue_family_index as u32)
             .queue_priorities(&queue_priorities);
 
+        let extension_names = [KhrSwapchainFn::name().to_owned()]; // VK_KHR_swapchain
+
         let device = Arc::new(Device::new(
             physical_device.clone(),
             [queue_create_info],
@@ -218,7 +222,7 @@ impl TriangleExample {
             Default::default(),
             Default::default(),
             Default::default(),
-            ["VK_KHR_swapchain".to_string()],
+            extension_names,
             [],
             debug_callback,
         )?);
