@@ -14,7 +14,7 @@ doc = false
 [dependencies]
 bort-vk = { path = "../../bort-vk" }
 bort-vma = { path = "../../bort-vma" }
-ash = { path = "../../../ash-fork/ash", version = "0.37" }
+ash = "0.37"
 winit = "0.29"
 raw-window-handle = "0.6"
 bytemuck = { version = "1.7", features = ["derive"] }

@@ -18,7 +18,7 @@ bytemuck = ["dep:bytemuck"]
 
 [dependencies]
 # ash is a lightweight vulkan wrapper
-ash = { path = "../../ash-fork/ash", version = "0.37", default-features = false, features = ["debug"] }
+ash = { version = "0.37", default-features = false, features = ["debug"] }
 # AMD vulkan memory allocator bindings (https://github.com/lilly-lizard/bort-vma)
 bort-vma = { version = "0.3.4", path = "../bort-vma" }
 # for an easy way to upload misc data to the gpu from rust

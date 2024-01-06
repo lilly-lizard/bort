@@ -54,13 +54,18 @@ impl Device {
                 extension_names,
                 layer_names,
                 debug_callback_ref,
-                Vec::new(),
+                Vec::<vk::PhysicalDeviceFeatures2>::new(),
             )
         }
     }
 
     /// `features_1_1`, `features_1_2` and `features_1_3` might get ignored depending on the
     /// `instance` api version.
+    ///
+    /// _Note that each member of `p_next_structs` can only be one type (known at compile time)
+    /// because the ash fn `push_next` currently requires the template to be `Sized`. Just treat
+    /// it like an `Option` (either 0 or 1 element) and create your own p_next chain in the one
+    /// element you pass to this until the next version of ash is released._
     ///
     /// Safety:
     /// No busted pointers in the last element of `p_next_structs`.
@@ -74,7 +79,7 @@ impl Device {
         extension_names: impl IntoIterator<Item = CString>,
         layer_names: impl IntoIterator<Item = CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
-        p_next_structs: Vec<Box<dyn ExtendsDeviceCreateInfo>>,
+        mut p_next_structs: Vec<impl ExtendsDeviceCreateInfo>,
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
@@ -117,7 +122,7 @@ impl Device {
         }
 
         for p_next_struct in &mut p_next_structs {
-            device_create_info = device_create_info.push_next(p_next_struct.as_mut());
+            device_create_info = device_create_info.push_next(p_next_struct);
         }
 
         Self::new_from_create_info(physical_device, device_create_info, debug_callback_ref)
