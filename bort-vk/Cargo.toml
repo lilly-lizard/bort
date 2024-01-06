@@ -1,6 +1,6 @@
 [package]
 name = "bort-vk"
-version = "0.2.6"
+version = "0.2.7"
 description = "lightweight vulkan wrapper"
 license = "MIT/Apache-2.0"
 keywords = ["vulkan", "wrapper", "ash", "3D", "graphics"]
@@ -18,7 +18,7 @@ bytemuck = ["dep:bytemuck"]
 
 [dependencies]
 # ash is a lightweight vulkan wrapper
-ash = "0.37.3"
+ash = { path = "../../ash-fork/ash", version = "0.37", default-features = false, features = ["debug"] }
 # AMD vulkan memory allocator bindings (https://github.com/lilly-lizard/bort-vma)
 bort-vma = { version = "0.3.4", path = "../bort-vma" }
 # for an easy way to upload misc data to the gpu from rust
