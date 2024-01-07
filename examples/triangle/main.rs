@@ -203,7 +203,7 @@ impl TriangleExample {
             .queue_family_index(queue_family_index as u32)
             .queue_priorities(&queue_priorities);
 
-        let extension_names = [KhrSwapchainFn::name().to_owned()]; // VK_KHR_swapchain
+        let extension_names = vec![KhrSwapchainFn::name().to_owned()]; // VK_KHR_swapchain
 
         let device = Arc::new(Device::new(
             physical_device.clone(),
@@ -213,7 +213,7 @@ impl TriangleExample {
             Default::default(),
             Default::default(),
             extension_names,
-            [],
+            vec![],
             debug_callback,
         )?);
         info!("created logical device");

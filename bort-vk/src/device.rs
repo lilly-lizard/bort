@@ -9,6 +9,7 @@ use std::{
     error,
     ffi::{CString, NulError},
     fmt,
+    os::raw::c_char,
     sync::Arc,
 };
 
@@ -35,8 +36,8 @@ impl Device {
         features_1_1: vk::PhysicalDeviceVulkan11Features,
         features_1_2: vk::PhysicalDeviceVulkan12Features,
         features_1_3: vk::PhysicalDeviceVulkan13Features,
-        extension_names: impl IntoIterator<Item = CString>,
-        layer_names: impl IntoIterator<Item = CString>,
+        extension_names: Vec<CString>,
+        layer_names: Vec<CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
         let queue_create_infos_built: Vec<DeviceQueueCreateInfo> = queue_create_infos
@@ -76,21 +77,19 @@ impl Device {
         mut features_1_1: vk::PhysicalDeviceVulkan11Features,
         mut features_1_2: vk::PhysicalDeviceVulkan12Features,
         mut features_1_3: vk::PhysicalDeviceVulkan13Features,
-        extension_names: impl IntoIterator<Item = CString>,
-        layer_names: impl IntoIterator<Item = CString>,
+        extension_names: Vec<CString>,
+        layer_names: Vec<CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
         mut p_next_structs: Vec<impl ExtendsDeviceCreateInfo>,
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
-        let extension_name_ptrs: Vec<*const i8> = extension_names
-            .into_iter()
+        let extension_name_ptrs: Vec<*const c_char> = extension_names
+            .iter()
             .map(|cstring| cstring.as_ptr())
             .collect();
-        let layer_name_ptrs: Vec<*const i8> = layer_names
-            .into_iter()
-            .map(|cstring| cstring.as_ptr())
-            .collect();
+        let layer_name_ptrs: Vec<*const c_char> =
+            layer_names.iter().map(|cstring| cstring.as_ptr()).collect();
 
         #[allow(deprecated)] // backward compatability
         let mut device_create_info = vk::DeviceCreateInfo::builder()

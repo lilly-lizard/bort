@@ -68,7 +68,7 @@ impl PhysicalDevice {
         })
     }
 
-    pub fn supports_api_ver(&self, api_version: ApiVersion) -> bool {
+    pub fn supports_min_api_ver(&self, api_version: ApiVersion) -> bool {
         let supported_major = api_version_major(self.properties.api_version);
         let supported_minor = api_version_minor(self.properties.api_version);
         if supported_major < api_version.major {

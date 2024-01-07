@@ -13,6 +13,7 @@ use std::{
     error,
     ffi::{CStr, CString},
     fmt,
+    os::raw::c_char,
     sync::Arc,
 };
 
@@ -64,7 +65,7 @@ impl Instance {
         let unsupported_display_extensions =
             Self::any_unsupported_extensions(&entry, None, extension_names.clone())
                 .map_err(|e| InstanceError::Creation(e))?;
-        if unsupported_display_extensions.len() != 0 {
+        if !unsupported_display_extensions.is_empty() {
             return Err(InstanceError::ExtensionsNotPresent(
                 unsupported_display_extensions,
             ));
@@ -80,9 +81,9 @@ impl Instance {
         layer_names: Vec<CString>,
         extension_names: Vec<CString>,
     ) -> Result<Self, InstanceError> {
-        let layer_name_ptrs: Vec<*const i8> =
+        let layer_name_ptrs: Vec<*const c_char> =
             layer_names.iter().map(|cstring| cstring.as_ptr()).collect();
-        let extension_name_ptrs: Vec<*const i8> = extension_names
+        let extension_name_ptrs: Vec<*const c_char> = extension_names
             .iter()
             .map(|cstring| cstring.as_ptr())
             .collect();
