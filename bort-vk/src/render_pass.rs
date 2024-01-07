@@ -17,21 +17,14 @@ pub struct RenderPass {
 impl RenderPass {
     pub fn new(
         device: Arc<Device>,
-        attachment_descriptions: impl IntoIterator<Item = vk::AttachmentDescription>,
-        subpasses: impl IntoIterator<Item = Subpass>,
-        subpass_dependencies: impl IntoIterator<Item = vk::SubpassDependency>,
+        attachment_descriptions: Vec<vk::AttachmentDescription>,
+        subpasses: Vec<Subpass>,
+        subpass_dependencies: Vec<vk::SubpassDependency>,
     ) -> VkResult<Self> {
-        let attachment_descriptions: Vec<vk::AttachmentDescription> =
-            attachment_descriptions.into_iter().collect();
-
-        let subpasses: Vec<Subpass> = subpasses.into_iter().collect();
         let subpass_descriptions: Vec<vk::SubpassDescription> = subpasses
             .iter()
             .map(|subpass| subpass.subpass_description_builder().build())
             .collect();
-
-        let subpass_dependencies: Vec<vk::SubpassDependency> =
-            subpass_dependencies.into_iter().collect();
 
         let render_pass_info = vk::RenderPassCreateInfo::builder()
             .attachments(&attachment_descriptions)

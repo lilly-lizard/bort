@@ -126,10 +126,10 @@ impl CommandBuffer {
         descriptor_sets: impl IntoIterator<Item = &'a DescriptorSet>,
         dynamic_offsets: &[u32],
     ) {
-        let descriptor_set_handles = descriptor_sets
+        let descriptor_set_handles: Vec<vk::DescriptorSet> = descriptor_sets
             .into_iter()
             .map(|descriptor_set| descriptor_set.handle())
-            .collect::<Vec<_>>();
+            .collect();
         unsafe {
             self.device().inner().cmd_bind_descriptor_sets(
                 self.handle,
@@ -149,10 +149,8 @@ impl CommandBuffer {
         buffers: impl IntoIterator<Item = &'a Buffer>,
         offsets: &[vk::DeviceSize],
     ) {
-        let buffer_handles = buffers
-            .into_iter()
-            .map(|buffer| buffer.handle())
-            .collect::<Vec<_>>();
+        let buffer_handles: Vec<vk::Buffer> =
+            buffers.into_iter().map(|buffer| buffer.handle()).collect();
         unsafe {
             self.device().inner().cmd_bind_vertex_buffers(
                 self.handle,
@@ -269,10 +267,10 @@ impl CommandBuffer {
             return Err(CommandError::CantExecutePrimaryCommandBuffer);
         }
 
-        let secondary_command_buffer_handles = secondary_command_buffers
+        let secondary_command_buffer_handles: Vec<vk::CommandBuffer> = secondary_command_buffers
             .iter()
             .map(|command_buffer| command_buffer.handle())
-            .collect::<Vec<_>>();
+            .collect();
 
         unsafe {
             self.device()

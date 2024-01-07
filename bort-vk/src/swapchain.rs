@@ -46,7 +46,7 @@ impl Swapchain {
         let vk_swapchain_images = unsafe { swapchain_loader.get_swapchain_images(handle) }
             .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
 
-        let swapchain_images = vk_swapchain_images
+        let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
             .into_iter()
             .map(|image_handle| unsafe {
                 Arc::new(SwapchainImage::from_image_handle(
@@ -55,7 +55,7 @@ impl Swapchain {
                     &properties,
                 ))
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         Ok(Self {
             handle,
@@ -151,7 +151,7 @@ impl Swapchain {
         let vk_swapchain_images = unsafe { self.swapchain_loader.get_swapchain_images(new_handle) }
             .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
 
-        let swapchain_images = vk_swapchain_images
+        let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
             .into_iter()
             .map(|image_handle| unsafe {
                 Arc::new(SwapchainImage::from_image_handle(
@@ -160,7 +160,7 @@ impl Swapchain {
                     &properties,
                 ))
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         Ok((new_handle, swapchain_images))
     }

@@ -68,7 +68,8 @@ impl DescriptorPool {
         self: &Arc<Self>,
         layouts: Vec<Arc<DescriptorSetLayout>>,
     ) -> VkResult<Vec<DescriptorSet>> {
-        let layout_handles = layouts.iter().map(|l| l.handle()).collect::<Vec<_>>();
+        let layout_handles: Vec<vk::DescriptorSetLayout> =
+            layouts.iter().map(|l| l.handle()).collect();
         let create_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.handle)
             .set_layouts(&layout_handles);

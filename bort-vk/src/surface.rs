@@ -27,7 +27,7 @@ impl Surface {
         raw_window_handle: RawWindowHandle,
     ) -> Result<Self, SurfaceCreationError> {
         let handle = unsafe {
-            create_surface(
+            create_vk_surface(
                 entry,
                 instance.inner(),
                 raw_display_handle,
@@ -131,7 +131,7 @@ impl Surface {
 /// connection, which must not be destroyed for the lifetime of the returned [`vk::SurfaceKHR`].
 ///
 /// [parent/child relation]: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#fundamentals-objectmodel-lifetime
-pub unsafe fn create_surface(
+unsafe fn create_vk_surface(
     entry: &Entry,
     instance: &ash::Instance,
     display_handle: RawDisplayHandle,

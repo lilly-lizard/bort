@@ -16,11 +16,11 @@ pub struct DescriptorSetLayout {
 impl DescriptorSetLayout {
     pub fn new(device: Arc<Device>, properties: DescriptorSetLayoutProperties) -> VkResult<Self> {
         let mut vk_immutable_samplers = Vec::<Vec<vk::Sampler>>::new();
-        let vk_layout_bindings = properties
+        let vk_layout_bindings: Vec<vk::DescriptorSetLayoutBinding> = properties
             .vk_layout_bindings(&mut vk_immutable_samplers)
             .into_iter()
             .map(|builder| builder.build())
-            .collect::<Vec<_>>();
+            .collect();
 
         let create_info_builder = properties.write_create_info_builder(
             vk::DescriptorSetLayoutCreateInfo::builder(),
@@ -177,7 +177,7 @@ impl DescriptorSetLayoutBinding {
         self.immutable_samplers
             .iter()
             .map(|sampler| sampler.handle())
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     /// Note: leaves `immutable_samplers` empty because the create info only provides the handles.

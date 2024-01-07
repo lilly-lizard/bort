@@ -501,11 +501,12 @@ impl Allocator {
         offsets: Option<&[vk::DeviceSize]>,
         sizes: Option<&[vk::DeviceSize]>,
     ) -> VkResult<()> {
-        let allocations: Vec<ffi::VmaAllocation> = allocations.into_iter().map(|a| a.0).collect();
+        let vma_allocations: Vec<ffi::VmaAllocation> =
+            allocations.into_iter().map(|a| a.0).collect();
         ffi::vmaFlushAllocations(
             self.internal,
-            allocations.len() as u32,
-            allocations.as_ptr() as *mut _,
+            vma_allocations.len() as u32,
+            vma_allocations.as_ptr() as *mut _,
             offsets.map_or(std::ptr::null(), |offsets| offsets.as_ptr()),
             sizes.map_or(std::ptr::null(), |sizes| sizes.as_ptr()),
         )
@@ -526,11 +527,12 @@ impl Allocator {
         offsets: Option<&[vk::DeviceSize]>,
         sizes: Option<&[vk::DeviceSize]>,
     ) -> VkResult<()> {
-        let allocations: Vec<ffi::VmaAllocation> = allocations.into_iter().map(|a| a.0).collect();
+        let vma_allocations: Vec<ffi::VmaAllocation> =
+            allocations.into_iter().map(|a| a.0).collect();
         ffi::vmaInvalidateAllocations(
             self.internal,
-            allocations.len() as u32,
-            allocations.as_ptr() as *mut _,
+            vma_allocations.len() as u32,
+            vma_allocations.as_ptr() as *mut _,
             offsets.map_or(std::ptr::null(), |offsets| offsets.as_ptr()),
             sizes.map_or(std::ptr::null(), |sizes| sizes.as_ptr()),
         )

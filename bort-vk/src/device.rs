@@ -3,7 +3,7 @@ use crate::{
 };
 use ash::{
     prelude::VkResult,
-    vk::{self, ExtendsDeviceCreateInfo},
+    vk::{self, DeviceQueueCreateInfo, ExtendsDeviceCreateInfo},
 };
 use std::{
     error,
@@ -39,10 +39,10 @@ impl Device {
         layer_names: impl IntoIterator<Item = CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
-        let queue_create_infos_built = queue_create_infos
+        let queue_create_infos_built: Vec<DeviceQueueCreateInfo> = queue_create_infos
             .into_iter()
             .map(move |create_info| create_info.build())
-            .collect::<Vec<_>>();
+            .collect();
         unsafe {
             Self::new_with_p_next_chain(
                 physical_device,
@@ -83,17 +83,14 @@ impl Device {
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
 
-        let layer_names: Vec<CString> = layer_names.into_iter().collect();
-        let extension_names: Vec<CString> = extension_names.into_iter().collect();
-
-        let extension_name_ptrs = extension_names
-            .iter()
+        let extension_name_ptrs: Vec<*const i8> = extension_names
+            .into_iter()
             .map(|cstring| cstring.as_ptr())
-            .collect::<Vec<_>>();
-        let layer_name_ptrs = layer_names
-            .iter()
+            .collect();
+        let layer_name_ptrs: Vec<*const i8> = layer_names
+            .into_iter()
             .map(|cstring| cstring.as_ptr())
-            .collect::<Vec<_>>();
+            .collect();
 
         #[allow(deprecated)] // backward compatability
         let mut device_create_info = vk::DeviceCreateInfo::builder()
@@ -176,14 +173,14 @@ impl Device {
         descriptor_writes: impl IntoIterator<Item = vk::WriteDescriptorSetBuilder<'a>>,
         descriptor_copies: impl IntoIterator<Item = vk::CopyDescriptorSetBuilder<'a>>,
     ) {
-        let descriptor_writes_built = descriptor_writes
+        let descriptor_writes_built: Vec<vk::WriteDescriptorSet> = descriptor_writes
             .into_iter()
             .map(|descriptor_write| descriptor_write.build())
-            .collect::<Vec<_>>();
-        let descriptor_copies_built = descriptor_copies
+            .collect();
+        let descriptor_copies_built: Vec<vk::CopyDescriptorSet> = descriptor_copies
             .into_iter()
             .map(|descriptor_copy| descriptor_copy.build())
-            .collect::<Vec<_>>();
+            .collect();
         unsafe {
             self.inner
                 .update_descriptor_sets(&descriptor_writes_built, &descriptor_copies_built)
@@ -197,10 +194,7 @@ impl Device {
         wait_all: bool,
         timeout: u64,
     ) -> VkResult<()> {
-        let fence_hanles = fences
-            .into_iter()
-            .map(|fence| fence.handle())
-            .collect::<Vec<_>>();
+        let fence_hanles: Vec<vk::Fence> = fences.into_iter().map(|fence| fence.handle()).collect();
         unsafe { self.inner.wait_for_fences(&fence_hanles, wait_all, timeout) }
     }
 

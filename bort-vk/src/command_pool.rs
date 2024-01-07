@@ -83,10 +83,10 @@ impl CommandPool {
                 .allocate_command_buffers(&allocate_info_builder)
         }?;
 
-        let command_buffers = command_buffer_handles
+        let command_buffers: Vec<CommandBuffer> = command_buffer_handles
             .into_iter()
             .map(|handle| unsafe { CommandBuffer::from_handle(handle, level, self.clone()) })
-            .collect::<Vec<_>>();
+            .collect();
         Ok(command_buffers)
     }
 

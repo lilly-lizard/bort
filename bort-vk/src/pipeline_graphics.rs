@@ -121,11 +121,12 @@ impl GraphicsPipeline {
         // populate the vkPipelineShaderStageCreateInfo structs
         let mut shader_stage_handles = Vec::<Vec<vk::PipelineShaderStageCreateInfo>>::new();
         for pipeline_index in 0..pipeline_count {
-            let shader_stages_vk = per_pipeline_params[pipeline_index]
+            let shader_stages_vk: Vec<vk::PipelineShaderStageCreateInfo> = per_pipeline_params
+                [pipeline_index]
                 .shader_stages
                 .iter()
                 .map(|stage| stage.create_info_builder().build())
-                .collect::<Vec<_>>();
+                .collect();
             shader_stage_handles.push(shader_stages_vk);
         }
 
@@ -147,10 +148,10 @@ impl GraphicsPipeline {
             create_info_builders.push(create_info_builder);
         }
 
-        let create_infos = create_info_builders
+        let create_infos: Vec<vk::GraphicsPipelineCreateInfo> = create_info_builders
             .into_iter()
             .map(|builder| builder.build())
-            .collect::<Vec<_>>();
+            .collect();
 
         let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
             pipeline_cache.handle()
@@ -167,7 +168,7 @@ impl GraphicsPipeline {
         }
         .map_err(|(_pipelines, err_code)| err_code)?; // note: cbf taking VK_PIPELINE_COMPILE_REQUIRED into account...
 
-        let pipelines = per_pipeline_params
+        let pipelines: Vec<GraphicsPipeline> = per_pipeline_params
             .into_iter()
             .enumerate()
             .map(|(index, params)| Self {
@@ -175,7 +176,7 @@ impl GraphicsPipeline {
                 properties: params.properties,
                 pipeline_layout: params.pipeline_layout.clone(),
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         Ok(pipelines)
     }

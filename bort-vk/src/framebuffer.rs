@@ -149,7 +149,7 @@ impl FramebufferProperties {
         self.attachments
             .iter()
             .map(|image_view| image_view.handle())
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     /// Note: leaves `attachments` empty because the create info only provides handles

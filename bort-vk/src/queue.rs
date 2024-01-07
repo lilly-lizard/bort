@@ -55,10 +55,10 @@ impl Queue {
         submit_infos: impl IntoIterator<Item = vk::SubmitInfoBuilder<'a>>,
         fence: Option<&Fence>,
     ) -> VkResult<()> {
-        let vk_submit_infos = submit_infos
+        let vk_submit_infos: Vec<vk::SubmitInfo> = submit_infos
             .into_iter()
             .map(|submit_info| submit_info.build())
-            .collect::<Vec<_>>();
+            .collect();
         let fence_handle = fence.map(|f| f.handle());
 
         unsafe {
