@@ -11,7 +11,7 @@ use raw_window_handle_05::RawDisplayHandle;
 use raw_window_handle_06::RawDisplayHandle;
 use std::{
     error,
-    ffi::{CStr, CString, NulError},
+    ffi::{CStr, CString},
     fmt,
     sync::Arc,
 };
@@ -44,43 +44,48 @@ pub struct Instance {
 
 impl Instance {
     /// This function will figure out the required surface extensions based on `display_handle`
-    /// so there's no need to supply them.
-    /// e.g. VK_KHR_surface and platform specific ones like VK_KHR_win32_surface.
+    /// e.g. VK_KHR_surface and platform specific ones like VK_KHR_win32_surface. Will also check
+    /// if the display extensions and extension_names are supported.
     pub fn new_with_display_extensions(
         entry: Arc<Entry>,
         max_api_version: ApiVersion,
         display_handle: RawDisplayHandle,
-        layer_names: impl IntoIterator<Item = CString>,
-        extension_names: impl IntoIterator<Item = CString>,
+        layer_names: Vec<CString>,
+        mut extension_names: Vec<CString>,
     ) -> Result<Self, InstanceError> {
-        let layer_names: Vec<CString> = layer_names.into_iter().collect();
-        let mut extension_names: Vec<CString> = extension_names.into_iter().collect();
-
-        let display_extension_name_cstrs = required_surface_extensions(display_handle)
-            .map_err(|e| InstanceError::UnsupportedRawDisplayHandle(e))?;
+        let display_extension_name_cstrs = Self::required_surface_extensions(display_handle)?;
         let display_extension_names: Vec<CString> = display_extension_name_cstrs
-            .iter()
+            .into_iter()
             .map(|&cstr| cstr.to_owned())
             .collect();
+
         extension_names.extend_from_slice(&display_extension_names);
+
+        let unsupported_display_extensions =
+            Self::any_unsupported_extensions(&entry, None, extension_names.clone())
+                .map_err(|e| InstanceError::Creation(e))?;
+        if unsupported_display_extensions.len() != 0 {
+            return Err(InstanceError::ExtensionsNotPresent(
+                unsupported_display_extensions,
+            ));
+        }
 
         Self::new(entry, max_api_version, layer_names, extension_names)
     }
 
+    /// Doesn't check for extension/layer support.
     pub fn new(
         entry: Arc<Entry>,
         max_api_version: ApiVersion,
         layer_names: Vec<CString>,
         extension_names: Vec<CString>,
     ) -> Result<Self, InstanceError> {
-        let layer_name_ptrs = layer_names
+        let layer_name_ptrs: Vec<*const i8> =
+            layer_names.iter().map(|cstring| cstring.as_ptr()).collect();
+        let extension_name_ptrs: Vec<*const i8> = extension_names
             .iter()
             .map(|cstring| cstring.as_ptr())
-            .collect::<Vec<_>>();
-        let extension_name_ptrs = extension_names
-            .iter()
-            .map(|cstring| cstring.as_ptr())
-            .collect::<Vec<_>>();
+            .collect();
 
         let appinfo = vk::ApplicationInfo::builder().api_version(max_api_version.as_vk_uint());
 
@@ -123,6 +128,59 @@ impl Instance {
             inner: instance_inner,
             max_api_version,
             entry,
+        })
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkEnumerateInstanceLayerProperties.html>
+    pub fn layer_avilable(entry: &Entry, layer_name: CString) -> VkResult<bool> {
+        let layer_properties = entry.enumerate_instance_layer_properties()?;
+        let is_available = layer_properties.iter().any(|layer_prop| {
+            let installed_layer_name =
+                unsafe { CStr::from_ptr(layer_prop.layer_name.as_ptr()) }.to_owned();
+            installed_layer_name == layer_name
+        });
+        Ok(is_available)
+    }
+
+    /// Returns any of the provided `extension_names` that are unsupported by this device.
+    ///
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkEnumerateInstanceExtensionProperties.html>
+    pub fn any_unsupported_extensions(
+        entry: &Entry,
+        layer_name: Option<&CStr>,
+        mut extension_names: Vec<CString>,
+    ) -> VkResult<Vec<CString>> {
+        let extension_properties = entry.enumerate_instance_extension_properties(layer_name)?;
+        extension_names.retain(|extension_name| {
+            !Self::extension_name_is_in_properties_list(
+                &extension_properties,
+                extension_name.clone(),
+            )
+        });
+        Ok(extension_names)
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkEnumerateInstanceExtensionProperties.html>
+    pub fn supports_extension(
+        entry: &Entry,
+        layer_name: Option<&CStr>,
+        extension_name: CString,
+    ) -> VkResult<bool> {
+        let extension_properties = entry.enumerate_instance_extension_properties(layer_name)?;
+        let is_supported =
+            Self::extension_name_is_in_properties_list(&extension_properties, extension_name);
+        Ok(is_supported)
+    }
+
+    /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkEnumerateInstanceExtensionProperties.html>
+    pub fn extension_name_is_in_properties_list(
+        extension_properties: &Vec<vk::ExtensionProperties>,
+        extension_name: CString,
+    ) -> bool {
+        extension_properties.iter().any(|props| {
+            let supported_extension_name =
+                unsafe { CStr::from_ptr(props.extension_name.as_ptr()) }.to_owned();
+            supported_extension_name == extension_name
         })
     }
 
@@ -179,6 +237,45 @@ impl Instance {
         unsafe { self.inner.enumerate_physical_devices() }
     }
 
+    /// Query the required instance extensions for creating a surface from a display handle.
+    ///
+    /// This [`RawDisplayHandle`] can typically be acquired from a window, but is usually also
+    /// accessible earlier through an "event loop" concept to allow querying required instance
+    /// extensions and creation of a compatible Vulkan instance prior to creating a window.
+    ///
+    /// The returned extensions will include all extension dependencies.
+    ///
+    /// _Note: this function was copied from [ash](https://github.com/ash-rs/ash) to allow for better
+    /// dependency control._
+    pub fn required_surface_extensions(
+        display_handle: RawDisplayHandle,
+    ) -> Result<&'static [&'static CStr], InstanceError> {
+        let extensions = match display_handle {
+            RawDisplayHandle::Windows(_) => &Self::SURFACE_EXTS_WINDOWS,
+            RawDisplayHandle::Wayland(_) => &Self::SURFACE_EXTS_WAYLAND,
+            RawDisplayHandle::Xlib(_) => &Self::SURFACE_EXTS_XLIB,
+            RawDisplayHandle::Xcb(_) => &Self::SURFACE_EXTS_XCB,
+            RawDisplayHandle::Android(_) => &Self::SURFACE_EXTS_ANDROID,
+            RawDisplayHandle::AppKit(_) | RawDisplayHandle::UiKit(_) => &Self::SURFACE_EXTS_METAL,
+            _ => return Err(InstanceError::UnsupportedRawDisplayHandle),
+        };
+
+        Ok(extensions)
+    }
+
+    pub const SURFACE_EXTS_WINDOWS: [&'static CStr; 2] =
+        [khr::Surface::name(), khr::Win32Surface::name()];
+    pub const SURFACE_EXTS_WAYLAND: [&'static CStr; 2] =
+        [khr::Surface::name(), khr::WaylandSurface::name()];
+    pub const SURFACE_EXTS_XLIB: [&'static CStr; 2] =
+        [khr::Surface::name(), khr::XlibSurface::name()];
+    pub const SURFACE_EXTS_XCB: [&'static CStr; 2] =
+        [khr::Surface::name(), khr::XcbSurface::name()];
+    pub const SURFACE_EXTS_ANDROID: [&'static CStr; 2] =
+        [khr::Surface::name(), khr::AndroidSurface::name()];
+    pub const SURFACE_EXTS_METAL: [&'static CStr; 2] =
+        [khr::Surface::name(), ext::MetalSurface::name()];
+
     // Getters
 
     /// Access the `ash::Instance` struct that `self` contains. Allows you to access vulkan instance
@@ -199,60 +296,6 @@ impl Instance {
     }
 }
 
-/// Query the required instance extensions for creating a surface from a display handle.
-///
-/// _Note: this function was copied from [ash](https://github.com/ash-rs/ash) to allow for better
-/// dependency control._
-///
-/// This [`RawDisplayHandle`] can typically be acquired from a window, but is usually also
-/// accessible earlier through an "event loop" concept to allow querying required instance
-/// extensions and creation of a compatible Vulkan instance prior to creating a window.
-///
-/// The returned extensions will include all extension dependencies.
-pub fn required_surface_extensions(
-    display_handle: RawDisplayHandle,
-) -> VkResult<&'static [&'static CStr]> {
-    let extensions = match display_handle {
-        RawDisplayHandle::Windows(_) => {
-            const WINDOWS_EXTS: [&'static CStr; 2] =
-                [khr::Surface::name(), khr::Win32Surface::name()];
-            &WINDOWS_EXTS
-        }
-
-        RawDisplayHandle::Wayland(_) => {
-            const WAYLAND_EXTS: [&'static CStr; 2] =
-                [khr::Surface::name(), khr::WaylandSurface::name()];
-            &WAYLAND_EXTS
-        }
-
-        RawDisplayHandle::Xlib(_) => {
-            const XLIB_EXTS: [&'static CStr; 2] = [khr::Surface::name(), khr::XlibSurface::name()];
-            &XLIB_EXTS
-        }
-
-        RawDisplayHandle::Xcb(_) => {
-            const XCB_EXTS: [&'static CStr; 2] = [khr::Surface::name(), khr::XcbSurface::name()];
-            &XCB_EXTS
-        }
-
-        RawDisplayHandle::Android(_) => {
-            const ANDROID_EXTS: [&'static CStr; 2] =
-                [khr::Surface::name(), khr::AndroidSurface::name()];
-            &ANDROID_EXTS
-        }
-
-        RawDisplayHandle::AppKit(_) | RawDisplayHandle::UiKit(_) => {
-            const METAL_EXTS: [&'static CStr; 2] =
-                [khr::Surface::name(), ext::MetalSurface::name()];
-            &METAL_EXTS
-        }
-
-        _ => return Err(vk::Result::ERROR_EXTENSION_NOT_PRESENT),
-    };
-
-    Ok(extensions)
-}
-
 impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
@@ -265,31 +308,23 @@ impl Drop for Instance {
 
 #[derive(Debug, Clone)]
 pub enum InstanceError {
-    UnsupportedRawDisplayHandle(vk::Result),
-    AppNameStringConversion(NulError),
-    ExtensionStringConversion(NulError),
-    LayerStringConversion(NulError),
+    UnsupportedRawDisplayHandle,
+    ExtensionsNotPresent(Vec<CString>),
     Creation(vk::Result),
 }
 
 impl fmt::Display for InstanceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnsupportedRawDisplayHandle(e) => {
-                write!(f, "unsupported raw display handle type! return from ash_window::enumerate_required_extensions: {}", e)
+            Self::UnsupportedRawDisplayHandle => {
+                write!(f, "unsupported display handle. could not determine the required surface extensions for this window system")
             }
-            Self::AppNameStringConversion(e) => {
-                write!(f, "failed to convert app name string to c string: {}", e)
-            }
-            Self::ExtensionStringConversion(e) => {
+            Self::ExtensionsNotPresent(extension_names) => {
                 write!(
                     f,
-                    "failed to convert extension name string to c string: {}",
-                    e
+                    "the following extensions were reqested but are not present: {:?}",
+                    extension_names
                 )
-            }
-            Self::LayerStringConversion(e) => {
-                write!(f, "failed to convert layer name string to c string: {}", e)
             }
             Self::Creation(e) => {
                 write!(f, "failed to create device {}", e)
@@ -301,10 +336,8 @@ impl fmt::Display for InstanceError {
 impl error::Error for InstanceError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Self::UnsupportedRawDisplayHandle(e) => Some(e),
-            Self::AppNameStringConversion(e) => Some(e),
-            Self::ExtensionStringConversion(e) => Some(e),
-            Self::LayerStringConversion(e) => Some(e),
+            Self::UnsupportedRawDisplayHandle => None,
+            Self::ExtensionsNotPresent(_) => None,
             Self::Creation(e) => Some(e),
         }
     }

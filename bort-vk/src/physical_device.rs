@@ -80,15 +80,13 @@ impl PhysicalDevice {
         return true;
     }
 
-    pub fn supports_extensions<'a>(
+    /// Returns any of the provided `extension_names` that are unsupported by this device.
+    pub fn any_unsupported_extensions<'a>(
         &self,
-        extension_names: impl IntoIterator<Item = CString>,
-    ) -> bool {
-        extension_names.into_iter().all(|extension_name| {
-            self.extension_properties
-                .iter()
-                .any(|props| props.extension_name == extension_name)
-        })
+        mut extension_names: Vec<CString>,
+    ) -> Vec<CString> {
+        extension_names.retain(|extension_name| !self.supports_extension(extension_name.clone()));
+        extension_names
     }
 
     pub fn supports_extension(&self, extension_name: CString) -> bool {
