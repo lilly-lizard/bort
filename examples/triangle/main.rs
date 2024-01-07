@@ -35,7 +35,7 @@ const FENCE_TIMEOUT: u64 = 1_000_000_000;
 const ENABLE_VULKAN_VALIDATION: bool = cfg!(debug_assertions);
 const VALIDATION_LAYER_NAME: &CStr =
     unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
-const DEBUG_UTILS_EXTENSION_NAME: &str = "VK_EXT_debug_utils";
+const DEBUG_UTILS_EXTENSION_NAME: &CStr = ExtDebugUtilsFn::name();
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
@@ -123,30 +123,21 @@ impl TriangleExample {
         let mut instance_extensions = Vec::<CString>::new();
 
         if enable_validation {
-            let layer_properties = entry.enumerate_instance_layer_properties()?;
-            let extension_properties = entry.enumerate_instance_extension_properties(None)?;
-
-            let validation_layer_installed = layer_properties.iter().any(|layer_prop| {
-                let layer_name = unsafe { CStr::from_ptr(layer_prop.layer_name.as_ptr()) };
-
-                layer_name == VALIDATION_LAYER_NAME
-            });
-
-            let debug_utils_supported = extension_properties.iter().any(|extension_prop| {
-                let extension_name =
-                    unsafe { CStr::from_ptr(extension_prop.extension_name.as_ptr()) }
-                        .to_str()
-                        .unwrap();
-
-                extension_name == DEBUG_UTILS_EXTENSION_NAME
-            });
+            let validation_layer_installed =
+                Instance::layer_avilable(&entry, VALIDATION_LAYER_NAME.to_owned())?;
+            let debug_utils_supported =
+                Instance::supports_extension(&entry, None, DEBUG_UTILS_EXTENSION_NAME.to_owned())?;
 
             if validation_layer_installed && debug_utils_supported {
                 instance_layers.push(VALIDATION_LAYER_NAME.to_owned());
-                instance_extensions.push(ExtDebugUtilsFn::name().to_owned());
+                instance_extensions.push(DEBUG_UTILS_EXTENSION_NAME.to_owned());
+                info!("vulkan validation layers enabled");
             } else {
                 enable_validation = false;
+                info!("vulkan validation layers disabled");
             }
+        } else {
+            info!("vulkan validation layers disabled");
         }
 
         let instance = Arc::new(Instance::new_with_display_extensions(
@@ -168,7 +159,6 @@ impl TriangleExample {
 
             Some(Arc::new(debug_callback))
         } else {
-            info!("vulkan validation layers disabled");
             None
         };
 
@@ -523,9 +513,9 @@ fn create_render_pass(
 
     let render_pass = Arc::new(RenderPass::new(
         device,
-        [swapchain_attachment_description.build()],
-        [subpass],
-        [image_aquire_subpass_dependency.build()],
+        vec![swapchain_attachment_description.build()],
+        vec![subpass],
+        vec![image_aquire_subpass_dependency.build()],
     )?);
 
     info!("created render pass");
