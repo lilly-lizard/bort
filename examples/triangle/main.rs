@@ -339,14 +339,16 @@ impl TriangleExample {
             None,
         );
 
-        let (swapchain_image_index, _is_suboptimal) = match aquire_res {
+        let (swapchain_image_index, is_suboptimal) = match aquire_res {
             Ok(aquire_ret) => aquire_ret,
             Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                self.recreate_swapchain()?;
-                return Ok(());
+                return self.recreate_swapchain();
             }
             Err(e) => return Err(e)?,
         };
+        if is_suboptimal {
+            return self.recreate_swapchain();
+        }
 
         self.in_flight_fences[self.current_frame].reset()?;
 
