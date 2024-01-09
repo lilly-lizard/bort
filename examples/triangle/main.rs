@@ -178,7 +178,7 @@ impl TriangleExample {
             instance.clone(),
             *physical_device_handle,
         )?);
-        info!("created physical device");
+        info!("chosen physical device");
 
         let (queue_family_index, _queue_family_properties) = physical_device
             .queue_family_properties()
