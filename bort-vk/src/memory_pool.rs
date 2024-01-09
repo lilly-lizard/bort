@@ -27,6 +27,8 @@ impl MemoryPool {
         })
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         memory_allocator: Arc<MemoryAllocator>,
         create_info: &bort_vma::PoolCreateInfo,

@@ -30,6 +30,8 @@ impl CommandPool {
         })
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::CommandPoolCreateInfoBuilder,
@@ -71,6 +73,8 @@ impl CommandPool {
         Ok(vec.remove(0))
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn allocate_command_buffers_from_allocate_info(
         self: &Arc<Self>,
         allocate_info_builder: vk::CommandBufferAllocateInfoBuilder,

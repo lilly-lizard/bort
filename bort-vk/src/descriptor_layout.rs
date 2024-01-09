@@ -40,6 +40,8 @@ impl DescriptorSetLayout {
         })
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::DescriptorSetLayoutCreateInfoBuilder,
@@ -123,6 +125,7 @@ impl DescriptorSetLayoutProperties {
     /// Clears `vk_immutable_samplers` and stores in it a vector of sampler handles for each
     /// binding. The returned builder struct contains references to these vectors with a
     /// lifetime of `'a`.
+    #[allow(clippy::needless_range_loop)]
     pub fn vk_layout_bindings<'a>(
         &'a self,
         vk_immutable_samplers: &'a mut Vec<Vec<vk::Sampler>>,
@@ -196,7 +199,7 @@ impl DescriptorSetLayoutBinding {
         mut builder: vk::DescriptorSetLayoutBindingBuilder<'a>,
         vk_immutable_samplers: &'a [vk::Sampler],
     ) -> vk::DescriptorSetLayoutBindingBuilder<'a> {
-        if vk_immutable_samplers.len() != 0 {
+        if vk_immutable_samplers.is_empty() {
             builder = builder.immutable_samplers(vk_immutable_samplers); // put before descriptor_count because calling this overrides it
         }
         builder

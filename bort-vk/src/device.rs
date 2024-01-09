@@ -1,5 +1,6 @@
 use crate::{
-    ApiVersion, DebugCallback, Fence, Instance, PhysicalDevice, Queue, ALLOCATION_CALLBACK_NONE,
+    ApiVersion, DebugCallback, Fence, Instance, PhysicalDevice, PhysicalDeviceFeatures, Queue,
+    ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
@@ -32,10 +33,7 @@ impl Device {
     pub fn new<'a>(
         physical_device: Arc<PhysicalDevice>,
         queue_create_infos: impl IntoIterator<Item = vk::DeviceQueueCreateInfoBuilder<'a>>,
-        features_1_0: vk::PhysicalDeviceFeatures,
-        features_1_1: vk::PhysicalDeviceVulkan11Features,
-        features_1_2: vk::PhysicalDeviceVulkan12Features,
-        features_1_3: vk::PhysicalDeviceVulkan13Features,
+        features: PhysicalDeviceFeatures,
         extension_names: Vec<CString>,
         layer_names: Vec<CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
@@ -48,10 +46,7 @@ impl Device {
             Self::new_with_p_next_chain(
                 physical_device,
                 &queue_create_infos_built,
-                features_1_0,
-                features_1_1,
-                features_1_2,
-                features_1_3,
+                features,
                 extension_names,
                 layer_names,
                 debug_callback_ref,
@@ -68,15 +63,12 @@ impl Device {
     /// it like an `Option` (either 0 or 1 element) and create your own p_next chain in the one
     /// element you pass to this until the next version of ash is released._
     ///
-    /// Safety:
+    /// # Safety
     /// No busted pointers in the last element of `p_next_structs`.
-    pub unsafe fn new_with_p_next_chain<'a>(
+    pub unsafe fn new_with_p_next_chain(
         physical_device: Arc<PhysicalDevice>,
-        queue_create_infos: &'a [vk::DeviceQueueCreateInfo],
-        features_1_0: vk::PhysicalDeviceFeatures,
-        mut features_1_1: vk::PhysicalDeviceVulkan11Features,
-        mut features_1_2: vk::PhysicalDeviceVulkan12Features,
-        mut features_1_3: vk::PhysicalDeviceVulkan13Features,
+        queue_create_infos: &[vk::DeviceQueueCreateInfo],
+        features: PhysicalDeviceFeatures,
         extension_names: Vec<CString>,
         layer_names: Vec<CString>,
         debug_callback_ref: Option<Arc<DebugCallback>>,
@@ -99,6 +91,13 @@ impl Device {
 
         let mut features_2 = vk::PhysicalDeviceFeatures2::builder();
         let max_api_version = instance.max_api_version();
+
+        let PhysicalDeviceFeatures {
+            features_1_0,
+            mut features_1_1,
+            mut features_1_2,
+            mut features_1_3,
+        } = features;
 
         if max_api_version <= ApiVersion::new(1, 0) {
             device_create_info = device_create_info.enabled_features(&features_1_0);
@@ -124,7 +123,7 @@ impl Device {
         Self::new_from_create_info(physical_device, device_create_info, debug_callback_ref)
     }
 
-    /// Safety:
+    /// # Safety
     /// No busted pointers in `create_info_builder` or its referenced structs (e.g. p_next chain).
     pub unsafe fn new_from_create_info(
         physical_device: Arc<PhysicalDevice>,
@@ -138,7 +137,7 @@ impl Device {
                 ALLOCATION_CALLBACK_NONE,
             )
         }
-        .map_err(|vk_res| DeviceError::Creation(vk_res))?;
+        .map_err(DeviceError::Creation)?;
 
         Ok(Self {
             inner,
@@ -157,13 +156,13 @@ impl Device {
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkDeviceWaitIdle.html>
     pub fn wait_idle(&self) -> Result<(), DeviceError> {
         let res = unsafe { self.inner.device_wait_idle() };
-        res.map_err(|vk_res| DeviceError::WaitIdle(vk_res))
+        res.map_err(DeviceError::WaitIdle)
     }
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkQueueWaitIdle.html>
     pub fn queue_wait_idle(&self, queue: &Queue) -> Result<(), DeviceError> {
         let res = unsafe { self.inner.queue_wait_idle(queue.handle()) };
-        res.map_err(|vk_res| DeviceError::WaitIdle(vk_res))
+        res.map_err(DeviceError::WaitIdle)
     }
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkUpdateDescriptorSets.html>

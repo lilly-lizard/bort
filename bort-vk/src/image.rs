@@ -38,6 +38,8 @@ impl Image {
         })
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         alloc_access: Arc<dyn AllocatorAccess>,
         image_create_info_builder: vk::ImageCreateInfoBuilder,
@@ -83,7 +85,7 @@ impl Image {
 
     #[inline]
     pub fn allocator_access(&self) -> &Arc<dyn AllocatorAccess> {
-        &self.memory_allocation.allocator_access()
+        self.memory_allocation.allocator_access()
     }
 
     #[inline]
@@ -113,7 +115,7 @@ impl AllocationAccess for Image {
 impl DeviceOwned for Image {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.memory_allocation.device()
+        self.memory_allocation.device()
     }
 
     #[inline]
@@ -284,9 +286,9 @@ pub fn guaranteed_depth_stencil_format(physical_device: &PhysicalDevice) -> vk::
         .optimal_tiling_features
         .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
     {
-        return vk::Format::D24_UNORM_S8_UINT;
+        vk::Format::D24_UNORM_S8_UINT
     } else {
-        return vk::Format::D32_SFLOAT_S8_UINT;
+        vk::Format::D32_SFLOAT_S8_UINT
     }
 }
 
@@ -309,9 +311,9 @@ pub fn guaranteed_pure_depth_format(physical_device: &PhysicalDevice) -> vk::For
         .optimal_tiling_features
         .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
     {
-        return vk::Format::D32_SFLOAT;
+        vk::Format::D32_SFLOAT
     } else {
-        return vk::Format::X8_D24_UNORM_PACK32;
+        vk::Format::X8_D24_UNORM_PACK32
     }
 }
 

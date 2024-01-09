@@ -36,6 +36,8 @@ impl Buffer {
         ))
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         alloc_access: Arc<dyn AllocatorAccess>,
         buffer_create_info_builder: vk::BufferCreateInfoBuilder,
@@ -86,7 +88,7 @@ impl Buffer {
 
     #[inline]
     pub fn allocator_access(&self) -> &Arc<dyn AllocatorAccess> {
-        &self.memory_allocation.allocator_access()
+        self.memory_allocation.allocator_access()
     }
 
     #[inline]
@@ -104,7 +106,7 @@ impl AllocationAccess for Buffer {
 impl DeviceOwned for Buffer {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.allocator_access().device()
+        self.allocator_access().device()
     }
 
     #[inline]
@@ -187,7 +189,7 @@ impl BufferProperties {
             size: value.size,
             usage: value.usage,
             sharing_mode: value.sharing_mode,
-            queue_family_indices: queue_family_indices,
+            queue_family_indices,
         }
     }
 }

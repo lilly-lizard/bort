@@ -1,4 +1,4 @@
-use crate::ALLOCATION_CALLBACK_NONE;
+use crate::{PhysicalDevice, PhysicalDeviceFeatures, ALLOCATION_CALLBACK_NONE};
 use ash::{
     extensions::{ext, khr},
     prelude::VkResult,
@@ -56,7 +56,7 @@ impl Instance {
     ) -> Result<Self, InstanceError> {
         let display_extension_name_cstrs = Self::required_surface_extensions(display_handle)?;
         let display_extension_names: Vec<CString> = display_extension_name_cstrs
-            .into_iter()
+            .iter()
             .map(|&cstr| cstr.to_owned())
             .collect();
 
@@ -64,7 +64,7 @@ impl Instance {
 
         let unsupported_display_extensions =
             Self::any_unsupported_extensions(&entry, None, extension_names.clone())
-                .map_err(|e| InstanceError::Creation(e))?;
+                .map_err(InstanceError::Creation)?;
         if !unsupported_display_extensions.is_empty() {
             return Err(InstanceError::ExtensionsNotPresent(
                 unsupported_display_extensions,
@@ -97,7 +97,7 @@ impl Instance {
 
         let instance_inner =
             unsafe { entry.create_instance(&create_info, ALLOCATION_CALLBACK_NONE) }
-                .map_err(|e| InstanceError::Creation(e))?;
+                .map_err(InstanceError::Creation)?;
 
         Ok(Self {
             entry,
@@ -106,15 +106,17 @@ impl Instance {
         })
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         entry: Arc<Entry>,
         create_info_builder: vk::InstanceCreateInfoBuilder,
     ) -> Result<Self, InstanceError> {
         let instance_inner =
             unsafe { entry.create_instance(&create_info_builder, ALLOCATION_CALLBACK_NONE) }
-                .map_err(|e| InstanceError::Creation(e))?;
+                .map_err(InstanceError::Creation)?;
 
-        let max_api_version = if create_info_builder.p_application_info != std::ptr::null() {
+        let max_api_version = if !create_info_builder.p_application_info.is_null() {
             let api_version_combined =
                 unsafe { *create_info_builder.p_application_info }.api_version;
             ApiVersion {
@@ -175,7 +177,7 @@ impl Instance {
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkEnumerateInstanceExtensionProperties.html>
     pub fn extension_name_is_in_properties_list(
-        extension_properties: &Vec<vk::ExtensionProperties>,
+        extension_properties: &[vk::ExtensionProperties],
         extension_name: CString,
     ) -> bool {
         extension_properties.iter().any(|props| {
@@ -185,21 +187,40 @@ impl Instance {
         })
     }
 
+    #[inline]
+    pub fn physical_device_features(
+        &self,
+        physical_device: &PhysicalDevice,
+    ) -> PhysicalDeviceFeatures {
+        PhysicalDeviceFeatures {
+            features_1_0: self.physical_device_features_1_0(physical_device),
+            features_1_1: self
+                .physical_device_features_1_1(physical_device)
+                .unwrap_or_default(),
+            features_1_2: self
+                .physical_device_features_1_2(physical_device)
+                .unwrap_or_default(),
+            features_1_3: self
+                .physical_device_features_1_3(physical_device)
+                .unwrap_or_default(),
+        }
+    }
+
     /// Vulkan 1.0 features
     pub fn physical_device_features_1_0(
         &self,
-        physical_device_handle: vk::PhysicalDevice,
+        physical_device: &PhysicalDevice,
     ) -> vk::PhysicalDeviceFeatures {
         unsafe {
             self.inner()
-                .get_physical_device_features(physical_device_handle)
+                .get_physical_device_features(physical_device.handle())
         }
     }
 
     /// Vulkan 1.1 features. If api version < 1.1, these cannot be populated.
     pub fn physical_device_features_1_1(
         &self,
-        physical_device_handle: vk::PhysicalDevice,
+        physical_device: &PhysicalDevice,
     ) -> Option<vk::PhysicalDeviceVulkan11Features> {
         if self.max_api_version < ApiVersion::new(1, 1) {
             return None;
@@ -209,7 +230,7 @@ impl Instance {
         let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_1);
         unsafe {
             self.inner
-                .get_physical_device_features2(physical_device_handle, &mut features)
+                .get_physical_device_features2(physical_device.handle(), &mut features)
         };
 
         Some(features_1_1)
@@ -218,7 +239,7 @@ impl Instance {
     /// Vulkan 1.2 features. If api version < 1.2, these cannot be populated.
     pub fn physical_device_features_1_2(
         &self,
-        physical_device_handle: vk::PhysicalDevice,
+        physical_device: &PhysicalDevice,
     ) -> Option<vk::PhysicalDeviceVulkan12Features> {
         if self.max_api_version < ApiVersion::new(1, 2) {
             return None;
@@ -228,10 +249,29 @@ impl Instance {
         let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_2);
         unsafe {
             self.inner
-                .get_physical_device_features2(physical_device_handle, &mut features)
+                .get_physical_device_features2(physical_device.handle(), &mut features)
         };
 
         Some(features_1_2)
+    }
+
+    /// Vulkan 1.3 features. If api version < 1.3, these cannot be populated.
+    pub fn physical_device_features_1_3(
+        &self,
+        physical_device: &PhysicalDevice,
+    ) -> Option<vk::PhysicalDeviceVulkan13Features> {
+        if self.max_api_version < ApiVersion::new(1, 3) {
+            return None;
+        }
+
+        let mut features_1_3 = vk::PhysicalDeviceVulkan13Features::default();
+        let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_3);
+        unsafe {
+            self.inner
+                .get_physical_device_features2(physical_device.handle(), &mut features)
+        };
+
+        Some(features_1_3)
     }
 
     pub fn enumerate_physical_devices(&self) -> VkResult<Vec<vk::PhysicalDevice>> {

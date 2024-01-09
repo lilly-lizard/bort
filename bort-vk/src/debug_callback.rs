@@ -35,6 +35,8 @@ impl DebugCallback {
         })
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         instance: Arc<Instance>,
         create_info_builder: vk::DebugUtilsMessengerCreateInfoEXTBuilder,

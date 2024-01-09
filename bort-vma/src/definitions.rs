@@ -465,8 +465,8 @@ pub struct PoolCreateInfo<'a> {
     marker: ::std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a> PoolCreateInfo<'a> {
-    pub fn new() -> PoolCreateInfo<'a> {
+impl Default for PoolCreateInfo<'_> {
+    fn default() -> Self {
         PoolCreateInfo {
             inner: ffi::VmaPoolCreateInfo {
                 memoryTypeIndex: 0,
@@ -480,6 +480,12 @@ impl<'a> PoolCreateInfo<'a> {
             },
             marker: ::std::marker::PhantomData,
         }
+    }
+}
+
+impl<'a> PoolCreateInfo<'a> {
+    pub fn new() -> PoolCreateInfo<'a> {
+        PoolCreateInfo::default()
     }
 
     pub fn memory_type_index(mut self, index: u32) -> Self {

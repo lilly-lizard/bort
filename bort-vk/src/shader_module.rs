@@ -33,12 +33,14 @@ impl ShaderModule {
         device: Arc<Device>,
         spirv: &mut R,
     ) -> Result<Self, ShaderError> {
-        let code = read_spv(spirv).map_err(|e| ShaderError::SpirVDecode(e))?;
+        let code = read_spv(spirv).map_err(ShaderError::SpirVDecode)?;
         let create_info = vk::ShaderModuleCreateInfo::builder().code(&code);
 
         unsafe { Self::new_from_create_info(device, create_info) }
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info_builder: vk::ShaderModuleCreateInfoBuilder,
@@ -48,7 +50,7 @@ impl ShaderModule {
                 .inner()
                 .create_shader_module(&create_info_builder, ALLOCATION_CALLBACK_NONE)
         }
-        .map_err(|e| ShaderError::Creation(e))?;
+        .map_err(ShaderError::Creation)?;
 
         Ok(Self { handle, device })
     }

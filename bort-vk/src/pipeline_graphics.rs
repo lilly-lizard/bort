@@ -65,7 +65,8 @@ impl GraphicsPipeline {
         })
     }
 
-    /// Safety requirements found in docs for the following:
+    /// # Safety
+    /// Requirements found in docs for the following:
     ///   - [`VertexInputState::from_create_info`]
     ///   - [`ViewportState::from_create_info`]
     ///   - [`MultisampleState::from_create_info`]
@@ -102,9 +103,10 @@ impl GraphicsPipeline {
         })
     }
 
-    pub fn new_batch_create<'a>(
+    #[allow(clippy::needless_range_loop)]
+    pub fn new_batch_create(
         device: &Device,
-        per_pipeline_params: Vec<PerPipelineCreationParams<'a>>,
+        per_pipeline_params: Vec<PerPipelineCreationParams>,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Vec<Self>> {
         let pipeline_count = per_pipeline_params.len();
@@ -209,7 +211,7 @@ impl PipelineAccess for GraphicsPipeline {
 impl DeviceOwned for GraphicsPipeline {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.pipeline_layout.device()
+        self.pipeline_layout.device()
     }
 
     #[inline]
@@ -238,7 +240,7 @@ trait FromCreateInfo<VkCreateInfo> {
 /// If `vk_create_info_ptr` isn't null, this function dereferences it then returns the result of
 /// `from_create_info`. Otherwise returns `Default::default()`.
 ///
-/// Safety:
+/// # Safety
 /// - if `vk_create_info_ptr` is not null, it must point to something
 unsafe fn from_create_info_ptr<Properties, VkCreateInfo>(
     vk_create_info_ptr: *const VkCreateInfo,
@@ -247,7 +249,7 @@ where
     Properties: FromCreateInfo<VkCreateInfo> + Default,
     VkCreateInfo: Copy + Clone,
 {
-    if vk_create_info_ptr != std::ptr::null() {
+    if !vk_create_info_ptr.is_null() {
         let vk_create_info = unsafe { *vk_create_info_ptr };
         Properties::from_create_info(&vk_create_info)
     } else {
@@ -304,22 +306,22 @@ impl GraphicsPipelineProperties {
 
     /// Returns a set of vk::*CreateInfoBuilder structs populated by the members of `self`.
     /// Use this with `Self::write_create_info_builder` to populate a `GraphicsPipelineCreateInfoBuilder`.
-    pub fn vk_create_infos<'a>(&'a self) -> GraphicsPipelinePropertiesCreateInfosVk<'a> {
-        let mut properties_vk = GraphicsPipelinePropertiesCreateInfosVk::default();
-        // write vk create-info builders for each member to `properties_vk`
-        properties_vk.vertex_input_state_vk = self.vertex_input_state.create_info_builder();
-        properties_vk.input_assembly_state_vk = self.input_assembly_state.create_info_builder();
-        properties_vk.tessellation_state_vk = self.tessellation_state.create_info_builder();
-        properties_vk.viewport_state_vk = self.viewport_state.create_info_builder();
-        properties_vk.rasterization_state_vk = self.rasterization_state.create_info_builder();
-        properties_vk.multisample_state_vk = self.multisample_state.create_info_builder();
-        properties_vk.depth_stencil_state_vk = self.depth_stencil_state.create_info_builder();
-        properties_vk.color_blend_state_vk = self.color_blend_state.create_info_builder();
-        properties_vk.dynamic_state_vk = self.dynamic_state.create_info_builder();
-        properties_vk
+    pub fn vk_create_infos(&self) -> GraphicsPipelinePropertiesCreateInfosVk {
+        GraphicsPipelinePropertiesCreateInfosVk {
+            // write vk create-info builders for each member to `properties_vk`
+            vertex_input_state_vk: self.vertex_input_state.create_info_builder(),
+            input_assembly_state_vk: self.input_assembly_state.create_info_builder(),
+            tessellation_state_vk: self.tessellation_state.create_info_builder(),
+            viewport_state_vk: self.viewport_state.create_info_builder(),
+            rasterization_state_vk: self.rasterization_state.create_info_builder(),
+            multisample_state_vk: self.multisample_state.create_info_builder(),
+            depth_stencil_state_vk: self.depth_stencil_state.create_info_builder(),
+            color_blend_state_vk: self.color_blend_state.create_info_builder(),
+            dynamic_state_vk: self.dynamic_state.create_info_builder(),
+        }
     }
 
-    /// Safety:
+    /// # Safety
     /// - if any of the following members aren't null they must point to something!
     ///     - `p_vertex_input_state`
     ///     - `p_input_assembly_state`
@@ -337,7 +339,7 @@ impl GraphicsPipelineProperties {
     ///     - [`ColorBlendState::from_create_info_ptr`]
     ///     - [`DynamicState::from_create_info_ptr`]
     pub unsafe fn from_create_info(value: &vk::GraphicsPipelineCreateInfo) -> Self {
-        let vertex_input_state = if value.p_vertex_input_state != std::ptr::null() {
+        let vertex_input_state = if !value.p_vertex_input_state.is_null() {
             let vk_create_info = unsafe { *value.p_vertex_input_state };
             VertexInputState::from_create_info(&vk_create_info)
         } else {
@@ -345,27 +347,27 @@ impl GraphicsPipelineProperties {
         };
         let input_assembly_state = from_create_info_ptr(value.p_input_assembly_state);
         let tessellation_state = from_create_info_ptr(value.p_tessellation_state);
-        let viewport_state = if value.p_viewport_state != std::ptr::null() {
+        let viewport_state = if !value.p_viewport_state.is_null() {
             let vk_create_info = unsafe { *value.p_viewport_state };
             ViewportState::from_create_info(&vk_create_info)
         } else {
             Default::default()
         };
         let rasterization_state = from_create_info_ptr(value.p_rasterization_state);
-        let multisample_state = if value.p_multisample_state != std::ptr::null() {
+        let multisample_state = if !value.p_multisample_state.is_null() {
             let vk_create_info = unsafe { *value.p_multisample_state };
             MultisampleState::from_create_info(&vk_create_info)
         } else {
             Default::default()
         };
         let depth_stencil_state = from_create_info_ptr(value.p_depth_stencil_state);
-        let color_blend_state = if value.p_color_blend_state != std::ptr::null() {
+        let color_blend_state = if !value.p_color_blend_state.is_null() {
             let vk_create_info = unsafe { *value.p_color_blend_state };
             ColorBlendState::from_create_info(&vk_create_info)
         } else {
             Default::default()
         };
-        let dynamic_state = if value.p_dynamic_state != std::ptr::null() {
+        let dynamic_state = if !value.p_dynamic_state.is_null() {
             let vk_create_info = unsafe { *value.p_dynamic_state };
             DynamicState::from_create_info(&vk_create_info)
         } else {
@@ -387,7 +389,8 @@ impl GraphicsPipelineProperties {
         }
     }
 
-    /// Safety requirements found in docs for the following:
+    /// # Safety
+    /// Requirements found in docs for the following:
     ///   - [`VertexInputState::from_create_info`]
     ///   - [`ViewportState::from_create_info`]
     ///   - [`MultisampleState::from_create_info`]
@@ -463,7 +466,6 @@ impl ColorBlendState {
             dst_color_blend_factor: vk::BlendFactor::ZERO,
             dst_alpha_blend_factor: vk::BlendFactor::DST_COLOR,
             color_write_mask: vk::ColorComponentFlags::RGBA,
-            ..Default::default()
         }
     }
 
@@ -479,11 +481,10 @@ impl ColorBlendState {
             dst_color_blend_factor: vk::BlendFactor::ONE,
             dst_alpha_blend_factor: vk::BlendFactor::ONE,
             color_write_mask: vk::ColorComponentFlags::RGBA,
-            ..Default::default()
         }
     }
 
-    /// Safety:
+    /// # Safety
     /// - if `p_attachments` is not null, it must point to an array of `attachment_count` values
     pub unsafe fn from_create_info(value: &vk::PipelineColorBlendStateCreateInfo) -> Self {
         let mut attachments = Vec::<vk::PipelineColorBlendAttachmentState>::new();
@@ -621,7 +622,7 @@ impl DynamicState {
         self.write_create_info_builder(vk::PipelineDynamicStateCreateInfo::builder())
     }
 
-    /// Safety:
+    /// # Safety
     /// - if `p_dynamic_states` is not null, it must point to an array of `dynamic_state_count` values
     pub unsafe fn from_create_info(value: &vk::PipelineDynamicStateCreateInfo) -> Self {
         let mut dynamic_states = Vec::<vk::DynamicState>::new();
@@ -731,13 +732,13 @@ impl MultisampleState {
         self.write_create_info_builder(vk::PipelineMultisampleStateCreateInfo::builder())
     }
 
-    /// Safety:
+    /// # Safety
     /// - If `p_sample_mask` is not null and `rasterization_samples` is equal to `VK_SAMPLE_COUNT_64_BIT`
     ///   the `p_sample_mask` must point to an array of 2 values as per
     ///   [VUID-VkPipelineMultisampleStateCreateInfo-pSampleMask-parameter](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineMultisampleStateCreateInfo.html)
     pub unsafe fn from_create_info(value: &vk::PipelineMultisampleStateCreateInfo) -> Self {
         let mut sample_mask = Vec::<vk::SampleMask>::new();
-        if value.p_sample_mask != std::ptr::null() {
+        if !value.p_sample_mask.is_null() {
             let lower_32_bit_sample_mask = unsafe { *value.p_sample_mask };
             sample_mask.push(lower_32_bit_sample_mask);
 
@@ -763,7 +764,7 @@ impl MultisampleState {
     /// first value is `p_sample_mask` is stored (assuming the ptr isn't null).
     pub fn from_create_info_builder(value: &vk::PipelineMultisampleStateCreateInfoBuilder) -> Self {
         let mut sample_mask = Vec::<vk::SampleMask>::new();
-        if value.p_sample_mask != std::ptr::null() {
+        if !value.p_sample_mask.is_null() {
             // NOTE: the builder makes no guarentee that there's anything else in p_sample_mask (even
             // if rasterization_samples > VK_SAMPLE_COUNT_32_BIT) so here we play it safe and ignore
             // any higher bits that may be stored here.
@@ -936,7 +937,7 @@ impl VertexInputState {
         self.write_create_info_builder(vk::PipelineVertexInputStateCreateInfo::builder())
     }
 
-    /// Safety:
+    /// # Safety
     /// - if `p_vertex_binding_descriptions` is not null, it must point to an array of `vertex_binding_description_count` values
     /// - if `p_vertex_attribute_descriptions` is not null, it must point to an array of `vertex_attribute_description_count` values
     pub unsafe fn from_create_info(value: &vk::PipelineVertexInputStateCreateInfo) -> Self {
@@ -1005,7 +1006,7 @@ impl ViewportState {
         self.write_create_info_builder(vk::PipelineViewportStateCreateInfo::builder())
     }
 
-    /// Safety:
+    /// # Safety
     /// - if `p_viewports` is not null, it must point to an array of `viewport_count` values
     /// - if `p_scissors` is not null, it must point to an array of `scissor_count` values
     pub unsafe fn from_create_info(value: &vk::PipelineViewportStateCreateInfo) -> Self {

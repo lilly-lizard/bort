@@ -41,10 +41,10 @@ impl Swapchain {
             swapchain_loader
                 .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
         }
-        .map_err(|e| SwapchainError::Creation(e))?;
+        .map_err(SwapchainError::Creation)?;
 
         let vk_swapchain_images = unsafe { swapchain_loader.get_swapchain_images(handle) }
-            .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
+            .map_err(SwapchainError::GetSwapchainImages)?;
 
         let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
             .into_iter()
@@ -99,7 +99,7 @@ impl Swapchain {
     /// Also destroys the old swapchain so make sure any resources depending on the swapchain and
     /// swapchain images are dropped before calling this! E.g. swapchain image views and framebuffers...
     pub fn recreate(&mut self, properties: SwapchainProperties) -> Result<(), SwapchainError> {
-        let (new_handle, swapchain_images) = Self::recreate_common(&self, &properties)?;
+        let (new_handle, swapchain_images) = self.recreate_common(&properties)?;
 
         unsafe {
             self.swapchain_loader
@@ -123,7 +123,7 @@ impl Swapchain {
         self: &Arc<Self>,
         properties: SwapchainProperties,
     ) -> Result<Arc<Self>, SwapchainError> {
-        let (new_handle, swapchain_images) = Self::recreate_common(&self, &properties)?;
+        let (new_handle, swapchain_images) = self.recreate_common(&properties)?;
 
         Ok(Arc::new(Self {
             handle: new_handle,
@@ -136,7 +136,7 @@ impl Swapchain {
     }
 
     fn recreate_common(
-        self: &Self,
+        &self,
         properties: &SwapchainProperties,
     ) -> Result<(vk::SwapchainKHR, Vec<Arc<SwapchainImage>>), SwapchainError> {
         let swapchain_create_info_builder =
@@ -146,10 +146,10 @@ impl Swapchain {
             self.swapchain_loader
                 .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
         }
-        .map_err(|e| SwapchainError::Creation(e))?;
+        .map_err(SwapchainError::Creation)?;
 
         let vk_swapchain_images = unsafe { self.swapchain_loader.get_swapchain_images(new_handle) }
-            .map_err(|e| SwapchainError::GetSwapchainImages(e))?;
+            .map_err(SwapchainError::GetSwapchainImages)?;
 
         let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
             .into_iter()
@@ -157,7 +157,7 @@ impl Swapchain {
                 Arc::new(SwapchainImage::from_image_handle(
                     self.device.clone(),
                     image_handle,
-                    &properties,
+                    properties,
                 ))
             })
             .collect();
@@ -317,7 +317,7 @@ impl SwapchainProperties {
     ) -> Result<Self, SwapchainError> {
         let surface_capabilities = surface
             .get_physical_device_surface_capabilities(device.physical_device())
-            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfaceCapabilities(e))?;
+            .map_err(SwapchainError::GetPhysicalDeviceSurfaceCapabilities)?;
 
         let mut image_count = max(preferred_image_count, surface_capabilities.min_image_count);
         // max_image_count == 0 when there is no upper limit
@@ -335,7 +335,7 @@ impl SwapchainProperties {
 
         let present_modes = surface
             .get_physical_device_surface_present_modes(device.physical_device())
-            .map_err(|e| SwapchainError::GetPhysicalDeviceSurfacePresentModes(e))?;
+            .map_err(SwapchainError::GetPhysicalDeviceSurfacePresentModes)?;
         let present_mode = present_modes
             .into_iter()
             .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
@@ -408,7 +408,7 @@ pub struct SwapchainImage {
 }
 
 impl SwapchainImage {
-    /// Safety: make sure image 'handle' was retreived from 'swapchain'
+    /// # Safety make sure image 'handle' was retreived from 'swapchain'
     pub(crate) unsafe fn from_image_handle(
         device: Arc<Device>,
         handle: vk::Image,

@@ -29,7 +29,7 @@ impl PhysicalDevice {
     ) -> Result<Self, PhysicalDeviceError> {
         let properties = unsafe { instance.inner().get_physical_device_properties(handle) };
         let name = unsafe { c_string_to_string(properties.device_name.as_ptr()) }
-            .map_err(|e| PhysicalDeviceError::NameStringConversion(e))?;
+            .map_err(PhysicalDeviceError::NameStringConversion)?;
 
         let queue_family_properties = unsafe {
             instance
@@ -48,11 +48,11 @@ impl PhysicalDevice {
                 .inner()
                 .enumerate_device_extension_properties(handle)
         }
-        .map_err(|e| PhysicalDeviceError::EnumerateExtensionProperties(e))?;
+        .map_err(PhysicalDeviceError::EnumerateExtensionProperties)?;
 
         let extension_properties: Vec<ExtensionProperties> = vk_extension_properties
             .into_iter()
-            .map(|props| ExtensionProperties::new(props))
+            .map(ExtensionProperties::new)
             .collect();
 
         Ok(Self {
@@ -77,14 +77,11 @@ impl PhysicalDevice {
         if supported_minor < api_version.minor {
             return false;
         }
-        return true;
+        true
     }
 
     /// Returns any of the provided `extension_names` that are unsupported by this device.
-    pub fn any_unsupported_extensions<'a>(
-        &self,
-        mut extension_names: Vec<CString>,
-    ) -> Vec<CString> {
+    pub fn any_unsupported_extensions(&self, mut extension_names: Vec<CString>) -> Vec<CString> {
         extension_names.retain(|extension_name| !self.supports_extension(extension_name.clone()));
         extension_names
     }
@@ -142,6 +139,16 @@ impl ExtensionProperties {
         }
     }
 }
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct PhysicalDeviceFeatures {
+    pub features_1_0: vk::PhysicalDeviceFeatures,
+    pub features_1_1: vk::PhysicalDeviceVulkan11Features,
+    pub features_1_2: vk::PhysicalDeviceVulkan12Features,
+    pub features_1_3: vk::PhysicalDeviceVulkan13Features,
+}
+
+// ~~ Errors ~~
 
 #[derive(Debug, Clone)]
 pub enum PhysicalDeviceError {

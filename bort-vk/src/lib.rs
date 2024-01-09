@@ -1,3 +1,6 @@
+#![allow(clippy::collapsible_else_if)]
+#![allow(clippy::len_zero)]
+
 #[cfg(feature = "raw-window-handle-05")]
 pub use raw_window_handle_05 as raw_window_handle;
 #[cfg(feature = "raw-window-handle-06")]

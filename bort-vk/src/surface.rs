@@ -36,7 +36,7 @@ impl Surface {
             )
         }?;
 
-        let surface_loader = khr::Surface::new(&entry, instance.inner());
+        let surface_loader = khr::Surface::new(entry, instance.inner());
 
         Ok(Self {
             handle,
@@ -300,7 +300,7 @@ impl Drop for Surface {
 
 /// Returns the first surface format with a linear image format in the vec. Returns `None` is there's none.
 pub fn get_first_srgb_surface_format(
-    surface_formats: &Vec<vk::SurfaceFormatKHR>,
+    surface_formats: &[vk::SurfaceFormatKHR],
 ) -> Option<vk::SurfaceFormatKHR> {
     surface_formats
         .iter()
@@ -311,7 +311,7 @@ pub fn get_first_srgb_surface_format(
 
 /// Returns the first surface format with a linear image format in the vec. Returns `None` is there's none.
 pub fn get_first_linear_surface_format(
-    surface_formats: &Vec<vk::SurfaceFormatKHR>,
+    surface_formats: &[vk::SurfaceFormatKHR],
 ) -> Option<vk::SurfaceFormatKHR> {
     surface_formats
         .iter()

@@ -209,24 +209,34 @@ impl MemoryAllocation {
         Ok(())
     }
 
+    /// # Safety
+    /// See docs for [`bort_vma::allocator::Allocator::map_memory`]
     pub unsafe fn map_memory(&mut self) -> Result<*mut u8, MemoryError> {
         self.allocator_access
             .vma_allocator()
             .map_memory(&mut self.inner)
-            .map_err(|e| MemoryError::Mapping(e))
+            .map_err(MemoryError::Mapping)
     }
 
+    /// # Safety
+    /// See docs for [`bort_vma::allocator::Allocator::unmap_memory`]
     pub unsafe fn unmap_memory(&mut self) {
         self.allocator_access
             .vma_allocator()
             .unmap_memory(&mut self.inner)
     }
 
+    /// # Safety
+    /// - `allocation_offset` must be within the allocation memory size
+    /// - See docs for [`bort_vma::allocator::Allocator::map_memory`]
     unsafe fn map_memory_with_offset_unchecked<T>(
         &mut self,
         allocation_offset: usize,
     ) -> Result<*mut T, MemoryError> {
         let mapped_memory = unsafe { self.map_memory() }?;
+        #[allow(clippy::ptr_offset_with_cast)] // want the interface to be unsigned because negative
+        // offsets don't make sense when offsetting from the start of the allocation and if the offset
+        // is peeking into the highest `usize` bit it would have been caught by prior checking functions
         let offset_mapped_memory =
             unsafe { mapped_memory.offset(allocation_offset as isize) } as *mut T;
         Ok(offset_mapped_memory)
@@ -243,7 +253,7 @@ impl MemoryAllocation {
         self.allocator_access
             .vma_allocator()
             .flush_allocation(&self.inner, allocation_offset, data_size)
-            .map_err(|e| MemoryError::Flushing(e))
+            .map_err(MemoryError::Flushing)
     }
 
     // Getters
@@ -278,7 +288,7 @@ impl MemoryAllocation {
 
     #[inline]
     pub fn device(&self) -> &Arc<Device> {
-        &self.allocator_access.device()
+        self.allocator_access.device()
     }
 }
 

@@ -35,7 +35,7 @@ impl<'a> DefragmentationContext<'a> {
     }
 
     /// Returns `false` if no more moves are possible or `true` if more defragmentations are possible.
-    pub fn begin_pass(&self, mover: impl FnOnce(&mut [DefragmentationMove]) -> ()) -> bool {
+    pub fn begin_pass(&self, mover: impl FnOnce(&mut [DefragmentationMove])) -> bool {
         let mut pass_info = ffi::VmaDefragmentationPassMoveInfo {
             moveCount: 0,
             pMoves: std::ptr::null_mut(),

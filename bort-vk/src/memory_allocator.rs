@@ -31,6 +31,8 @@ impl MemoryAllocator {
         unsafe { Self::new_from_create_info(device.clone(), allocator_info) }
     }
 
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
         create_info: AllocatorCreateInfo,

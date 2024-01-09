@@ -172,7 +172,7 @@ impl TriangleExample {
 
         let physical_device_handles = instance.enumerate_physical_devices()?;
         let physical_device_handle = physical_device_handles
-            .get(0)
+            .first()
             .ok_or(BortExampleError::NoPhysicalDevice)?;
         let physical_device = Arc::new(PhysicalDevice::new(
             instance.clone(),
@@ -182,7 +182,7 @@ impl TriangleExample {
 
         let (queue_family_index, _queue_family_properties) = physical_device
             .queue_family_properties()
-            .into_iter()
+            .iter()
             .enumerate() // because we want the queue family index
             .find(|&(queue_family_index, queue_family_properties)| {
                 let graphics_support = queue_family_properties
@@ -208,9 +208,6 @@ impl TriangleExample {
         let device = Arc::new(Device::new(
             physical_device.clone(),
             [queue_create_info],
-            Default::default(),
-            Default::default(),
-            Default::default(),
             Default::default(),
             extension_names,
             vec![],
@@ -272,11 +269,13 @@ impl TriangleExample {
         let color_blend_state =
             ColorBlendState::new_default(vec![ColorBlendState::blend_state_disabled()]);
 
-        let mut pipeline_properties = GraphicsPipelineProperties::default();
-        pipeline_properties.subpass_index = 0;
-        pipeline_properties.dynamic_state = dynamic_state;
-        pipeline_properties.color_blend_state = color_blend_state;
-        pipeline_properties.viewport_state = viewport_state;
+        let pipeline_properties = GraphicsPipelineProperties {
+            subpass_index: 0,
+            dynamic_state,
+            color_blend_state,
+            viewport_state,
+            ..Default::default()
+        };
 
         let pipeline = GraphicsPipeline::new(
             pipeline_layout,
@@ -435,7 +434,7 @@ impl TriangleExample {
         self.framebuffers.clear();
 
         let swapchain_properties =
-            swapchain_properties(&self.surface, &self.queue.device(), &self.window)?;
+            swapchain_properties(&self.surface, self.queue.device(), &self.window)?;
         let surface_format = swapchain_properties.surface_format;
 
         self.swapchain = self.swapchain.recreate_replace(swapchain_properties)?;
@@ -455,7 +454,6 @@ impl Drop for TriangleExample {
         let wait_res = self.queue.device().wait_idle();
         if let Err(e) = wait_res {
             error!("{}", e);
-            return;
         }
     }
 }
@@ -466,10 +464,10 @@ fn swapchain_properties(
     window: &Window,
 ) -> Result<SwapchainProperties, Box<dyn Error>> {
     let surface_capabilities =
-        surface.get_physical_device_surface_capabilities(&device.physical_device())?;
+        surface.get_physical_device_surface_capabilities(device.physical_device())?;
 
     let preferred_swapchain_image_count = surface_capabilities.min_image_count + 1;
-    let surface_format = surface.get_physical_device_surface_formats(&device.physical_device())?[0];
+    let surface_format = surface.get_physical_device_surface_formats(device.physical_device())?[0];
     let composite_alpha = choose_composite_alpha(surface_capabilities);
 
     let swapchain_properties = SwapchainProperties::new_default(
@@ -565,6 +563,8 @@ fn create_framebuffers(
     Ok(framebuffers)
 }
 
+/// # Safety
+/// Assumes `p_callback_data` is a valid pointer and that `p_callback_data.p_message` is a valid C string.
 pub unsafe extern "system" fn log_vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,

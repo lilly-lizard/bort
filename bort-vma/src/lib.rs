@@ -1,3 +1,7 @@
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::deprecated_semver)]
+#![allow(clippy::needless_return)]
+
 mod alloc;
 mod allocator;
 mod definitions;

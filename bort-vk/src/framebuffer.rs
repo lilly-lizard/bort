@@ -39,8 +39,11 @@ impl Framebuffer {
         })
     }
 
-    /// Note: this fn doesn't check that the render pass handle in `create_info_builder` is equal to
-    /// that of `render_pass`!
+    /// _Note: this fn doesn't check that the render pass handle in `create_info_builder` is equal to
+    /// that of `render_pass`._
+    ///
+    /// # Safety
+    /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         render_pass: Arc<RenderPass>,
         create_info_builder: vk::FramebufferCreateInfoBuilder,
@@ -91,7 +94,7 @@ impl Framebuffer {
 impl DeviceOwned for Framebuffer {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.render_pass.device()
+        self.render_pass.device()
     }
 
     #[inline]

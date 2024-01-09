@@ -48,7 +48,7 @@ impl RenderPass {
         })
     }
 
-    /// Safety:
+    /// # Safety
     ///
     /// For each subpass:
     /// - if `subpass_description.p_color_attachments` is not null it must point to an array with
@@ -118,7 +118,7 @@ pub struct RenderPassProperties {
 }
 
 impl RenderPassProperties {
-    /// Safety:
+    /// # Safety
     ///
     /// For each subpass:
     /// - if `subpass_description.p_color_attachments` is not null it must point to an array with
@@ -129,7 +129,7 @@ impl RenderPassProperties {
         create_info_builder: &vk::RenderPassCreateInfoBuilder,
     ) -> Self {
         let mut attachment_descriptions = Vec::<vk::AttachmentDescription>::new();
-        if create_info_builder.p_attachments != std::ptr::null() {
+        if !create_info_builder.p_attachments.is_null() {
             for i in 0..create_info_builder.attachment_count {
                 let vk_attachment =
                     unsafe { *create_info_builder.p_attachments.offset(i as isize) };
@@ -138,7 +138,7 @@ impl RenderPassProperties {
         }
 
         let mut subpasses = Vec::<Subpass>::new();
-        if create_info_builder.p_subpasses != std::ptr::null() {
+        if !create_info_builder.p_subpasses.is_null() {
             for i in 0..create_info_builder.subpass_count {
                 let vk_subpass = unsafe { *create_info_builder.p_subpasses.offset(i as isize) };
                 let subpass = unsafe { Subpass::from_subpass_description(&vk_subpass) };
@@ -147,7 +147,7 @@ impl RenderPassProperties {
         }
 
         let mut subpass_dependencies = Vec::<vk::SubpassDependency>::new();
-        if create_info_builder.p_dependencies != std::ptr::null() {
+        if !create_info_builder.p_dependencies.is_null() {
             for i in 0..create_info_builder.dependency_count {
                 let vk_dependency =
                     unsafe { *create_info_builder.p_dependencies.offset(i as isize) };
@@ -186,10 +186,10 @@ impl Subpass {
     pub fn from_subpass_description_builder(
         subpass_description: &vk::SubpassDescriptionBuilder,
     ) -> Self {
-        unsafe { Self::from_subpass_description(&*subpass_description) }
+        unsafe { Self::from_subpass_description(subpass_description) }
     }
 
-    /// Safety:
+    /// # Safety
     ///
     /// - if `subpass_description.p_color_attachments` is not null it must point to an array with
     ///   `subpass_description.color_attachment_count` many elements.
@@ -197,7 +197,7 @@ impl Subpass {
     ///   `subpass_description.input_attachment_count` many elements.
     pub unsafe fn from_subpass_description(subpass_description: &vk::SubpassDescription) -> Self {
         let mut color_attachments = Vec::<vk::AttachmentReference>::new();
-        if subpass_description.p_color_attachments != std::ptr::null() {
+        if !subpass_description.p_color_attachments.is_null() {
             for i in 0..subpass_description.color_attachment_count {
                 let vk_attachment =
                     unsafe { *subpass_description.p_color_attachments.offset(i as isize) };
@@ -206,7 +206,7 @@ impl Subpass {
         }
 
         let depth_attachment: Option<vk::AttachmentReference> =
-            if subpass_description.p_depth_stencil_attachment != std::ptr::null() {
+            if !subpass_description.p_depth_stencil_attachment.is_null() {
                 let vk_attachment = *subpass_description.p_depth_stencil_attachment;
                 Some(vk_attachment)
             } else {
@@ -214,7 +214,7 @@ impl Subpass {
             };
 
         let mut input_attachments = Vec::<vk::AttachmentReference>::new();
-        if subpass_description.p_input_attachments != std::ptr::null() {
+        if !subpass_description.p_input_attachments.is_null() {
             for i in 0..subpass_description.input_attachment_count {
                 let vk_attachment =
                     unsafe { *subpass_description.p_input_attachments.offset(i as isize) };

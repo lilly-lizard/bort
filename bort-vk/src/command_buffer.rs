@@ -23,7 +23,7 @@ impl CommandBuffer {
         Ok(command_buffers.remove(0))
     }
 
-    /// Safety: make sure `handle` was allocated from `descriptor_pool` of type `level`.
+    /// # Safety make sure `handle` was allocated from `descriptor_pool` of type `level`.
     pub(crate) unsafe fn from_handle(
         handle: vk::CommandBuffer,
         level: vk::CommandBufferLevel,
@@ -88,7 +88,7 @@ impl CommandBuffer {
         unsafe {
             self.device()
                 .inner()
-                .cmd_begin_render_pass(self.handle, &begin_info, subpass_contents)
+                .cmd_begin_render_pass(self.handle, begin_info, subpass_contents)
         }
     }
 

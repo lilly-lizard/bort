@@ -76,7 +76,7 @@ impl PipelineAccess for ComputePipeline {
 impl DeviceOwned for ComputePipeline {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        &self.pipeline_layout.device()
+        self.pipeline_layout.device()
     }
 
     #[inline]
