@@ -13,27 +13,27 @@ use std::sync::Arc;
 
 pub struct Image {
     handle: vk::Image,
-    image_properties: ImageProperties,
+    properties: ImageProperties,
     memory_allocation: MemoryAllocation,
 }
 
 impl Image {
     pub fn new(
         alloc_access: Arc<dyn AllocatorAccess>,
-        image_properties: ImageProperties,
+        properties: ImageProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_image(&image_properties.create_info_builder(), &allocation_info)
+                .create_image(&properties.create_info_builder(), &allocation_info)
         }?;
 
         let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
 
         Ok(Self {
             handle,
-            image_properties,
+            properties,
             memory_allocation,
         })
     }
@@ -45,7 +45,7 @@ impl Image {
         image_create_info_builder: vk::ImageCreateInfoBuilder,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let image_properties =
+        let properties =
             ImageProperties::from_create_info_builder(&image_create_info_builder);
 
         let (handle, vma_allocation) = unsafe {
@@ -58,7 +58,7 @@ impl Image {
 
         Ok(Self {
             handle,
-            image_properties,
+            properties,
             memory_allocation,
         })
     }
@@ -70,17 +70,17 @@ impl Image {
         format: vk::Format,
         additional_usage: vk::ImageUsageFlags,
     ) -> VkResult<Self> {
-        let (image_properties, allocation_info) =
+        let (properties, allocation_info) =
             transient_image_info(dimensions, format, additional_usage);
 
-        Self::new(memory_allocator, image_properties, allocation_info)
+        Self::new(memory_allocator, properties, allocation_info)
     }
 
     // Getters
 
     #[inline]
     pub fn properties(&self) -> &ImageProperties {
-        &self.image_properties
+        &self.properties
     }
 
     #[inline]
@@ -102,7 +102,7 @@ impl ImageAccess for Image {
 
     #[inline]
     fn dimensions(&self) -> ImageDimensions {
-        self.image_properties.dimensions
+        self.properties.dimensions
     }
 }
 
@@ -143,7 +143,7 @@ pub fn transient_image_info(
     format: vk::Format,
     additional_usage: vk::ImageUsageFlags,
 ) -> (ImageProperties, AllocationCreateInfo) {
-    let image_properties = ImageProperties::new_default(
+    let properties = ImageProperties::new_default(
         format,
         dimensions,
         vk::ImageUsageFlags::TRANSIENT_ATTACHMENT | additional_usage,
@@ -156,7 +156,7 @@ pub fn transient_image_info(
         ..AllocationCreateInfo::default()
     };
 
-    (image_properties, allocation_info)
+    (properties, allocation_info)
 }
 
 // ~~ Image Properties ~~
