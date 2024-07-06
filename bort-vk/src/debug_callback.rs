@@ -1,10 +1,10 @@
 use crate::{Instance, ALLOCATION_CALLBACK_NONE};
-use ash::{extensions::ext::DebugUtils, prelude::VkResult, vk};
+use ash::{ext::debug_utils, prelude::VkResult, vk};
 use std::sync::Arc;
 
 pub struct DebugCallback {
     handle: vk::DebugUtilsMessengerEXT,
-    debug_utils_loader: DebugUtils,
+    debug_utils_loader: debug_utils::Instance,
     properties: DebugCallbackProperties,
 
     // dependencies
@@ -17,15 +17,11 @@ impl DebugCallback {
         debug_callback: vk::PFN_vkDebugUtilsMessengerCallbackEXT,
         properties: DebugCallbackProperties,
     ) -> VkResult<Self> {
-        let create_info_builder = properties.create_info_builder(debug_callback);
-
-        let debug_utils_loader = DebugUtils::new(instance.entry(), instance.inner());
-
+        let create_info = properties.create_info(debug_callback);
+        let debug_utils_loader = debug_utils::Instance::new(instance.entry(), &instance.inner());
         let handle = unsafe {
-            debug_utils_loader
-                .create_debug_utils_messenger(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+            debug_utils_loader.create_debug_utils_messenger(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
-
         Ok(Self {
             handle,
             debug_utils_loader,
@@ -39,17 +35,13 @@ impl DebugCallback {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         instance: Arc<Instance>,
-        create_info_builder: vk::DebugUtilsMessengerCreateInfoEXTBuilder,
+        create_info: vk::DebugUtilsMessengerCreateInfoEXT,
     ) -> VkResult<Self> {
-        let debug_utils_loader = DebugUtils::new(instance.entry(), instance.inner());
-
+        let debug_utils_loader = debug_utils::Instance::new(instance.entry(), &instance.inner());
         let handle = unsafe {
-            debug_utils_loader
-                .create_debug_utils_messenger(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+            debug_utils_loader.create_debug_utils_messenger(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
-
-        let properties = DebugCallbackProperties::from_create_info_builder(&create_info_builder);
-
+        let properties = DebugCallbackProperties::from_create_info(&create_info);
         Ok(Self {
             handle,
             debug_utils_loader,
@@ -109,25 +101,25 @@ impl Default for DebugCallbackProperties {
 }
 
 impl DebugCallbackProperties {
-    pub fn write_create_info_builder<'a>(
+    pub fn write_create_info<'a>(
         &'a self,
-        builder: vk::DebugUtilsMessengerCreateInfoEXTBuilder<'a>,
-    ) -> vk::DebugUtilsMessengerCreateInfoEXTBuilder {
-        builder
+        create_info: vk::DebugUtilsMessengerCreateInfoEXT<'a>,
+    ) -> vk::DebugUtilsMessengerCreateInfoEXT {
+        create_info
             .message_severity(self.message_severity)
             .message_type(self.message_type)
     }
 
-    pub fn create_info_builder(
+    pub fn create_info(
         &self,
         debug_callback: vk::PFN_vkDebugUtilsMessengerCallbackEXT,
-    ) -> vk::DebugUtilsMessengerCreateInfoEXTBuilder {
-        let builder =
-            vk::DebugUtilsMessengerCreateInfoEXT::builder().pfn_user_callback(debug_callback);
-        self.write_create_info_builder(builder)
+    ) -> vk::DebugUtilsMessengerCreateInfoEXT {
+        let create_info =
+            vk::DebugUtilsMessengerCreateInfoEXT::default().pfn_user_callback(debug_callback);
+        self.write_create_info(create_info)
     }
 
-    pub fn from_create_info_builder(value: &vk::DebugUtilsMessengerCreateInfoEXTBuilder) -> Self {
+    pub fn from_create_info(value: &vk::DebugUtilsMessengerCreateInfoEXT) -> Self {
         Self {
             message_severity: value.message_severity,
             message_type: value.message_type,

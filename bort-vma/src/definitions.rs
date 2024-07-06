@@ -378,7 +378,7 @@ bitflags! {
 }
 
 pub struct AllocatorCreateInfo<'a> {
-    pub(crate) inner: ffi::VmaAllocatorCreateInfo,
+    pub(crate) inner: ffi::VmaAllocatorCreateInfo<'a>,
     pub(crate) physical_device: PhysicalDevice,
     pub(crate) device: &'a Device,
     pub(crate) instance: &'a Instance,

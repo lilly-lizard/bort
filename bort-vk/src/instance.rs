@@ -1,8 +1,9 @@
 use crate::{PhysicalDevice, PhysicalDeviceFeatures, ALLOCATION_CALLBACK_NONE};
 use ash::{
-    extensions::{ext, khr},
+    ext::metal_surface,
+    khr::{android_surface, surface, wayland_surface, win32_surface, xcb_surface, xlib_surface},
     prelude::VkResult,
-    vk::{self, make_api_version},
+    vk::{self, make_api_version, SurfaceKHR},
     Entry,
 };
 #[cfg(feature = "raw-window-handle-05")]
@@ -59,7 +60,6 @@ impl Instance {
             .iter()
             .map(|&cstr| cstr.to_owned())
             .collect();
-
         extension_names.extend_from_slice(&display_extension_names);
 
         let unsupported_display_extensions =
@@ -88,9 +88,8 @@ impl Instance {
             .map(|cstring| cstring.as_ptr())
             .collect();
 
-        let appinfo = vk::ApplicationInfo::builder().api_version(max_api_version.as_vk_uint());
-
-        let create_info = vk::InstanceCreateInfo::builder()
+        let appinfo = vk::ApplicationInfo::default().api_version(max_api_version.as_vk_uint());
+        let create_info = vk::InstanceCreateInfo::default()
             .application_info(&appinfo)
             .enabled_layer_names(&layer_name_ptrs)
             .enabled_extension_names(&extension_name_ptrs);
@@ -110,15 +109,14 @@ impl Instance {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         entry: Arc<Entry>,
-        create_info_builder: vk::InstanceCreateInfoBuilder,
+        create_info: vk::InstanceCreateInfo,
     ) -> Result<Self, InstanceError> {
         let instance_inner =
-            unsafe { entry.create_instance(&create_info_builder, ALLOCATION_CALLBACK_NONE) }
+            unsafe { entry.create_instance(&create_info, ALLOCATION_CALLBACK_NONE) }
                 .map_err(InstanceError::Creation)?;
 
-        let max_api_version = if !create_info_builder.p_application_info.is_null() {
-            let api_version_combined =
-                unsafe { *create_info_builder.p_application_info }.api_version;
+        let max_api_version = if !create_info.p_application_info.is_null() {
+            let api_version_combined = unsafe { *create_info.p_application_info }.api_version;
             ApiVersion {
                 major: vk::api_version_major(api_version_combined),
                 minor: vk::api_version_minor(api_version_combined),
@@ -136,7 +134,7 @@ impl Instance {
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkEnumerateInstanceLayerProperties.html>
     pub fn layer_avilable(entry: &Entry, layer_name: CString) -> VkResult<bool> {
-        let layer_properties = entry.enumerate_instance_layer_properties()?;
+        let layer_properties = unsafe { entry.enumerate_instance_layer_properties()? };
         let is_available = layer_properties.iter().any(|layer_prop| {
             let installed_layer_name =
                 unsafe { CStr::from_ptr(layer_prop.layer_name.as_ptr()) }.to_owned();
@@ -153,7 +151,8 @@ impl Instance {
         layer_name: Option<&CStr>,
         mut extension_names: Vec<CString>,
     ) -> VkResult<Vec<CString>> {
-        let extension_properties = entry.enumerate_instance_extension_properties(layer_name)?;
+        let extension_properties =
+            unsafe { entry.enumerate_instance_extension_properties(layer_name)? };
         extension_names.retain(|extension_name| {
             !Self::extension_name_is_in_properties_list(
                 &extension_properties,
@@ -169,7 +168,8 @@ impl Instance {
         layer_name: Option<&CStr>,
         extension_name: CString,
     ) -> VkResult<bool> {
-        let extension_properties = entry.enumerate_instance_extension_properties(layer_name)?;
+        let extension_properties =
+            unsafe { entry.enumerate_instance_extension_properties(layer_name)? };
         let is_supported =
             Self::extension_name_is_in_properties_list(&extension_properties, extension_name);
         Ok(is_supported)
@@ -227,7 +227,7 @@ impl Instance {
         }
 
         let mut features_1_1 = vk::PhysicalDeviceVulkan11Features::default();
-        let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_1);
+        let mut features = vk::PhysicalDeviceFeatures2::default().push_next(&mut features_1_1);
         unsafe {
             self.inner
                 .get_physical_device_features2(physical_device.handle(), &mut features)
@@ -246,7 +246,7 @@ impl Instance {
         }
 
         let mut features_1_2 = vk::PhysicalDeviceVulkan12Features::default();
-        let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_2);
+        let mut features = vk::PhysicalDeviceFeatures2::default().push_next(&mut features_1_2);
         unsafe {
             self.inner
                 .get_physical_device_features2(physical_device.handle(), &mut features)
@@ -265,7 +265,7 @@ impl Instance {
         }
 
         let mut features_1_3 = vk::PhysicalDeviceVulkan13Features::default();
-        let mut features = vk::PhysicalDeviceFeatures2::builder().push_next(&mut features_1_3);
+        let mut features = vk::PhysicalDeviceFeatures2::default().push_next(&mut features_1_3);
         unsafe {
             self.inner
                 .get_physical_device_features2(physical_device.handle(), &mut features)
@@ -300,22 +300,14 @@ impl Instance {
             RawDisplayHandle::AppKit(_) | RawDisplayHandle::UiKit(_) => &Self::SURFACE_EXTS_METAL,
             _ => return Err(InstanceError::UnsupportedRawDisplayHandle),
         };
-
         Ok(extensions)
     }
-
-    pub const SURFACE_EXTS_WINDOWS: [&'static CStr; 2] =
-        [khr::Surface::name(), khr::Win32Surface::name()];
-    pub const SURFACE_EXTS_WAYLAND: [&'static CStr; 2] =
-        [khr::Surface::name(), khr::WaylandSurface::name()];
-    pub const SURFACE_EXTS_XLIB: [&'static CStr; 2] =
-        [khr::Surface::name(), khr::XlibSurface::name()];
-    pub const SURFACE_EXTS_XCB: [&'static CStr; 2] =
-        [khr::Surface::name(), khr::XcbSurface::name()];
-    pub const SURFACE_EXTS_ANDROID: [&'static CStr; 2] =
-        [khr::Surface::name(), khr::AndroidSurface::name()];
-    pub const SURFACE_EXTS_METAL: [&'static CStr; 2] =
-        [khr::Surface::name(), ext::MetalSurface::name()];
+    pub const SURFACE_EXTS_WINDOWS: [&'static CStr; 2] = [surface::NAME, win32_surface::NAME];
+    pub const SURFACE_EXTS_WAYLAND: [&'static CStr; 2] = [surface::NAME, wayland_surface::NAME];
+    pub const SURFACE_EXTS_XLIB: [&'static CStr; 2] = [surface::NAME, xlib_surface::NAME];
+    pub const SURFACE_EXTS_XCB: [&'static CStr; 2] = [surface::NAME, xcb_surface::NAME];
+    pub const SURFACE_EXTS_ANDROID: [&'static CStr; 2] = [surface::NAME, android_surface::NAME];
+    pub const SURFACE_EXTS_METAL: [&'static CStr; 2] = [surface::NAME, metal_surface::NAME];
 
     // Getters
 
