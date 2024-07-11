@@ -39,7 +39,7 @@ impl Queue {
     }
 
     /// Uses vkGetDeviceQueue2
-    pub fn new_v2(device: Arc<Device>, queue_info: vk::DeviceQueueInfo2Builder) -> Self {
+    pub fn new_v2(device: Arc<Device>, queue_info: vk::DeviceQueueInfo2) -> Self {
         let handle = unsafe { device.inner().get_device_queue2(&queue_info) };
 
         Self {
@@ -52,19 +52,14 @@ impl Queue {
 
     pub fn submit<'a>(
         &self,
-        submit_infos: impl IntoIterator<Item = vk::SubmitInfoBuilder<'a>>,
+        submit_infos: &[vk::SubmitInfo<'_>],
         fence: Option<&Fence>,
     ) -> VkResult<()> {
-        let vk_submit_infos: Vec<vk::SubmitInfo> = submit_infos
-            .into_iter()
-            .map(|submit_info| submit_info.build())
-            .collect();
         let fence_handle = fence.map(|f| f.handle());
-
         unsafe {
             self.device.inner().queue_submit(
                 self.handle,
-                &vk_submit_infos,
+                &submit_infos,
                 fence_handle.unwrap_or_default(),
             )
         }

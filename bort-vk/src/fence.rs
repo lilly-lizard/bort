@@ -15,12 +15,12 @@ pub struct Fence {
 
 impl Fence {
     pub fn new_signalled(device: Arc<Device>) -> VkResult<Self> {
-        let create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+        let create_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
         unsafe { Self::new_from_create_info(device, create_info) }
     }
 
     pub fn new_unsignalled(device: Arc<Device>) -> VkResult<Self> {
-        let create_info = vk::FenceCreateInfo::builder();
+        let create_info = vk::FenceCreateInfo::default();
         unsafe { Self::new_from_create_info(device, create_info) }
     }
 
@@ -28,12 +28,12 @@ impl Fence {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
-        create_info_builder: vk::FenceCreateInfoBuilder,
+        create_info: vk::FenceCreateInfo,
     ) -> VkResult<Self> {
         let handle = unsafe {
             device
                 .inner()
-                .create_fence(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_fence(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self { handle, device })

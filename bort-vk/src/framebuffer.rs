@@ -19,8 +19,8 @@ pub struct Framebuffer {
 impl Framebuffer {
     pub fn new(render_pass: Arc<RenderPass>, properties: FramebufferProperties) -> VkResult<Self> {
         let vk_attachment_image_view_handles = properties.vk_attachment_image_view_handles();
-        let create_info_builder = properties.write_create_info_builder(
-            vk::FramebufferCreateInfo::builder(),
+        let create_info = properties.write_create_info(
+            vk::FramebufferCreateInfo::default(),
             &vk_attachment_image_view_handles,
             &render_pass,
         );
@@ -29,7 +29,7 @@ impl Framebuffer {
             render_pass
                 .device()
                 .inner()
-                .create_framebuffer(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_framebuffer(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -39,22 +39,22 @@ impl Framebuffer {
         })
     }
 
-    /// _Note: this fn doesn't check that the render pass handle in `create_info_builder` is equal to
+    /// _Note: this fn doesn't check that the render pass handle in `create_info` is equal to
     /// that of `render_pass`._
     ///
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         render_pass: Arc<RenderPass>,
-        create_info_builder: vk::FramebufferCreateInfoBuilder,
+        create_info: vk::FramebufferCreateInfo,
     ) -> VkResult<Self> {
-        let properties = FramebufferProperties::from_create_info_builder(&create_info_builder);
+        let properties = FramebufferProperties::from_create_info(&create_info);
 
         let handle = unsafe {
             render_pass
                 .device()
                 .inner()
-                .create_framebuffer(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_framebuffer(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -133,13 +133,13 @@ impl FramebufferProperties {
         }
     }
 
-    pub fn write_create_info_builder<'a>(
+    pub fn write_create_info<'a>(
         &'a self,
-        builder: vk::FramebufferCreateInfoBuilder<'a>,
+        create_info: vk::FramebufferCreateInfo<'a>,
         vk_attchment_image_view_handles: &'a [vk::ImageView],
         render_pass: &RenderPass,
-    ) -> vk::FramebufferCreateInfoBuilder {
-        builder
+    ) -> vk::FramebufferCreateInfo {
+        create_info
             .flags(self.flags)
             .attachments(vk_attchment_image_view_handles)
             .height(self.dimensions.height())
@@ -156,7 +156,7 @@ impl FramebufferProperties {
     }
 
     /// Note: leaves `attachments` empty because the create info only provides handles
-    pub fn from_create_info_builder(value: &vk::FramebufferCreateInfoBuilder) -> Self {
+    pub fn from_create_info(value: &vk::FramebufferCreateInfo) -> Self {
         let dimensions = ImageDimensions::new_2d_array(value.width, value.height, value.layers);
         Self {
             flags: value.flags,

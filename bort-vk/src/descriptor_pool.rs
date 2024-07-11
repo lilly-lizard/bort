@@ -15,12 +15,12 @@ pub struct DescriptorPool {
 
 impl DescriptorPool {
     pub fn new(device: Arc<Device>, properties: DescriptorPoolProperties) -> VkResult<Self> {
-        let create_info_builder = properties.create_info_builder();
+        let create_info = properties.create_info();
 
         let handle = unsafe {
             device
                 .inner()
-                .create_descriptor_pool(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_descriptor_pool(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -34,14 +34,14 @@ impl DescriptorPool {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
-        create_info_builder: vk::DescriptorPoolCreateInfoBuilder,
+        create_info: vk::DescriptorPoolCreateInfo,
     ) -> VkResult<Self> {
-        let properties = DescriptorPoolProperties::from_create_info_builder(&create_info_builder);
+        let properties = DescriptorPoolProperties::from_create_info(&create_info);
 
         let handle = unsafe {
             device
                 .inner()
-                .create_descriptor_pool(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_descriptor_pool(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -56,7 +56,7 @@ impl DescriptorPool {
         layout: Arc<DescriptorSetLayout>,
     ) -> VkResult<DescriptorSet> {
         let layout_handles = [layout.handle()];
-        let create_info = vk::DescriptorSetAllocateInfo::builder()
+        let create_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(self.handle)
             .set_layouts(&layout_handles);
 
@@ -72,7 +72,7 @@ impl DescriptorPool {
     ) -> VkResult<Vec<DescriptorSet>> {
         let layout_handles: Vec<vk::DescriptorSetLayout> =
             layouts.iter().map(|l| l.handle()).collect();
-        let create_info = vk::DescriptorSetAllocateInfo::builder()
+        let create_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(self.handle)
             .set_layouts(&layout_handles);
 
@@ -146,21 +146,21 @@ impl DescriptorPoolProperties {
         }
     }
 
-    pub fn write_create_info_builder<'a>(
+    pub fn write_create_info<'a>(
         &'a self,
-        builder: vk::DescriptorPoolCreateInfoBuilder<'a>,
-    ) -> vk::DescriptorPoolCreateInfoBuilder<'a> {
-        builder
+        create_info: vk::DescriptorPoolCreateInfo<'a>,
+    ) -> vk::DescriptorPoolCreateInfo<'a> {
+        create_info
             .flags(self.flags)
             .max_sets(self.max_sets)
             .pool_sizes(&self.pool_sizes)
     }
 
-    pub fn create_info_builder(&self) -> vk::DescriptorPoolCreateInfoBuilder {
-        self.write_create_info_builder(vk::DescriptorPoolCreateInfo::builder())
+    pub fn create_info(&self) -> vk::DescriptorPoolCreateInfo {
+        self.write_create_info(vk::DescriptorPoolCreateInfo::default())
     }
 
-    pub fn from_create_info_builder(value: &vk::DescriptorPoolCreateInfoBuilder) -> Self {
+    pub fn from_create_info(value: &vk::DescriptorPoolCreateInfo) -> Self {
         let mut pool_sizes = Vec::<vk::DescriptorPoolSize>::new();
         for i in 0..value.pool_size_count {
             let pool_size = unsafe { *value.p_pool_sizes.offset(i as isize) };

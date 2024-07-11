@@ -4,7 +4,11 @@
 use crate::{is_format_linear, is_format_srgb, Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE};
 #[cfg(feature = "raw-window-handle-06")]
 use ash::vk::{HINSTANCE, HWND};
-use ash::{extensions::khr, prelude::VkResult, vk, Entry};
+use ash::{
+    khr::{self, android_surface, wayland_surface, win32_surface, xcb_surface, xlib_surface},
+    prelude::VkResult,
+    vk, Entry,
+};
 #[cfg(feature = "raw-window-handle-05")]
 use raw_window_handle_05::{RawDisplayHandle, RawWindowHandle};
 #[cfg(feature = "raw-window-handle-06")]
@@ -13,7 +17,7 @@ use std::{error, fmt, sync::Arc};
 
 pub struct Surface {
     handle: vk::SurfaceKHR,
-    surface_loader: khr::Surface,
+    surface_fns: khr::surface::Instance,
 
     // dependencies
     instance: Arc<Instance>,
@@ -36,11 +40,11 @@ impl Surface {
             )
         }?;
 
-        let surface_loader = khr::Surface::new(entry, instance.inner());
+        let surface_fns = khr::surface::Instance::new(entry, instance.inner());
 
         Ok(Self {
             handle,
-            surface_loader,
+            surface_fns,
 
             instance,
         })
@@ -52,7 +56,7 @@ impl Surface {
         queue_family_index: u32,
     ) -> VkResult<bool> {
         unsafe {
-            self.surface_loader.get_physical_device_surface_support(
+            self.surface_fns.get_physical_device_surface_support(
                 physical_device.handle(),
                 queue_family_index,
                 self.handle,
@@ -65,7 +69,7 @@ impl Surface {
         physical_device: &PhysicalDevice,
     ) -> VkResult<vk::SurfaceCapabilitiesKHR> {
         unsafe {
-            self.surface_loader
+            self.surface_fns
                 .get_physical_device_surface_capabilities(physical_device.handle(), self.handle)
         }
     }
@@ -75,7 +79,7 @@ impl Surface {
         physical_device: &PhysicalDevice,
     ) -> VkResult<Vec<vk::SurfaceFormatKHR>> {
         unsafe {
-            self.surface_loader
+            self.surface_fns
                 .get_physical_device_surface_formats(physical_device.handle(), self.handle)
         }
     }
@@ -85,7 +89,7 @@ impl Surface {
         physical_device: &PhysicalDevice,
     ) -> VkResult<Vec<vk::PresentModeKHR>> {
         unsafe {
-            self.surface_loader
+            self.surface_fns
                 .get_physical_device_surface_present_modes(physical_device.handle(), self.handle)
         }
     }
@@ -96,8 +100,8 @@ impl Surface {
         self.handle
     }
 
-    pub fn surface_loader(&self) -> &khr::Surface {
-        &self.surface_loader
+    pub fn surface_fns(&self) -> &khr::surface::Instance {
+        &self.surface_fns
     }
 
     pub fn instance(&self) -> &Arc<Instance> {
@@ -153,10 +157,10 @@ unsafe fn create_vk_surface(
             #[cfg(feature = "raw-window-handle-06")]
             let hwnd = window.hwnd.get() as HWND;
 
-            let surface_desc = vk::Win32SurfaceCreateInfoKHR::builder()
+            let surface_desc = vk::Win32SurfaceCreateInfoKHR::default()
                 .hinstance(hinstance)
                 .hwnd(hwnd);
-            let surface_fn = khr::Win32Surface::new(entry, instance);
+            let surface_fn = win32_surface::Instance::new(entry, instance);
             let surface_handle =
                 surface_fn.create_win32_surface(&surface_desc, allocation_callbacks)?;
             Ok(surface_handle)
@@ -173,10 +177,10 @@ unsafe fn create_vk_surface(
             #[cfg(feature = "raw-window-handle-06")]
             let surface_wl = window.surface.as_ptr();
 
-            let surface_desc = vk::WaylandSurfaceCreateInfoKHR::builder()
+            let surface_desc = vk::WaylandSurfaceCreateInfoKHR::default()
                 .display(display_wl)
                 .surface(surface_wl);
-            let surface_fn = khr::WaylandSurface::new(entry, instance);
+            let surface_fn = wayland_surface::Instance::new(entry, instance);
             let surface_handle =
                 surface_fn.create_wayland_surface(&surface_desc, allocation_callbacks)?;
             Ok(surface_handle)
@@ -191,10 +195,10 @@ unsafe fn create_vk_surface(
                 .ok_or(SurfaceCreationError::NoXlibDisplayPointer)?
                 .as_ptr();
 
-            let surface_desc = vk::XlibSurfaceCreateInfoKHR::builder()
+            let surface_desc = vk::XlibSurfaceCreateInfoKHR::default()
                 .dpy(display_x.cast())
                 .window(window.window);
-            let surface_fn = khr::XlibSurface::new(entry, instance);
+            let surface_fn = xlib_surface::Instance::new(entry, instance);
             let surface_handle =
                 surface_fn.create_xlib_surface(&surface_desc, allocation_callbacks)?;
             Ok(surface_handle)
@@ -214,10 +218,10 @@ unsafe fn create_vk_surface(
             #[cfg(feature = "raw-window-handle-06")]
             let window_xcb = window.window.get();
 
-            let surface_desc = vk::XcbSurfaceCreateInfoKHR::builder()
+            let surface_desc = vk::XcbSurfaceCreateInfoKHR::default()
                 .connection(connection_xcb)
                 .window(window_xcb);
-            let surface_fn = khr::XcbSurface::new(entry, instance);
+            let surface_fn = xcb_surface::Instance::new(entry, instance);
             let surface_handle =
                 surface_fn.create_xcb_surface(&surface_desc, allocation_callbacks)?;
             Ok(surface_handle)
@@ -229,8 +233,8 @@ unsafe fn create_vk_surface(
             #[cfg(feature = "raw-window-handle-06")]
             let window_android = window.a_native_window.as_ptr();
 
-            let surface_desc = vk::AndroidSurfaceCreateInfoKHR::builder().window(window_android);
-            let surface_fn = khr::AndroidSurface::new(entry, instance);
+            let surface_desc = vk::AndroidSurfaceCreateInfoKHR::default().window(window_android);
+            let surface_fn = android_surface::Instance::new(entry, instance);
             let surface_handle =
                 surface_fn.create_android_surface(&surface_desc, allocation_callbacks)?;
             Ok(surface_handle)
@@ -254,7 +258,7 @@ unsafe fn create_vk_surface(
                 Layer::Existing(layer) | Layer::Allocated(layer) => layer.cast(),
             };
 
-            let surface_desc = vk::MetalSurfaceCreateInfoEXT::builder().layer(&*layer);
+            let surface_desc = vk::MetalSurfaceCreateInfoEXT::default().layer(&*layer);
             let surface_fn = MetalSurface::new(entry, instance);
             let surface_handle =
                 surface_fn.create_metal_surface(&surface_desc, allocation_callbacks)?;
@@ -278,7 +282,7 @@ unsafe fn create_vk_surface(
                 Layer::Existing(layer) | Layer::Allocated(layer) => layer.cast(),
             };
 
-            let surface_desc = vk::MetalSurfaceCreateInfoEXT::builder().layer(&*layer);
+            let surface_desc = vk::MetalSurfaceCreateInfoEXT::default().layer(&*layer);
             let surface_fn = ext::MetalSurface::new(entry, instance);
             let surface_handle =
                 surface_fn.create_metal_surface(&surface_desc, allocation_callbacks)?;
@@ -292,7 +296,7 @@ unsafe fn create_vk_surface(
 impl Drop for Surface {
     fn drop(&mut self) {
         unsafe {
-            self.surface_loader
+            self.surface_fns
                 .destroy_surface(self.handle, ALLOCATION_CALLBACK_NONE)
         };
     }

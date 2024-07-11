@@ -34,7 +34,7 @@ impl ShaderModule {
         spirv: &mut R,
     ) -> Result<Self, ShaderError> {
         let code = read_spv(spirv).map_err(ShaderError::SpirVDecode)?;
-        let create_info = vk::ShaderModuleCreateInfo::builder().code(&code);
+        let create_info = vk::ShaderModuleCreateInfo::default().code(&code);
 
         unsafe { Self::new_from_create_info(device, create_info) }
     }
@@ -43,12 +43,12 @@ impl ShaderModule {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
-        create_info_builder: vk::ShaderModuleCreateInfoBuilder,
+        create_info: vk::ShaderModuleCreateInfo,
     ) -> Result<Self, ShaderError> {
         let handle = unsafe {
             device
                 .inner()
-                .create_shader_module(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_shader_module(&create_info, ALLOCATION_CALLBACK_NONE)
         }
         .map_err(ShaderError::Creation)?;
 
@@ -90,21 +90,21 @@ impl Drop for ShaderModule {
 // Note: this isn't a member of `GraphicsPipelineProperties` because we only need to ensure
 // the `ShaderModule` lifetime lasts during pipeline creation. Not needed after that.
 #[derive(Clone)]
-pub struct ShaderStage {
+pub struct ShaderStage<'a> {
     pub flags: vk::PipelineShaderStageCreateFlags,
     pub stage: vk::ShaderStageFlags,
     pub module: Arc<ShaderModule>,
     pub entry_point: CString,
     pub write_specialization_info: bool,
-    pub specialization_info: vk::SpecializationInfo,
+    pub specialization_info: vk::SpecializationInfo<'a>,
 }
 
-impl ShaderStage {
+impl<'a> ShaderStage<'a> {
     pub fn new(
         stage: vk::ShaderStageFlags,
         module: Arc<ShaderModule>,
         entry_point: CString,
-        specialization_info: Option<vk::SpecializationInfo>,
+        specialization_info: Option<vk::SpecializationInfo<'a>>,
     ) -> Self {
         Self {
             flags: vk::PipelineShaderStageCreateFlags::empty(),
@@ -116,24 +116,24 @@ impl ShaderStage {
         }
     }
 
-    pub fn write_create_info_builder<'a>(
-        &'a self,
-        builder: vk::PipelineShaderStageCreateInfoBuilder<'a>,
-    ) -> vk::PipelineShaderStageCreateInfoBuilder {
-        let builder = builder
+    pub fn write_create_info<'b>(
+        &'b self,
+        create_info: vk::PipelineShaderStageCreateInfo<'b>,
+    ) -> vk::PipelineShaderStageCreateInfo {
+        let create_info = create_info
             .flags(self.flags)
             .module(self.module.handle())
             .stage(self.stage)
             .name(self.entry_point.as_c_str());
         if self.write_specialization_info {
-            builder.specialization_info(&self.specialization_info)
+            create_info.specialization_info(&self.specialization_info)
         } else {
-            builder
+            create_info
         }
     }
 
-    pub fn create_info_builder(&self) -> vk::PipelineShaderStageCreateInfoBuilder {
-        self.write_create_info_builder(vk::PipelineShaderStageCreateInfo::builder())
+    pub fn create_info(&self) -> vk::PipelineShaderStageCreateInfo {
+        self.write_create_info(vk::PipelineShaderStageCreateInfo::default())
     }
 }
 

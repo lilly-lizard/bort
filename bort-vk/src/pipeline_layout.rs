@@ -18,7 +18,7 @@ impl PipelineLayout {
         let handle = unsafe {
             device
                 .inner()
-                .create_pipeline_layout(&properties.create_info_builder(), ALLOCATION_CALLBACK_NONE)
+                .create_pipeline_layout(&properties.create_info(), ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -83,14 +83,14 @@ impl PipelineLayoutProperties {
         }
     }
 
-    pub fn create_info_builder(&mut self) -> vk::PipelineLayoutCreateInfoBuilder {
+    pub fn create_info(&mut self) -> vk::PipelineLayoutCreateInfo {
         self.set_layouts_vk = self
             .set_layouts
             .iter()
             .map(|layout| layout.handle())
             .collect();
 
-        vk::PipelineLayoutCreateInfo::builder()
+        vk::PipelineLayoutCreateInfo::default()
             .flags(self.flags)
             .set_layouts(&self.set_layouts_vk)
             .push_constant_ranges(&self.push_constant_ranges)

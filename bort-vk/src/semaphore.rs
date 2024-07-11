@@ -12,20 +12,20 @@ pub struct Semaphore {
 
 impl Semaphore {
     pub fn new(device: Arc<Device>) -> VkResult<Self> {
-        let create_info_builder = vk::SemaphoreCreateInfo::builder();
-        unsafe { Self::new_from_create_info(device, create_info_builder) }
+        let create_info = vk::SemaphoreCreateInfo::default();
+        unsafe { Self::new_from_create_info(device, create_info) }
     }
 
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
-        create_info_builder: vk::SemaphoreCreateInfoBuilder,
+        create_info: vk::SemaphoreCreateInfo,
     ) -> VkResult<Self> {
         let handle = unsafe {
             device
                 .inner()
-                .create_semaphore(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_semaphore(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self { handle, device })

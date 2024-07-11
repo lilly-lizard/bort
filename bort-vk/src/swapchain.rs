@@ -4,7 +4,7 @@ use crate::{
     Surface, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
-    extensions::khr,
+    khr,
     prelude::VkResult,
     vk::{self, Handle},
 };
@@ -18,7 +18,7 @@ use std::{
 
 pub struct Swapchain {
     handle: vk::SwapchainKHR,
-    swapchain_loader: khr::Swapchain,
+    swapchain_fns: khr::swapchain::Device,
     properties: SwapchainProperties,
     swapchain_images: Vec<Arc<SwapchainImage>>,
 
@@ -33,17 +33,16 @@ impl Swapchain {
         surface: Arc<Surface>,
         properties: SwapchainProperties,
     ) -> Result<Self, SwapchainError> {
-        let swapchain_loader = khr::Swapchain::new(device.instance().inner(), device.inner());
+        let swapchain_fns = khr::swapchain::Device::new(device.instance().inner(), device.inner());
 
-        let swapchain_create_info_builder =
-            properties.create_info_builder(surface.handle(), vk::SwapchainKHR::null());
+        let swapchain_create_info =
+            properties.create_info(surface.handle(), vk::SwapchainKHR::null());
         let handle = unsafe {
-            swapchain_loader
-                .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
+            swapchain_fns.create_swapchain(&swapchain_create_info, ALLOCATION_CALLBACK_NONE)
         }
         .map_err(SwapchainError::Creation)?;
 
-        let vk_swapchain_images = unsafe { swapchain_loader.get_swapchain_images(handle) }
+        let vk_swapchain_images = unsafe { swapchain_fns.get_swapchain_images(handle) }
             .map_err(SwapchainError::GetSwapchainImages)?;
 
         let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
@@ -59,7 +58,7 @@ impl Swapchain {
 
         Ok(Self {
             handle,
-            swapchain_loader,
+            swapchain_fns,
             properties,
             swapchain_images,
 
@@ -87,7 +86,7 @@ impl Swapchain {
         };
 
         unsafe {
-            self.swapchain_loader.acquire_next_image(
+            self.swapchain_fns.acquire_next_image(
                 self.handle,
                 timeout,
                 semaphore_handle,
@@ -102,7 +101,7 @@ impl Swapchain {
         let (new_handle, swapchain_images) = self.recreate_common(&properties)?;
 
         unsafe {
-            self.swapchain_loader
+            self.swapchain_fns
                 .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
         };
 
@@ -127,7 +126,7 @@ impl Swapchain {
 
         Ok(Arc::new(Self {
             handle: new_handle,
-            swapchain_loader: self.swapchain_loader.clone(),
+            swapchain_fns: self.swapchain_fns.clone(),
             properties,
             swapchain_images,
             device: self.device.clone(),
@@ -139,16 +138,15 @@ impl Swapchain {
         &self,
         properties: &SwapchainProperties,
     ) -> Result<(vk::SwapchainKHR, Vec<Arc<SwapchainImage>>), SwapchainError> {
-        let swapchain_create_info_builder =
-            properties.create_info_builder(self.surface.handle(), self.handle);
+        let swapchain_create_info = properties.create_info(self.surface.handle(), self.handle);
 
         let new_handle = unsafe {
-            self.swapchain_loader
-                .create_swapchain(&swapchain_create_info_builder, ALLOCATION_CALLBACK_NONE)
+            self.swapchain_fns
+                .create_swapchain(&swapchain_create_info, ALLOCATION_CALLBACK_NONE)
         }
         .map_err(SwapchainError::Creation)?;
 
-        let vk_swapchain_images = unsafe { self.swapchain_loader.get_swapchain_images(new_handle) }
+        let vk_swapchain_images = unsafe { self.swapchain_fns.get_swapchain_images(new_handle) }
             .map_err(SwapchainError::GetSwapchainImages)?;
 
         let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
@@ -192,10 +190,10 @@ impl Swapchain {
     pub fn queue_present(
         &self,
         queue: &Queue,
-        present_info: &vk::PresentInfoKHRBuilder,
+        present_info: &vk::PresentInfoKHR,
     ) -> VkResult<bool> {
         unsafe {
-            self.swapchain_loader
+            self.swapchain_fns
                 .queue_present(queue.handle(), present_info)
         }
     }
@@ -208,8 +206,8 @@ impl Swapchain {
     }
 
     #[inline]
-    pub fn swapchain_loader(&self) -> &khr::Swapchain {
-        &self.swapchain_loader
+    pub fn swapchain_fns(&self) -> &khr::swapchain::Device {
+        &self.swapchain_fns
     }
 
     #[inline]
@@ -243,7 +241,7 @@ impl DeviceOwned for Swapchain {
 impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
-            self.swapchain_loader
+            self.swapchain_fns
                 .destroy_swapchain(self.handle, ALLOCATION_CALLBACK_NONE)
         };
     }
@@ -365,12 +363,12 @@ impl SwapchainProperties {
         })
     }
 
-    pub fn create_info_builder(
+    pub fn create_info(
         &self,
         surface_handle: vk::SurfaceKHR,
         old_swapchain_handle: vk::SwapchainKHR,
-    ) -> vk::SwapchainCreateInfoKHRBuilder {
-        vk::SwapchainCreateInfoKHR::builder()
+    ) -> vk::SwapchainCreateInfoKHR {
+        vk::SwapchainCreateInfoKHR::default()
             .flags(self.flags)
             .surface(surface_handle)
             .min_image_count(self.image_count)

@@ -21,13 +21,13 @@ pub struct ImageView<I: ImageAccess + 'static> {
 
 impl<I: ImageAccess + 'static> ImageView<I> {
     pub fn new(image: Arc<I>, properties: ImageViewProperties) -> VkResult<Self> {
-        let create_info_builder = properties.create_info_builder(image.handle());
+        let create_info = properties.create_info(image.handle());
 
         let handle = unsafe {
             image
                 .device()
                 .inner()
-                .create_image_view(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_image_view(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -41,15 +41,15 @@ impl<I: ImageAccess + 'static> ImageView<I> {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         image: Arc<I>,
-        create_info_builder: vk::ImageViewCreateInfoBuilder,
+        create_info: vk::ImageViewCreateInfo,
     ) -> VkResult<Self> {
-        let properties = ImageViewProperties::from_create_info_builder(&create_info_builder);
+        let properties = ImageViewProperties::from_create_info(&create_info);
 
         let handle = unsafe {
             image
                 .device()
                 .inner()
-                .create_image_view(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_image_view(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -140,12 +140,12 @@ impl ImageViewProperties {
         }
     }
 
-    pub fn write_create_info_builder<'a>(
+    pub fn write_create_info<'a>(
         &'a self,
-        builder: vk::ImageViewCreateInfoBuilder<'a>,
+        create_info: vk::ImageViewCreateInfo<'a>,
         image_handle: vk::Image,
-    ) -> vk::ImageViewCreateInfoBuilder {
-        builder
+    ) -> vk::ImageViewCreateInfo {
+        create_info
             .flags(self.flags)
             .image(image_handle)
             .view_type(self.view_type)
@@ -154,11 +154,11 @@ impl ImageViewProperties {
             .subresource_range(self.subresource_range)
     }
 
-    pub fn create_info_builder(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfoBuilder {
-        self.write_create_info_builder(vk::ImageViewCreateInfo::builder(), image_handle)
+    pub fn create_info(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfo {
+        self.write_create_info(vk::ImageViewCreateInfo::default(), image_handle)
     }
 
-    pub fn from_create_info_builder(create_info: &vk::ImageViewCreateInfoBuilder) -> Self {
+    pub fn from_create_info(create_info: &vk::ImageViewCreateInfo) -> Self {
         Self {
             flags: create_info.flags,
             view_type: create_info.view_type,

@@ -13,10 +13,7 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
-    pub fn new(
-        device: Arc<Device>,
-        create_info: vk::PipelineCacheCreateInfoBuilder,
-    ) -> VkResult<Self> {
+    pub fn new(device: Arc<Device>, create_info: vk::PipelineCacheCreateInfo) -> VkResult<Self> {
         let handle = unsafe {
             device
                 .inner()

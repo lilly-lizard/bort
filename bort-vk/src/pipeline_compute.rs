@@ -24,11 +24,9 @@ impl ComputePipeline {
         shader_stage: &ShaderStage,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
-        let shader_stage_vk = shader_stage.create_info_builder().build();
-
-        let create_info_builder = properties
-            .create_info_builder()
-            .stage(shader_stage_vk)
+        let create_info = properties
+            .create_info()
+            .stage(shader_stage.create_info())
             .layout(pipeline_layout.handle());
 
         let cache_handle = if let Some(pipeline_cache) = pipeline_cache {
@@ -40,7 +38,7 @@ impl ComputePipeline {
         let handles = unsafe {
             pipeline_layout.device().inner().create_compute_pipelines(
                 cache_handle,
-                &[create_info_builder.build()],
+                &[create_info],
                 ALLOCATION_CALLBACK_NONE,
             )
         }
@@ -101,7 +99,7 @@ pub struct ComputePipelineProperties {
 }
 
 impl ComputePipelineProperties {
-    pub fn create_info_builder(&self) -> vk::ComputePipelineCreateInfoBuilder {
-        vk::ComputePipelineCreateInfo::builder().flags(self.flags)
+    pub fn create_info(&self) -> vk::ComputePipelineCreateInfo {
+        vk::ComputePipelineCreateInfo::default().flags(self.flags)
     }
 }

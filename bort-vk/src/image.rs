@@ -26,7 +26,7 @@ impl Image {
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_image(&properties.create_info_builder(), &allocation_info)
+                .create_image(&properties.create_info(), &allocation_info)
         }?;
 
         let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
@@ -42,16 +42,15 @@ impl Image {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         alloc_access: Arc<dyn AllocatorAccess>,
-        image_create_info_builder: vk::ImageCreateInfoBuilder,
+        image_create_info: vk::ImageCreateInfo,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let properties =
-            ImageProperties::from_create_info_builder(&image_create_info_builder);
+        let properties = ImageProperties::from_create_info(&image_create_info);
 
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_image(&image_create_info_builder, &allocation_info)
+                .create_image(&image_create_info, &allocation_info)
         }?;
 
         let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
@@ -221,8 +220,8 @@ impl ImageProperties {
         }
     }
 
-    pub fn create_info_builder(&self) -> vk::ImageCreateInfoBuilder {
-        vk::ImageCreateInfo::builder()
+    pub fn create_info(&self) -> vk::ImageCreateInfo {
+        vk::ImageCreateInfo::default()
             .flags(self.flags)
             .image_type(self.dimensions.image_type())
             .format(self.format)
@@ -237,7 +236,7 @@ impl ImageProperties {
             .queue_family_indices(&self.queue_family_indices)
     }
 
-    fn from_create_info_builder(value: &vk::ImageCreateInfoBuilder) -> Self {
+    fn from_create_info(value: &vk::ImageCreateInfo) -> Self {
         let dimensions =
             ImageDimensions::new_from_extent_and_layers(value.extent, value.array_layers);
 

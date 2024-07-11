@@ -66,7 +66,7 @@ impl CommandBuffer {
     // Commands
 
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkBeginCommandBuffer.html>
-    pub fn begin(&self, begin_info: &vk::CommandBufferBeginInfoBuilder) -> VkResult<()> {
+    pub fn begin(&self, begin_info: &vk::CommandBufferBeginInfo) -> VkResult<()> {
         unsafe {
             self.device()
                 .inner()
@@ -82,7 +82,7 @@ impl CommandBuffer {
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass.html>
     pub fn begin_render_pass(
         &self,
-        begin_info: &vk::RenderPassBeginInfoBuilder,
+        begin_info: &vk::RenderPassBeginInfo,
         subpass_contents: vk::SubpassContents,
     ) {
         unsafe {

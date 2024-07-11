@@ -19,7 +19,7 @@ impl Sampler {
         let handle = unsafe {
             device
                 .inner()
-                .create_sampler(&properties.create_info_builder(), ALLOCATION_CALLBACK_NONE)
+                .create_sampler(&properties.create_info(), ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -33,14 +33,14 @@ impl Sampler {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
-        create_info_builder: vk::SamplerCreateInfoBuilder,
+        create_info: vk::SamplerCreateInfo,
     ) -> VkResult<Self> {
-        let properties = SamplerProperties::from_create_info_builder(&create_info_builder);
+        let properties = SamplerProperties::from_create_info(&create_info);
 
         let handle = unsafe {
             device
                 .inner()
-                .create_sampler(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_sampler(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -121,11 +121,11 @@ impl Default for SamplerProperties {
 }
 
 impl SamplerProperties {
-    pub fn write_create_info_builder<'a>(
+    pub fn write_create_info<'a>(
         &'a self,
-        builder: vk::SamplerCreateInfoBuilder<'a>,
-    ) -> vk::SamplerCreateInfoBuilder {
-        builder
+        create_info: vk::SamplerCreateInfo<'a>,
+    ) -> vk::SamplerCreateInfo {
+        create_info
             .flags(self.flags)
             .mag_filter(self.mag_filter)
             .min_filter(self.min_filter)
@@ -144,11 +144,11 @@ impl SamplerProperties {
             .unnormalized_coordinates(self.unnormalized_coordinates)
     }
 
-    pub fn create_info_builder(&self) -> vk::SamplerCreateInfoBuilder {
-        self.write_create_info_builder(vk::SamplerCreateInfo::builder())
+    pub fn create_info(&self) -> vk::SamplerCreateInfo {
+        self.write_create_info(vk::SamplerCreateInfo::default())
     }
 
-    pub fn from_create_info_builder(create_info: &vk::SamplerCreateInfoBuilder) -> Self {
+    pub fn from_create_info(create_info: &vk::SamplerCreateInfo) -> Self {
         Self {
             flags: create_info.flags,
             mag_filter: create_info.mag_filter,

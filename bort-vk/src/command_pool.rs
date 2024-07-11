@@ -15,12 +15,12 @@ pub struct CommandPool {
 
 impl CommandPool {
     pub fn new(device: Arc<Device>, properties: CommandPoolProperties) -> VkResult<Self> {
-        let create_info_builder = properties.create_info_builder();
+        let create_info = properties.create_info();
 
         let handle = unsafe {
             device
                 .inner()
-                .create_command_pool(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_command_pool(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -34,14 +34,14 @@ impl CommandPool {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         device: Arc<Device>,
-        create_info_builder: vk::CommandPoolCreateInfoBuilder,
+        create_info: vk::CommandPoolCreateInfo,
     ) -> VkResult<Self> {
-        let properties = CommandPoolProperties::from_create_info_builder(&create_info_builder);
+        let properties = CommandPoolProperties::from_create_info(&create_info);
 
         let handle = unsafe {
             device
                 .inner()
-                .create_command_pool(&create_info_builder, ALLOCATION_CALLBACK_NONE)
+                .create_command_pool(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -56,12 +56,12 @@ impl CommandPool {
         level: vk::CommandBufferLevel,
         command_buffer_count: u32,
     ) -> VkResult<Vec<CommandBuffer>> {
-        let allocate_info_builder = vk::CommandBufferAllocateInfo::builder()
+        let allocate_info = vk::CommandBufferAllocateInfo::default()
             .level(level)
             .command_buffer_count(command_buffer_count)
             .command_pool(self.handle);
 
-        unsafe { self.allocate_command_buffers_from_allocate_info(allocate_info_builder) }
+        unsafe { self.allocate_command_buffers_from_allocate_info(allocate_info) }
     }
 
     #[inline]
@@ -77,14 +77,14 @@ impl CommandPool {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn allocate_command_buffers_from_allocate_info(
         self: &Arc<Self>,
-        allocate_info_builder: vk::CommandBufferAllocateInfoBuilder,
+        allocate_info: vk::CommandBufferAllocateInfo,
     ) -> VkResult<Vec<CommandBuffer>> {
-        let level = allocate_info_builder.level;
+        let level = allocate_info.level;
 
         let command_buffer_handles = unsafe {
             self.device()
                 .inner()
-                .allocate_command_buffers(&allocate_info_builder)
+                .allocate_command_buffers(&allocate_info)
         }?;
 
         let command_buffers: Vec<CommandBuffer> = command_buffer_handles
@@ -152,20 +152,20 @@ impl CommandPoolProperties {
         }
     }
 
-    pub fn write_create_info_builder<'a>(
+    pub fn write_create_info<'a>(
         &self,
-        builder: vk::CommandPoolCreateInfoBuilder<'a>,
-    ) -> vk::CommandPoolCreateInfoBuilder<'a> {
-        builder
+        create_info: vk::CommandPoolCreateInfo<'a>,
+    ) -> vk::CommandPoolCreateInfo<'a> {
+        create_info
             .flags(self.flags)
             .queue_family_index(self.queue_family_index)
     }
 
-    pub fn create_info_builder(&self) -> vk::CommandPoolCreateInfoBuilder {
-        self.write_create_info_builder(vk::CommandPoolCreateInfo::builder())
+    pub fn create_info(&self) -> vk::CommandPoolCreateInfo {
+        self.write_create_info(vk::CommandPoolCreateInfo::default())
     }
 
-    pub fn from_create_info_builder(value: &vk::CommandPoolCreateInfoBuilder) -> Self {
+    pub fn from_create_info(value: &vk::CommandPoolCreateInfo) -> Self {
         Self {
             flags: value.flags,
 
