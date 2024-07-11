@@ -1,12 +1,15 @@
 extern crate ash;
 extern crate bort_vma;
 
-use ash::{extensions::ext::DebugUtils, vk};
+use ash::{
+    ext::debug_utils,
+    vk::{self, EXT_DEBUG_UTILS_NAME},
+};
 use bort_vma::{Alloc, AllocatorPool};
 use std::{os::raw::c_void, sync::Arc};
 
 fn extension_names() -> Vec<*const i8> {
-    vec![DebugUtils::name().as_ptr()]
+    vec![EXT_DEBUG_UTILS_NAME.as_ptr()]
 }
 
 unsafe extern "system" fn vulkan_debug_callback(
@@ -29,7 +32,7 @@ pub struct TestHarness {
     pub device: ash::Device,
     pub physical_device: ash::vk::PhysicalDevice,
     pub debug_callback: ash::vk::DebugUtilsMessengerEXT,
-    pub debug_report_loader: ash::extensions::ext::DebugUtils,
+    pub debug_report_loader: debug_utils::Instance,
 }
 
 impl Drop for TestHarness {
@@ -46,7 +49,7 @@ impl Drop for TestHarness {
 impl TestHarness {
     pub fn new() -> Self {
         let app_name = ::std::ffi::CString::new("vk-mem testing").unwrap();
-        let app_info = ash::vk::ApplicationInfo::builder()
+        let app_info = ash::vk::ApplicationInfo::default()
             .application_name(&app_name)
             .application_version(0)
             .engine_name(&app_name)
@@ -60,7 +63,7 @@ impl TestHarness {
             .collect();
 
         let extension_names_raw = extension_names();
-        let create_info = ash::vk::InstanceCreateInfo::builder()
+        let create_info = ash::vk::InstanceCreateInfo::default()
             .application_info(&app_info)
             .enabled_layer_names(&layers_names_raw)
             .enabled_extension_names(&extension_names_raw);
@@ -72,7 +75,7 @@ impl TestHarness {
                 .expect("Instance creation error")
         };
 
-        let debug_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::builder()
+        let debug_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::default()
             .message_severity(
                 ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
                     | ash::vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
@@ -84,7 +87,7 @@ impl TestHarness {
             )
             .pfn_user_callback(Some(vulkan_debug_callback));
 
-        let debug_report_loader = DebugUtils::new(&entry, &instance);
+        let debug_report_loader = debug_utils::Instance::new(&entry, &instance);
         let debug_callback = unsafe {
             debug_report_loader
                 .create_debug_utils_messenger(&debug_info, None)
@@ -113,13 +116,12 @@ impl TestHarness {
 
         let priorities = [1.0];
 
-        let queue_info = [ash::vk::DeviceQueueCreateInfo::builder()
+        let queue_info = [ash::vk::DeviceQueueCreateInfo::default()
             .queue_family_index(0)
-            .queue_priorities(&priorities)
-            .build()];
+            .queue_priorities(&priorities)];
 
         let device_create_info =
-            ash::vk::DeviceCreateInfo::builder().queue_create_infos(&queue_info);
+            ash::vk::DeviceCreateInfo::default().queue_create_infos(&queue_info);
 
         let device: ash::Device = unsafe {
             instance
@@ -167,13 +169,10 @@ fn create_gpu_buffer() {
     unsafe {
         let (buffer, mut allocation) = allocator
             .create_buffer(
-                &ash::vk::BufferCreateInfo::builder()
-                    .size(16 * 1024)
-                    .usage(
-                        ash::vk::BufferUsageFlags::VERTEX_BUFFER
-                            | ash::vk::BufferUsageFlags::TRANSFER_DST,
-                    )
-                    .build(),
+                &ash::vk::BufferCreateInfo::default().size(16 * 1024).usage(
+                    ash::vk::BufferUsageFlags::VERTEX_BUFFER
+                        | ash::vk::BufferUsageFlags::TRANSFER_DST,
+                ),
                 &allocation_info,
             )
             .unwrap();
@@ -197,13 +196,10 @@ fn create_cpu_buffer_preferred() {
     unsafe {
         let (buffer, mut allocation) = allocator
             .create_buffer(
-                &ash::vk::BufferCreateInfo::builder()
-                    .size(16 * 1024)
-                    .usage(
-                        ash::vk::BufferUsageFlags::VERTEX_BUFFER
-                            | ash::vk::BufferUsageFlags::TRANSFER_DST,
-                    )
-                    .build(),
+                &ash::vk::BufferCreateInfo::default().size(16 * 1024).usage(
+                    ash::vk::BufferUsageFlags::VERTEX_BUFFER
+                        | ash::vk::BufferUsageFlags::TRANSFER_DST,
+                ),
                 &allocation_info,
             )
             .unwrap();
@@ -219,10 +215,9 @@ fn create_gpu_buffer_pool() {
     let allocator = harness.create_allocator();
     let allocator = Arc::new(allocator);
 
-    let buffer_info = ash::vk::BufferCreateInfo::builder()
+    let buffer_info = ash::vk::BufferCreateInfo::default()
         .size(16 * 1024)
-        .usage(ash::vk::BufferUsageFlags::UNIFORM_BUFFER | ash::vk::BufferUsageFlags::TRANSFER_DST)
-        .build();
+        .usage(ash::vk::BufferUsageFlags::UNIFORM_BUFFER | ash::vk::BufferUsageFlags::TRANSFER_DST);
 
     let allocation_info = bort_vma::AllocationCreateInfo {
         required_flags: ash::vk::MemoryPropertyFlags::HOST_VISIBLE,
@@ -269,13 +264,10 @@ fn test_gpu_stats() {
 
         let (buffer, mut allocation) = allocator
             .create_buffer(
-                &ash::vk::BufferCreateInfo::builder()
-                    .size(16 * 1024)
-                    .usage(
-                        ash::vk::BufferUsageFlags::VERTEX_BUFFER
-                            | ash::vk::BufferUsageFlags::TRANSFER_DST,
-                    )
-                    .build(),
+                &ash::vk::BufferCreateInfo::default().size(16 * 1024).usage(
+                    ash::vk::BufferUsageFlags::VERTEX_BUFFER
+                        | ash::vk::BufferUsageFlags::TRANSFER_DST,
+                ),
                 &allocation_info,
             )
             .unwrap();

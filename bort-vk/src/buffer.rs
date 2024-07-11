@@ -20,12 +20,12 @@ impl Buffer {
         buffer_properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let create_info_builder = buffer_properties.create_info_builder();
+        let create_info = buffer_properties.create_info();
 
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_buffer(&create_info_builder, &allocation_info)
+                .create_buffer(&create_info, &allocation_info)
         }?;
 
         Ok(Self::from_handle_and_allocation(
@@ -40,15 +40,15 @@ impl Buffer {
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
         alloc_access: Arc<dyn AllocatorAccess>,
-        buffer_create_info_builder: vk::BufferCreateInfoBuilder,
+        buffer_create_info: vk::BufferCreateInfo,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let properties = BufferProperties::from_create_info_builder(&buffer_create_info_builder);
+        let properties = BufferProperties::from_create_info(&buffer_create_info);
 
         let (handle, vma_allocation) = unsafe {
             alloc_access
                 .vma_allocator()
-                .create_buffer(&buffer_create_info_builder, &allocation_info)
+                .create_buffer(&buffer_create_info, &allocation_info)
         }?;
 
         Ok(Self::from_handle_and_allocation(
@@ -161,11 +161,11 @@ impl BufferProperties {
         }
     }
 
-    pub fn write_create_info_builder<'a>(
+    pub fn write_create_info<'a>(
         &'a self,
-        builder: vk::BufferCreateInfoBuilder<'a>,
-    ) -> vk::BufferCreateInfoBuilder<'a> {
-        builder
+        create_info: vk::BufferCreateInfo<'a>,
+    ) -> vk::BufferCreateInfo<'a> {
+        create_info
             .flags(self.flags)
             .size(self.size)
             .usage(self.usage)
@@ -173,11 +173,11 @@ impl BufferProperties {
             .queue_family_indices(&self.queue_family_indices)
     }
 
-    pub fn create_info_builder(&self) -> vk::BufferCreateInfoBuilder {
-        self.write_create_info_builder(vk::BufferCreateInfo::builder())
+    pub fn create_info(&self) -> vk::BufferCreateInfo {
+        self.write_create_info(vk::BufferCreateInfo::default())
     }
 
-    pub fn from_create_info_builder(value: &vk::BufferCreateInfoBuilder) -> Self {
+    pub fn from_create_info(value: &vk::BufferCreateInfo) -> Self {
         let mut queue_family_indices = Vec::<u32>::new();
         for i in 0..value.queue_family_index_count {
             let queue_family_index = unsafe { *value.p_queue_family_indices.offset(i as isize) };

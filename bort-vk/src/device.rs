@@ -32,7 +32,7 @@ impl Device {
     /// `instance` api version.
     pub fn new<'a>(
         physical_device: Arc<PhysicalDevice>,
-        queue_create_infos: impl IntoIterator<Item = vk::DeviceQueueCreateInfoBuilder<'a>>,
+        queue_create_infos: impl IntoIterator<Item = vk::DeviceQueueCreateInfo<'a>>,
         features: PhysicalDeviceFeatures,
         extension_names: Vec<CString>,
         layer_names: Vec<CString>,
@@ -40,7 +40,7 @@ impl Device {
     ) -> Result<Self, DeviceError> {
         let queue_create_infos_built: Vec<DeviceQueueCreateInfo> = queue_create_infos
             .into_iter()
-            .map(move |create_info| create_info.build())
+            .map(move |create_info| create_info)
             .collect();
         unsafe {
             Self::new_with_p_next_chain(
@@ -84,12 +84,12 @@ impl Device {
             layer_names.iter().map(|cstring| cstring.as_ptr()).collect();
 
         #[allow(deprecated)] // backward compatability
-        let mut device_create_info = vk::DeviceCreateInfo::builder()
+        let mut device_create_info = vk::DeviceCreateInfo::default()
             .queue_create_infos(queue_create_infos)
             .enabled_extension_names(&extension_name_ptrs)
             .enabled_layer_names(&layer_name_ptrs);
 
-        let mut features_2 = vk::PhysicalDeviceFeatures2::builder();
+        let mut features_2 = vk::PhysicalDeviceFeatures2::default();
         let max_api_version = instance.max_api_version();
 
         let PhysicalDeviceFeatures {
@@ -124,16 +124,16 @@ impl Device {
     }
 
     /// # Safety
-    /// No busted pointers in `create_info_builder` or its referenced structs (e.g. p_next chain).
+    /// No busted pointers in `create_info` or its referenced structs (e.g. p_next chain).
     pub unsafe fn new_from_create_info(
         physical_device: Arc<PhysicalDevice>,
-        create_info_builder: vk::DeviceCreateInfoBuilder,
+        create_info: vk::DeviceCreateInfo,
         debug_callback_ref: Option<Arc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
         let inner = unsafe {
             physical_device.instance().inner().create_device(
                 physical_device.handle(),
-                &create_info_builder,
+                &create_info,
                 ALLOCATION_CALLBACK_NONE,
             )
         }
@@ -168,16 +168,16 @@ impl Device {
     /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/vkUpdateDescriptorSets.html>
     pub fn update_descriptor_sets<'a>(
         &self,
-        descriptor_writes: impl IntoIterator<Item = vk::WriteDescriptorSetBuilder<'a>>,
-        descriptor_copies: impl IntoIterator<Item = vk::CopyDescriptorSetBuilder<'a>>,
+        descriptor_writes: impl IntoIterator<Item = vk::WriteDescriptorSet<'a>>,
+        descriptor_copies: impl IntoIterator<Item = vk::CopyDescriptorSet<'a>>,
     ) {
         let descriptor_writes_built: Vec<vk::WriteDescriptorSet> = descriptor_writes
             .into_iter()
-            .map(|descriptor_write| descriptor_write.build())
+            .map(|descriptor_write| descriptor_write)
             .collect();
         let descriptor_copies_built: Vec<vk::CopyDescriptorSet> = descriptor_copies
             .into_iter()
-            .map(|descriptor_copy| descriptor_copy.build())
+            .map(|descriptor_copy| descriptor_copy)
             .collect();
         unsafe {
             self.inner

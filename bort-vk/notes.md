@@ -1,5 +1,7 @@
 # TODO
 
+check all occurances of ::default() to do more efficient struct allocation (without fns) e.g. SwapchainProperties::create_info
+
 - blend_state_alpha() has something to do with surface blend mode???
 - only create_info write vecs when len != 0 (see descriptor_layout.rs immutable samplers)
 - replace all `impl Iterator` with slices (will cause probs later with open source contributers)

@@ -141,11 +141,11 @@ impl ExtensionProperties {
 }
 
 #[derive(Copy, Clone, Default, Debug)]
-pub struct PhysicalDeviceFeatures {
+pub struct PhysicalDeviceFeatures<'a> {
     pub features_1_0: vk::PhysicalDeviceFeatures,
-    pub features_1_1: vk::PhysicalDeviceVulkan11Features,
-    pub features_1_2: vk::PhysicalDeviceVulkan12Features,
-    pub features_1_3: vk::PhysicalDeviceVulkan13Features,
+    pub features_1_1: vk::PhysicalDeviceVulkan11Features<'a>,
+    pub features_1_2: vk::PhysicalDeviceVulkan12Features<'a>,
+    pub features_1_3: vk::PhysicalDeviceVulkan13Features<'a>,
 }
 
 // ~~ Errors ~~

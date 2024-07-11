@@ -1,6 +1,6 @@
 use ash::{
     prelude::VkResult,
-    vk::{self, ExtDebugUtilsFn, KhrSwapchainFn},
+    vk::{self, EXT_DEBUG_UTILS_NAME, KHR_SWAPCHAIN_NAME},
 };
 use bort_vk::{
     choose_composite_alpha, is_format_srgb, ApiVersion, ColorBlendState, CommandBuffer,
@@ -35,7 +35,6 @@ const FENCE_TIMEOUT: u64 = 1_000_000_000;
 const ENABLE_VULKAN_VALIDATION: bool = cfg!(debug_assertions);
 const VALIDATION_LAYER_NAME: &CStr =
     unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
-const DEBUG_UTILS_EXTENSION_NAME: &CStr = ExtDebugUtilsFn::name();
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
@@ -126,11 +125,11 @@ impl TriangleExample {
             let validation_layer_installed =
                 Instance::layer_avilable(&entry, VALIDATION_LAYER_NAME.to_owned())?;
             let debug_utils_supported =
-                Instance::supports_extension(&entry, None, DEBUG_UTILS_EXTENSION_NAME.to_owned())?;
+                Instance::supports_extension(&entry, None, EXT_DEBUG_UTILS_NAME.to_owned())?;
 
             if validation_layer_installed && debug_utils_supported {
                 instance_layers.push(VALIDATION_LAYER_NAME.to_owned());
-                instance_extensions.push(DEBUG_UTILS_EXTENSION_NAME.to_owned());
+                instance_extensions.push(EXT_DEBUG_UTILS_NAME.to_owned());
                 info!("vulkan validation layers enabled");
             } else {
                 enable_validation = false;
@@ -199,11 +198,11 @@ impl TriangleExample {
             .ok_or(BortExampleError::NoSuitableQueueFamily)?;
 
         let queue_priorities = [1.0];
-        let queue_create_info = vk::DeviceQueueCreateInfo::builder()
+        let queue_create_info = vk::DeviceQueueCreateInfo::default()
             .queue_family_index(queue_family_index as u32)
             .queue_priorities(&queue_priorities);
 
-        let extension_names = vec![KhrSwapchainFn::name().to_owned()]; // VK_KHR_swapchain
+        let extension_names = vec![KHR_SWAPCHAIN_NAME.to_owned()]; // VK_KHR_swapchain
 
         let device = Arc::new(Device::new(
             physical_device.clone(),
@@ -363,20 +362,20 @@ impl TriangleExample {
         let signal_semaphores = [self.render_finished_semaphores[self.current_frame].handle()];
         let submit_command_buffers = [self.command_buffers[self.current_frame].handle()];
 
-        let submit_info = vk::SubmitInfo::builder()
+        let submit_info = vk::SubmitInfo::default()
             .wait_semaphores(&wait_semaphores)
             .wait_dst_stage_mask(&wait_stages)
             .signal_semaphores(&signal_semaphores)
             .command_buffers(&submit_command_buffers);
 
         self.queue.submit(
-            [submit_info],
+            &[submit_info],
             Some(&self.in_flight_fences[self.current_frame]),
         )?;
 
         let present_swapchains = [self.swapchain.handle()];
         let present_indices = [swapchain_image_index];
-        let present_info = vk::PresentInfoKHR::builder()
+        let present_info = vk::PresentInfoKHR::default()
             .wait_semaphores(&signal_semaphores)
             .swapchains(&present_swapchains)
             .image_indices(&present_indices);
@@ -401,14 +400,14 @@ impl TriangleExample {
         command_buffer: &CommandBuffer,
         swapchain_image_index: usize,
     ) -> VkResult<()> {
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder();
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo::default();
         command_buffer.begin(&command_buffer_begin_info)?;
 
         let clear_values = [vk::ClearValue::default()];
         let render_extent = self.framebuffers[swapchain_image_index].whole_rect();
         let viewport = self.framebuffers[self.current_frame].whole_viewport();
 
-        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+        let render_pass_begin_info = vk::RenderPassBeginInfo::default()
             .render_pass(self.render_pass.handle())
             .framebuffer(self.framebuffers[swapchain_image_index].handle())
             .render_area(render_extent)
@@ -489,33 +488,39 @@ fn create_render_pass(
     device: Arc<Device>,
     surface_format: vk::SurfaceFormatKHR,
 ) -> Result<Arc<RenderPass>, Box<dyn Error>> {
-    let swapchain_attachment_description = vk::AttachmentDescription::builder()
-        .format(surface_format.format)
-        .samples(vk::SampleCountFlags::TYPE_1)
-        .load_op(vk::AttachmentLoadOp::CLEAR)
-        .store_op(vk::AttachmentStoreOp::STORE)
-        .initial_layout(vk::ImageLayout::UNDEFINED)
-        .final_layout(vk::ImageLayout::PRESENT_SRC_KHR);
+    let swapchain_attachment_description = vk::AttachmentDescription {
+        format: surface_format.format,
+        samples: vk::SampleCountFlags::TYPE_1,
+        load_op: vk::AttachmentLoadOp::CLEAR,
+        store_op: vk::AttachmentStoreOp::STORE,
+        initial_layout: vk::ImageLayout::UNDEFINED,
+        final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+        ..Default::default()
+    };
 
-    let swapchain_attachemnt_reference = vk::AttachmentReference::builder()
-        .attachment(0)
-        .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+    let swapchain_attachemnt_reference = vk::AttachmentReference {
+        attachment: 0,
+        layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        ..Default::default()
+    };
 
-    let subpass = Subpass::new(&[swapchain_attachemnt_reference.build()], None, &[]);
+    let subpass = Subpass::new(&[swapchain_attachemnt_reference], None, &[]);
 
-    let image_aquire_subpass_dependency = vk::SubpassDependency::builder()
-        .src_subpass(vk::SUBPASS_EXTERNAL)
-        .dst_subpass(0)
-        .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-        .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-        .src_access_mask(vk::AccessFlags::empty())
-        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE);
+    let image_aquire_subpass_dependency = vk::SubpassDependency {
+        src_subpass: vk::SUBPASS_EXTERNAL,
+        dst_subpass: 0,
+        src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        src_access_mask: vk::AccessFlags::empty(),
+        dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+        ..Default::default()
+    };
 
     let render_pass = Arc::new(RenderPass::new(
         device,
-        vec![swapchain_attachment_description.build()],
+        vec![swapchain_attachment_description],
         vec![subpass],
-        vec![image_aquire_subpass_dependency.build()],
+        vec![image_aquire_subpass_dependency],
     )?);
 
     info!("created render pass");

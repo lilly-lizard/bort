@@ -3,7 +3,7 @@ use ash::{
     ext::metal_surface,
     khr::{android_surface, surface, wayland_surface, win32_surface, xcb_surface, xlib_surface},
     prelude::VkResult,
-    vk::{self, make_api_version, SurfaceKHR},
+    vk::{self, make_api_version},
     Entry,
 };
 #[cfg(feature = "raw-window-handle-05")]
