@@ -14,11 +14,13 @@ pub struct PipelineLayout {
 }
 
 impl PipelineLayout {
-    pub fn new(device: Arc<Device>, mut properties: PipelineLayoutProperties) -> VkResult<Self> {
+    pub fn new(device: Arc<Device>, properties: PipelineLayoutProperties) -> VkResult<Self> {
+        let mut vk_set_layouts_storage: Vec<vk::DescriptorSetLayout> = Vec::new();
+        let create_info = properties.create_info(&mut vk_set_layouts_storage);
         let handle = unsafe {
             device
                 .inner()
-                .create_pipeline_layout(&properties.create_info(), ALLOCATION_CALLBACK_NONE)
+                .create_pipeline_layout(&create_info, ALLOCATION_CALLBACK_NONE)
         }?;
 
         Ok(Self {
@@ -66,8 +68,6 @@ pub struct PipelineLayoutProperties {
     pub flags: vk::PipelineLayoutCreateFlags,
     pub set_layouts: Vec<Arc<DescriptorSetLayout>>,
     pub push_constant_ranges: Vec<vk::PushConstantRange>,
-    // because these need to be stored for the lifetime duration of self
-    set_layouts_vk: Vec<vk::DescriptorSetLayout>,
 }
 
 impl PipelineLayoutProperties {
@@ -79,20 +79,27 @@ impl PipelineLayoutProperties {
             flags: vk::PipelineLayoutCreateFlags::empty(),
             set_layouts,
             push_constant_ranges,
-            set_layouts_vk: Vec::new(),
         }
     }
 
-    pub fn create_info(&mut self) -> vk::PipelineLayoutCreateInfo {
-        self.set_layouts_vk = self
-            .set_layouts
-            .iter()
-            .map(|layout| layout.handle())
-            .collect();
-
+    /// Clears and populates `vk_set_layouts_storage`
+    /// with data pointed to by the returned create info. `vk_set_layouts_storage`
+    /// must outlive the returned create info.
+    pub fn create_info<'a>(
+        &'a self,
+        vk_set_layouts_storage: &'a mut Vec<vk::DescriptorSetLayout>,
+    ) -> vk::PipelineLayoutCreateInfo<'a> {
+        *vk_set_layouts_storage = self.vk_set_layouts();
         vk::PipelineLayoutCreateInfo::default()
             .flags(self.flags)
-            .set_layouts(&self.set_layouts_vk)
+            .set_layouts(vk_set_layouts_storage)
             .push_constant_ranges(&self.push_constant_ranges)
+    }
+
+    pub fn vk_set_layouts(&self) -> Vec<vk::DescriptorSetLayout> {
+        self.set_layouts
+            .iter()
+            .map(|layout| layout.handle())
+            .collect()
     }
 }

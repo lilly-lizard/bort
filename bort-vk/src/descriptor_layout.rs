@@ -15,13 +15,13 @@ pub struct DescriptorSetLayout {
 
 impl DescriptorSetLayout {
     pub fn new(device: Arc<Device>, properties: DescriptorSetLayoutProperties) -> VkResult<Self> {
-        let mut vk_immutable_samplers = Vec::<Vec<vk::Sampler>>::new();
-        let vk_layout_bindings: Vec<vk::DescriptorSetLayoutBinding> =
-            properties.vk_layout_bindings(&mut vk_immutable_samplers);
-        let create_info = properties.write_create_info(
-            vk::DescriptorSetLayoutCreateInfo::default(),
-            &vk_layout_bindings,
+        let mut vk_layout_bindings_storage: Vec<vk::DescriptorSetLayoutBinding> = Vec::new();
+        let mut vk_immutable_samplers_storage: Vec<Vec<vk::Sampler>> = Vec::new();
+        let create_info = properties.create_info(
+            &mut vk_layout_bindings_storage,
+            &mut vk_immutable_samplers_storage,
         );
+
         let handle = unsafe {
             device
                 .inner()
@@ -105,12 +105,18 @@ impl DescriptorSetLayoutProperties {
         }
     }
 
-    pub fn write_create_info<'a>(
+    /// Clears and populates `vk_layout_bindings_storage` and `vk_immutable_samplers_storage`
+    /// with data pointed to by the returned create info. `vk_layout_bindings_storage` and
+    /// `vk_immutable_samplers_storage` must outlive the returned create info.
+    pub fn create_info<'a>(
         &'a self,
-        create_info: vk::DescriptorSetLayoutCreateInfo<'a>,
-        vk_layout_bindings: &'a [vk::DescriptorSetLayoutBinding],
+        vk_layout_bindings_storage: &'a mut Vec<vk::DescriptorSetLayoutBinding<'a>>,
+        vk_immutable_samplers_storage: &'a mut Vec<Vec<vk::Sampler>>,
     ) -> vk::DescriptorSetLayoutCreateInfo {
-        create_info.flags(self.flags).bindings(vk_layout_bindings)
+        *vk_layout_bindings_storage = self.vk_layout_bindings(vk_immutable_samplers_storage);
+        vk::DescriptorSetLayoutCreateInfo::default()
+            .flags(self.flags)
+            .bindings(vk_layout_bindings_storage)
     }
 
     /// Clears `vk_immutable_samplers` and stores in it a vector of sampler handles for each
@@ -119,23 +125,21 @@ impl DescriptorSetLayoutProperties {
     #[allow(clippy::needless_range_loop)]
     pub fn vk_layout_bindings<'a>(
         &'a self,
-        vk_immutable_samplers: &'a mut Vec<Vec<vk::Sampler>>,
+        vk_immutable_samplers_storage: &'a mut Vec<Vec<vk::Sampler>>,
     ) -> Vec<vk::DescriptorSetLayoutBinding<'a>> {
-        vk_immutable_samplers.clear();
-        let mut vk_layout_bindings = Vec::<vk::DescriptorSetLayoutBinding>::new();
+        vk_immutable_samplers_storage.clear();
+        vk_immutable_samplers_storage.resize_with(self.bindings.len(), Default::default);
 
-        for i in 0..self.bindings.len() {
-            let new_immutable_samplers = self.bindings[i].vk_immutable_samplers();
-            vk_immutable_samplers.push(new_immutable_samplers);
-        }
-
-        for i in 0..self.bindings.len() {
-            let vk_layout_binding = self.bindings[i].write_vk_binding(
-                vk::DescriptorSetLayoutBinding::default(),
-                &vk_immutable_samplers[i],
-            );
-            vk_layout_bindings.push(vk_layout_binding);
-        }
+        let mut vk_layout_bindings: Vec<vk::DescriptorSetLayoutBinding> =
+            Vec::with_capacity(self.bindings.len());
+        vk_immutable_samplers_storage
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, vk_immutable_sample_storage_ptr)| {
+                let vk_layout_binding =
+                    self.bindings[i].vk_binding(vk_immutable_sample_storage_ptr);
+                vk_layout_bindings.push(vk_layout_binding);
+            });
         vk_layout_bindings
     }
 
@@ -166,13 +170,6 @@ pub struct DescriptorSetLayoutBinding {
 }
 
 impl DescriptorSetLayoutBinding {
-    pub fn vk_immutable_samplers(&self) -> Vec<vk::Sampler> {
-        self.immutable_samplers
-            .iter()
-            .map(|sampler| sampler.handle())
-            .collect()
-    }
-
     /// Note: leaves `immutable_samplers` empty because the create info only provides the handles.
     pub fn from_vk_binding(value: &vk::DescriptorSetLayoutBinding) -> Self {
         Self {
@@ -184,19 +181,29 @@ impl DescriptorSetLayoutBinding {
         }
     }
 
-    pub fn write_vk_binding<'a>(
-        &self,
-        mut create_info: vk::DescriptorSetLayoutBinding<'a>,
-        vk_immutable_samplers: &'a [vk::Sampler],
+    /// Clears `vk_immutable_samplers` and stores in it a vector of sampler handles for each
+    /// binding. The returned create_info struct contains references to these vectors with a
+    /// lifetime of `'a`.
+    pub fn vk_binding<'a>(
+        &'a self,
+        vk_immutable_samplers_storage: &'a mut Vec<vk::Sampler>,
     ) -> vk::DescriptorSetLayoutBinding<'a> {
-        if vk_immutable_samplers.is_empty() {
-            create_info = create_info.immutable_samplers(vk_immutable_samplers);
-            // put before descriptor_count because calling this overrides it
+        let mut vk_binding = vk::DescriptorSetLayoutBinding::default();
+        if !self.immutable_samplers.is_empty() {
+            *vk_immutable_samplers_storage = self.vk_immutable_samplers();
+            vk_binding = vk_binding.immutable_samplers(vk_immutable_samplers_storage);
         }
-        create_info
+        vk_binding
             .binding(self.binding)
             .descriptor_type(self.descriptor_type)
             .descriptor_count(self.descriptor_count)
             .stage_flags(self.stage_flags)
+    }
+
+    pub fn vk_immutable_samplers(&self) -> Vec<vk::Sampler> {
+        self.immutable_samplers
+            .iter()
+            .map(|sampler| sampler.handle())
+            .collect()
     }
 }

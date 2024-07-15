@@ -1,6 +1,7 @@
 # TODO
 
 check all occurances of ::default() to do more efficient struct allocation (without fns) e.g. SwapchainProperties::create_info
+remove set_layouts_vk: Vec<vk::DescriptorSetLayout> like done with DescriptorSetLayoutBinding
 
 - blend_state_alpha() has something to do with surface blend mode???
 - only create_info write vecs when len != 0 (see descriptor_layout.rs immutable samplers)
