@@ -1,9 +1,11 @@
 use crate::{AllocatorAccess, Device, MemoryAllocator};
 use ash::{prelude::VkResult, vk};
+use bort_vma::ffi;
 use std::sync::Arc;
 
 pub struct MemoryPool {
-    inner: bort_vma::AllocatorPool,
+    allocator: Arc<bort_vma::Allocator>,
+    pool: bort_vma::PoolHandle,
     properties: MemoryPoolPropeties,
 
     // dependencies
@@ -15,31 +17,34 @@ impl MemoryPool {
         memory_allocator: Arc<MemoryAllocator>,
         properties: MemoryPoolPropeties,
     ) -> VkResult<Self> {
-        let create_info = properties.create_info();
-
-        let inner =
-            bort_vma::AllocatorPool::new(memory_allocator.inner_arc().clone(), &create_info)?;
-
-        Ok(Self {
-            inner,
-            properties,
-            memory_allocator,
-        })
+        unsafe { Self::new_with_pnext_chain(memory_allocator, properties, None) }
     }
 
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
-    pub unsafe fn new_from_create_info(
+    pub unsafe fn new_with_pnext_chain(
         memory_allocator: Arc<MemoryAllocator>,
-        create_info: &bort_vma::PoolCreateInfo,
+        properties: MemoryPoolPropeties,
+        memory_allocate_next: Option<&mut ash::vk::MemoryAllocateInfo>,
     ) -> VkResult<Self> {
-        let inner =
-            bort_vma::AllocatorPool::new(memory_allocator.inner_arc().clone(), create_info)?;
+        let mut create_info = properties.create_info();
+        if let Some(some_memory_allocate_next) = memory_allocate_next {
+            create_info.pMemoryAllocateNext =
+                some_memory_allocate_next as *mut ash::vk::MemoryAllocateInfo as *mut _;
+        }
 
-        let properties = MemoryPoolPropeties::from_create_info(create_info);
+        unsafe {
+            let vma_allocator = memory_allocator.inner();
+
+            let mut ffi_pool: ffi::VmaPool = std::mem::zeroed();
+            ffi::vmaCreatePool(vma_allocator.internal, &create_info, &mut ffi_pool).result()?;
+
+            let pool = bort_vma::PoolHandle(ffi_pool);
+        }
 
         Ok(Self {
-            inner,
+            allocator,
+            pool,
             properties,
             memory_allocator,
         })
@@ -135,26 +140,28 @@ impl Default for MemoryPoolPropeties {
 }
 
 impl MemoryPoolPropeties {
-    pub fn create_info(&self) -> bort_vma::PoolCreateInfo {
-        bort_vma::PoolCreateInfo::new()
-            .flags(self.flags)
-            .memory_type_index(self.memory_type_index)
-            .block_size(self.block_size)
-            .min_block_count(self.min_block_count)
-            .max_block_count(self.max_block_count)
-            .priority(self.priority)
-            .min_allocation_alignment(self.min_allocation_alignment)
+    pub fn create_info(&self) -> ffi::VmaPoolCreateInfo {
+        ffi::VmaPoolCreateInfo {
+            flags: self.flags.bits(),
+            memoryTypeIndex: self.memory_type_index,
+            blockSize: self.block_size,
+            minBlockCount: self.min_block_count,
+            maxBlockCount: self.max_block_count,
+            priority: self.priority,
+            minAllocationAlignment: self.min_allocation_alignment,
+            pMemoryAllocateNext: core::ptr::null_mut(),
+        }
     }
 
-    pub fn from_create_info(value: &bort_vma::PoolCreateInfo) -> Self {
+    pub fn from_create_info(create_info: &ffi::VmaPoolCreateInfo) -> Self {
         Self {
-            flags: value.get_flags(),
-            memory_type_index: value.get_memory_type_index(),
-            block_size: value.get_block_size(),
-            min_block_count: value.get_min_block_count(),
-            max_block_count: value.get_max_block_count(),
-            priority: value.get_priority(),
-            min_allocation_alignment: value.get_min_allocation_alignment(),
+            flags: bort_vma::AllocatorPoolCreateFlags::from_bits_retain(create_info.flags),
+            memory_type_index: create_info.memoryTypeIndex,
+            block_size: create_info.blockSize,
+            min_block_count: create_info.minBlockCount,
+            max_block_count: create_info.maxBlockCount,
+            priority: create_info.priority,
+            min_allocation_alignment: create_info.minAllocationAlignment,
         }
     }
 }

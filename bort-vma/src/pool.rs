@@ -6,7 +6,7 @@ use crate::Allocator;
 use crate::PoolCreateInfo;
 use ash::prelude::VkResult;
 #[derive(Clone, Copy)]
-pub struct PoolHandle(pub(crate) ffi::VmaPool);
+pub struct PoolHandle(pub ffi::VmaPool);
 
 /// Represents custom memory pool handle.
 pub struct AllocatorPool {

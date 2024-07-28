@@ -8,7 +8,7 @@ use crate::ffi;
 /// Main allocator object
 pub struct Allocator {
     /// Pointer to internal VmaAllocator instance
-    pub(crate) internal: ffi::VmaAllocator,
+    pub internal: ffi::VmaAllocator,
 }
 
 // Allocator is internally thread safe unless AllocatorCreateFlags::EXTERNALLY_SYNCHRONIZED is used (then you need to add synchronization!)
