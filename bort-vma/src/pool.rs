@@ -2,19 +2,11 @@ use std::ffi::CStr;
 use std::sync::Arc;
 
 use crate::ffi;
-use crate::Allocator;
 use crate::PoolCreateInfo;
 use ash::prelude::VkResult;
-#[derive(Clone, Copy)]
-pub struct PoolHandle(pub ffi::VmaPool);
 
 /// Represents custom memory pool handle.
-pub struct AllocatorPool {
-    pub(crate) allocator: Arc<Allocator>,
-    pub(crate) pool: PoolHandle,
-}
-unsafe impl Send for AllocatorPool {}
-unsafe impl Sync for AllocatorPool {}
+pub struct AllocatorPool {}
 
 impl AllocatorPool {
     pub fn new(allocator: Arc<Allocator>, create_info: &PoolCreateInfo) -> VkResult<Self> {

@@ -1,15 +1,32 @@
 use crate::{device::Device, AllocatorAccess};
 use ash::vk;
-use bort_vma::AllocationCreateInfo;
+use bort_vma::{ffi, AllocationCreateInfo};
 #[cfg(feature = "bytemuck")]
 use bytemuck::{NoUninit, Pod, PodCastError};
 use std::{error, fmt, mem, ptr, sync::Arc};
 
 // ~~ Memory Allocation ~~
 
-/// Note this doesn't impl `Drop`. Destroy this yourself! e.g. with `Buffer` and `Image` `Drop` implementations
+/// Represents single memory allocation.
+///
+/// It may be either dedicated block of `ash::vk::DeviceMemory` or a specific region of a
+/// bigger block of this type plus unique offset.
+///
+/// Although the library provides convenience functions that create a Vulkan buffer or image,
+/// allocate memory for it and bind them together, binding of the allocation to a buffer or an
+/// image is out of scope of the allocation itself.
+///
+/// Allocation object can exist without buffer/image bound, binding can be done manually by
+/// the user, and destruction of it can be done independently of destruction of the allocation.
+///
+/// The object also remembers its size and some other information. To retrieve this information,
+/// use `Allocator::get_allocation_info`.
+///
+/// Some kinds allocations can be in lost state.
+///
+/// **Note:** this doesn't impl `Drop`. Destroy this yourself! e.g. with `Buffer` and `Image` `Drop` implementations
 pub struct MemoryAllocation {
-    inner: bort_vma::Allocation,
+    handle: ffi::VmaAllocation,
     memory_type: vk::MemoryType,
     size: vk::DeviceSize,
 
@@ -19,7 +36,7 @@ pub struct MemoryAllocation {
 
 impl MemoryAllocation {
     pub(crate) fn from_vma_allocation(
-        inner: bort_vma::Allocation,
+        handle: ffi::VmaAllocation,
         allocator_access: Arc<dyn AllocatorAccess>,
     ) -> Self {
         let memory_info = allocator_access.vma_allocator().get_allocation_info(&inner);
@@ -35,7 +52,7 @@ impl MemoryAllocation {
         let memory_type = physical_device_mem_props.memory_types[memory_info.memory_type as usize];
 
         Self {
-            inner,
+            handle,
             memory_type,
             size,
             allocator_access,

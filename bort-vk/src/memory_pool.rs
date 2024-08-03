@@ -4,8 +4,7 @@ use bort_vma::ffi;
 use std::sync::Arc;
 
 pub struct MemoryPool {
-    allocator: Arc<bort_vma::Allocator>,
-    pool: bort_vma::PoolHandle,
+    handle: ffi::VmaPool,
     properties: MemoryPoolPropeties,
 
     // dependencies
