@@ -6,12 +6,32 @@ use ash::{
     ext::debug_utils,
     vk::{self, EXT_DEBUG_UTILS_NAME},
 };
-use bort_vk::{Device, Instance, PhysicalDevice};
+use bort_vk::{
+    ApiVersion, DebugCallback, DebugCallbackProperties, Device, Instance, PhysicalDevice,
+};
 use bort_vma::ffi;
-use std::{os::raw::c_void, sync::Arc};
+use std::{
+    ffi::{CStr, CString},
+    os::raw::c_void,
+    sync::Arc,
+};
 
 fn extension_names() -> Vec<*const i8> {
     vec![EXT_DEBUG_UTILS_NAME.as_ptr()]
+}
+const VALIDATION_LAYER_NAME: &CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
+
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
+    let entry = unsafe { ash::Entry::load() }?;
+    Ok(Arc::new(entry))
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub fn create_entry() -> Result<Arc<ash::Entry>, ash::LoadingError> {
+    let entry = ash_molten::load();
+    Ok(Arc::new(entry))
 }
 
 unsafe extern "system" fn vulkan_debug_callback(
@@ -29,114 +49,80 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 pub struct TestHarness {
-    pub instance: Instance,
-    pub device: Device,
-    pub physical_device: PhysicalDevice,
-    pub debug_callback: ash::vk::DebugUtilsMessengerEXT,
-    pub debug_report_loader: debug_utils::Instance,
+    pub instance: Arc<Instance>,
+    pub device: Arc<Device>,
+    pub physical_device: Arc<PhysicalDevice>,
 }
 
-impl Drop for TestHarness {
-    fn drop(&mut self) {
-        unsafe {
-            self.device.device_wait_idle().unwrap();
-            self.device.destroy_device(None);
-            self.debug_report_loader
-                .destroy_debug_utils_messenger(self.debug_callback, None);
-            self.instance.destroy_instance(None);
-        }
-    }
-}
 impl TestHarness {
     pub fn new() -> Self {
-        let app_name = ::std::ffi::CString::new("vk-mem testing").unwrap();
-        let app_info = ash::vk::ApplicationInfo::default()
-            .application_name(&app_name)
-            .application_version(0)
-            .engine_name(&app_name)
-            .engine_version(0)
-            .api_version(ash::vk::make_api_version(0, 1, 3, 0));
+        let entry = create_entry().unwrap();
 
-        let layer_names = [::std::ffi::CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
-        let layers_names_raw: Vec<*const i8> = layer_names
-            .iter()
-            .map(|raw_name| raw_name.as_ptr())
-            .collect();
+        let validation_layer_installed =
+            Instance::layer_avilable(&entry, VALIDATION_LAYER_NAME.to_owned()).unwrap();
+        let debug_utils_supported =
+            Instance::supports_extension(&entry, None, EXT_DEBUG_UTILS_NAME.to_owned()).unwrap();
 
-        let extension_names_raw = extension_names();
-        let create_info = ash::vk::InstanceCreateInfo::default()
-            .application_info(&app_info)
-            .enabled_layer_names(&layers_names_raw)
-            .enabled_extension_names(&extension_names_raw);
+        let mut enable_validation = true;
+        let mut instance_layers = Vec::<CString>::new();
+        let mut instance_extensions = Vec::<CString>::new();
+        if validation_layer_installed && debug_utils_supported {
+            instance_layers.push(VALIDATION_LAYER_NAME.to_owned());
+            instance_extensions.push(EXT_DEBUG_UTILS_NAME.to_owned());
+        } else {
+            enable_validation = false;
+        }
 
-        let entry = unsafe { ash::Entry::load().unwrap() };
-        let instance: ash::Instance = unsafe {
-            entry
-                .create_instance(&create_info, None)
-                .expect("Instance creation error")
-        };
-
-        let debug_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::default()
-            .message_severity(
-                ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                    | ash::vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
+        let instance = Arc::new(
+            Instance::new(
+                entry.clone(),
+                ApiVersion { major: 1, minor: 3 },
+                instance_layers,
+                instance_extensions,
             )
-            .message_type(
-                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                    | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
-                    | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+            .unwrap(),
+        );
+
+        let debug_callback = if enable_validation {
+            let debug_callback_properties = DebugCallbackProperties::default();
+            let debug_callback = DebugCallback::new(
+                instance.clone(),
+                Some(vulkan_debug_callback),
+                debug_callback_properties,
             )
-            .pfn_user_callback(Some(vulkan_debug_callback));
+            .unwrap();
 
-        let debug_report_loader = debug_utils::Instance::new(&entry, &instance);
-        let debug_callback = unsafe {
-            debug_report_loader
-                .create_debug_utils_messenger(&debug_info, None)
-                .unwrap()
+            Some(Arc::new(debug_callback))
+        } else {
+            None
         };
 
-        let physical_devices = unsafe {
-            instance
-                .enumerate_physical_devices()
-                .expect("Physical device error")
-        };
+        let physical_device_handles = instance.enumerate_physical_devices().unwrap();
+        let physical_device_handle = physical_device_handles.first().unwrap();
+        let physical_device =
+            Arc::new(PhysicalDevice::new(instance.clone(), *physical_device_handle).unwrap());
 
-        let physical_device = unsafe {
-            *physical_devices
-                .iter()
-                .filter(|physical_device| {
-                    let version = instance
-                        .get_physical_device_properties(**physical_device)
-                        .api_version;
-                    ash::vk::api_version_major(version) == 1
-                        && ash::vk::api_version_minor(version) == 3
-                })
-                .next()
-                .expect("Couldn't find suitable device.")
-        };
-
-        let priorities = [1.0];
-
-        let queue_info = [ash::vk::DeviceQueueCreateInfo::default()
+        let queue_priorities = [1.0];
+        let queue_create_info = vk::DeviceQueueCreateInfo::default()
             .queue_family_index(0)
-            .queue_priorities(&priorities)];
+            .queue_priorities(&queue_priorities);
 
-        let device_create_info =
-            ash::vk::DeviceCreateInfo::default().queue_create_infos(&queue_info);
-
-        let device: ash::Device = unsafe {
-            instance
-                .create_device(physical_device, &device_create_info, None)
-                .unwrap()
-        };
+        let device = Arc::new(
+            Device::new(
+                physical_device.clone(),
+                [queue_create_info],
+                Default::default(),
+                Vec::new(),
+                vec![],
+                debug_callback,
+            )
+            .unwrap(),
+        );
 
         TestHarness {
-            entry,
             instance,
             device,
             physical_device,
-            debug_report_loader,
-            debug_callback,
         }
     }
 
