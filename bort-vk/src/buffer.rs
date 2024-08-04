@@ -3,7 +3,7 @@ use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use bort_vma::{Alloc, AllocationCreateInfo};
+use bort_vma::AllocationCreateInfo;
 use std::sync::Arc;
 
 /// Contains a [VkBuffer](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkBuffer.html)
@@ -17,23 +17,25 @@ pub struct Buffer {
 impl Buffer {
     pub fn new(
         alloc_access: Arc<dyn AllocatorAccess>,
-        buffer_properties: BufferProperties,
+        properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let create_info = buffer_properties.create_info();
+        let create_info = properties.create_info();
 
-        let (handle, vma_allocation) = unsafe {
+        let (handle, memory_allocation_handle) = unsafe {
             alloc_access
-                .vma_allocator()
-                .create_buffer(&create_info, &allocation_info)
+                .memory_allocator()
+                .vma_create_buffer(&create_info, &allocation_info)
         }?;
 
-        Ok(Self::from_handle_and_allocation(
-            alloc_access,
-            buffer_properties,
+        let memory_allocation =
+            MemoryAllocation::from_vma_allocation(memory_allocation_handle, alloc_access);
+
+        Ok(Self {
             handle,
-            vma_allocation,
-        ))
+            properties,
+            memory_allocation,
+        })
     }
 
     /// # Safety
@@ -45,33 +47,20 @@ impl Buffer {
     ) -> VkResult<Self> {
         let properties = BufferProperties::from_create_info(&buffer_create_info);
 
-        let (handle, vma_allocation) = unsafe {
+        let (handle, memory_allocation_handle) = unsafe {
             alloc_access
-                .vma_allocator()
-                .create_buffer(&buffer_create_info, &allocation_info)
+                .memory_allocator()
+                .vma_create_buffer(&buffer_create_info, &allocation_info)
         }?;
 
-        Ok(Self::from_handle_and_allocation(
-            alloc_access,
-            properties,
-            handle,
-            vma_allocation,
-        ))
-    }
+        let memory_allocation =
+            MemoryAllocation::from_vma_allocation(memory_allocation_handle, alloc_access);
 
-    fn from_handle_and_allocation(
-        alloc_access: Arc<dyn AllocatorAccess>,
-        properties: BufferProperties,
-        handle: vk::Buffer,
-        vma_allocation: bort_vma::Allocation,
-    ) -> Self {
-        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
-
-        Self {
+        Ok(Self {
             handle,
             properties,
             memory_allocation,
-        }
+        })
     }
 
     // Getters
@@ -120,8 +109,8 @@ impl Drop for Buffer {
         unsafe {
             self.allocator_access()
                 .clone()
-                .vma_allocator()
-                .destroy_buffer(self.handle, self.memory_allocation.inner_mut());
+                .memory_allocator()
+                .vma_destroy_buffer(self.handle, self.memory_allocation.handle());
         }
     }
 }

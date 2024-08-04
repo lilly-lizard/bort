@@ -1,7 +1,7 @@
 use crate::{AllocatorAccess, Device, MemoryAllocator};
 use ash::{prelude::VkResult, vk};
 use bort_vma::ffi;
-use std::sync::Arc;
+use std::{ffi::CStr, sync::Arc};
 
 pub struct MemoryPool {
     handle: ffi::VmaPool,
@@ -32,21 +32,82 @@ impl MemoryPool {
                 some_memory_allocate_next as *mut ash::vk::MemoryAllocateInfo as *mut _;
         }
 
-        unsafe {
-            let vma_allocator = memory_allocator.inner();
-
+        let handle = unsafe {
             let mut ffi_pool: ffi::VmaPool = std::mem::zeroed();
-            ffi::vmaCreatePool(vma_allocator.internal, &create_info, &mut ffi_pool).result()?;
-
-            let pool = bort_vma::PoolHandle(ffi_pool);
-        }
+            ffi::vmaCreatePool(memory_allocator.handle(), &create_info, &mut ffi_pool).result()?;
+            ffi_pool
+        };
 
         Ok(Self {
-            allocator,
-            pool,
+            handle,
             properties,
             memory_allocator,
         })
+    }
+
+    pub fn set_name(&self, name: Option<&CStr>) {
+        if self.handle.is_null() {
+            return;
+        }
+        unsafe {
+            ffi::vmaSetPoolName(
+                self.memory_allocator.handle(),
+                self.handle,
+                name.map_or(std::ptr::null(), CStr::as_ptr),
+            );
+        }
+    }
+
+    pub fn name(&self) -> Option<&CStr> {
+        if self.handle.is_null() {
+            return None;
+        }
+        let mut ptr: *const ::std::os::raw::c_char = std::ptr::null();
+        unsafe {
+            ffi::vmaGetPoolName(self.memory_allocator.handle(), self.handle, &mut ptr);
+            if ptr.is_null() {
+                return None;
+            }
+            Some(CStr::from_ptr(ptr))
+        }
+    }
+
+    /// Retrieves statistics of existing `AllocatorPool` object.
+    pub fn get_statistics(&self) -> VkResult<ffi::VmaStatistics> {
+        unsafe {
+            let mut pool_stats: ffi::VmaStatistics = std::mem::zeroed();
+            ffi::vmaGetPoolStatistics(self.memory_allocator.handle(), self.handle, &mut pool_stats);
+            Ok(pool_stats)
+        }
+    }
+
+    /// Retrieves statistics of existing `AllocatorPool` object.
+    pub fn calculate_statistics(&self) -> VkResult<ffi::VmaDetailedStatistics> {
+        unsafe {
+            let mut pool_stats: ffi::VmaDetailedStatistics = std::mem::zeroed();
+            ffi::vmaCalculatePoolStatistics(
+                self.memory_allocator.handle(),
+                self.handle,
+                &mut pool_stats,
+            );
+            Ok(pool_stats)
+        }
+    }
+
+    /// Checks magic number in margins around all allocations in given memory pool in search for corruptions.
+    ///
+    /// Corruption detection is enabled only when `VMA_DEBUG_DETECT_CORRUPTION` macro is defined to nonzero,
+    /// `VMA_DEBUG_MARGIN` is defined to nonzero and the pool is created in memory type that is
+    /// `ash::vk::MemoryPropertyFlags::HOST_VISIBLE` and `ash::vk::MemoryPropertyFlags::HOST_COHERENT`.
+    ///
+    /// Possible error values:
+    ///
+    /// - `ash::vk::Result::ERROR_FEATURE_NOT_PRESENT` - corruption detection is not enabled for specified pool.
+    /// - `ash::vk::Result::ERROR_VALIDATION_FAILED_EXT` - corruption detection has been performed and found memory corruptions around one of the allocations.
+    ///   `VMA_ASSERT` is also fired in that case.
+    /// - Other value: Error returned by Vulkan, e.g. memory mapping failure.
+    pub fn check_corruption(&self) -> VkResult<()> {
+        unsafe { ffi::vmaCheckPoolCorruption(self.memory_allocator.handle(), self.handle).result() }
     }
 
     // Getters
@@ -54,8 +115,8 @@ impl MemoryPool {
     /// Access the `bort_vma::AllocatorPool` struct that `self` contains. Allows you to access pool-related
     /// vma related functions.
     #[inline]
-    pub fn inner(&self) -> &bort_vma::AllocatorPool {
-        &self.inner
+    pub fn handle(&self) -> ffi::VmaPool {
+        self.handle
     }
 
     #[inline]
@@ -64,14 +125,31 @@ impl MemoryPool {
     }
 }
 
-impl AllocatorAccess for MemoryPool {
-    fn vma_alloc_ref(&self) -> &dyn bort_vma::Alloc {
-        &self.inner
-    }
+unsafe impl Send for MemoryPool {}
+unsafe impl Sync for MemoryPool {}
 
+impl AllocatorAccess for MemoryPool {
     #[inline]
     fn device(&self) -> &Arc<Device> {
         self.memory_allocator.device()
+    }
+
+    #[inline]
+    fn memory_allocator(&self) -> &MemoryAllocator {
+        self.memory_allocator.as_ref()
+    }
+
+    #[inline]
+    fn memory_pool_handle(&self) -> ffi::VmaPool {
+        self.handle
+    }
+}
+
+impl Drop for MemoryPool {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::vmaDestroyPool(self.memory_allocator.handle(), self.handle);
+        }
     }
 }
 

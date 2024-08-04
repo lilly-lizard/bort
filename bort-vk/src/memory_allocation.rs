@@ -39,7 +39,9 @@ impl MemoryAllocation {
         handle: ffi::VmaAllocation,
         allocator_access: Arc<dyn AllocatorAccess>,
     ) -> Self {
-        let memory_info = allocator_access.vma_allocator().get_allocation_info(&inner);
+        let memory_info = allocator_access
+            .memory_allocator()
+            .vma_get_allocation_info(handle);
 
         let size = memory_info.size;
 
@@ -230,8 +232,8 @@ impl MemoryAllocation {
     /// See docs for [`bort_vma::allocator::Allocator::map_memory`]
     pub unsafe fn map_memory(&mut self) -> Result<*mut u8, MemoryError> {
         self.allocator_access
-            .vma_allocator()
-            .map_memory(&mut self.inner)
+            .memory_allocator()
+            .vma_map_memory(self.handle)
             .map_err(MemoryError::Mapping)
     }
 
@@ -239,8 +241,8 @@ impl MemoryAllocation {
     /// See docs for [`bort_vma::allocator::Allocator::unmap_memory`]
     pub unsafe fn unmap_memory(&mut self) {
         self.allocator_access
-            .vma_allocator()
-            .unmap_memory(&mut self.inner)
+            .memory_allocator()
+            .vma_unmap_memory(self.handle)
     }
 
     /// # Safety
@@ -268,8 +270,8 @@ impl MemoryAllocation {
         data_size: usize,
     ) -> Result<(), MemoryError> {
         self.allocator_access
-            .vma_allocator()
-            .flush_allocation(&self.inner, allocation_offset, data_size)
+            .memory_allocator()
+            .vma_flush_allocation(self.handle, allocation_offset, data_size)
             .map_err(MemoryError::Flushing)
     }
 
@@ -277,14 +279,8 @@ impl MemoryAllocation {
 
     /// Access the `bort_vma::Allocation` handle that `self` contains.
     #[inline]
-    pub fn inner(&self) -> &bort_vma::Allocation {
-        &self.inner
-    }
-
-    /// Access the `bort_vma::Allocation` handle that `self` contains.
-    #[inline]
-    pub fn inner_mut(&mut self) -> &mut bort_vma::Allocation {
-        &mut self.inner
+    pub fn handle(&self) -> ffi::VmaAllocation {
+        self.handle
     }
 
     #[inline]
@@ -308,6 +304,71 @@ impl MemoryAllocation {
         self.allocator_access.device()
     }
 }
+
+// ~~ Create Info ~~
+
+/// Parameters of `Allocation` objects, that can be retrieved using `Allocator::get_allocation_info`.
+#[derive(Debug, Clone)]
+pub struct AllocationInfo {
+    /// Memory type index that this allocation was allocated from. It never changes.
+    pub memory_type: u32,
+    /// Handle to Vulkan memory object.
+    ///
+    /// Same memory object can be shared by multiple allocations.
+    ///
+    /// It can change after the allocation is moved during \\ref defragmentation.
+    pub device_memory: vk::DeviceMemory,
+    /// Offset in `VkDeviceMemory` object to the beginning of this allocation, in bytes. `(deviceMemory, offset)` pair is unique to this allocation.
+    ///
+    /// You usually don't need to use this offset. If you create a buffer or an image together with the allocation using e.g. function
+    /// vmaCreateBuffer(), vmaCreateImage(), functions that operate on these resources refer to the beginning of the buffer or image,
+    /// not entire device memory block. Functions like vmaMapMemory(), vmaBindBufferMemory() also refer to the beginning of the allocation
+    /// and apply this offset automatically.
+    ///
+    /// It can change after the allocation is moved during \\ref defragmentation.
+    pub offset: vk::DeviceSize,
+    /// Size of this allocation, in bytes. It never changes.
+    ///
+    /// Allocation size returned in this variable may be greater than the size
+    /// requested for the resource e.g. as `VkBufferCreateInfo::size`. Whole size of the
+    /// allocation is accessible for operations on memory e.g. using a pointer after
+    /// mapping with vmaMapMemory(), but operations on the resource e.g. using
+    /// `vkCmdCopyBuffer` must be limited to the size of the resource.
+    pub size: vk::DeviceSize,
+    /// Pointer to the beginning of this allocation as mapped data.
+    ///
+    /// If the allocation hasn't been mapped using vmaMapMemory() and hasn't been
+    /// created with #VMA_ALLOCATION_CREATE_MAPPED_BIT flag, this value is null.
+    ///
+    /// It can change after call to vmaMapMemory(), vmaUnmapMemory().
+    /// It can also change after the allocation is moved during defragmentation.
+    pub mapped_data: *mut ::std::os::raw::c_void,
+    /// Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vmaSetAllocationUserData().
+    ///
+    /// It can change after call to vmaSetAllocationUserData() for this allocation.
+    pub user_data: usize,
+}
+
+impl From<&ffi::VmaAllocationInfo> for AllocationInfo {
+    fn from(info: &ffi::VmaAllocationInfo) -> Self {
+        Self {
+            memory_type: info.memoryType,
+            device_memory: info.deviceMemory,
+            offset: info.offset,
+            size: info.size,
+            mapped_data: info.pMappedData,
+            user_data: info.pUserData as _,
+        }
+    }
+}
+impl From<ffi::VmaAllocationInfo> for AllocationInfo {
+    fn from(info: ffi::VmaAllocationInfo) -> Self {
+        (&info).into()
+    }
+}
+
+unsafe impl Send for MemoryAllocation {}
+unsafe impl Sync for MemoryAllocation {}
 
 // ~~ Presets ~~
 

@@ -6,7 +6,7 @@ use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use bort_vma::{Alloc, AllocationCreateInfo};
+use bort_vma::AllocationCreateInfo;
 use std::sync::Arc;
 
 // ~~ Image ~~
@@ -23,13 +23,14 @@ impl Image {
         properties: ImageProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
-        let (handle, vma_allocation) = unsafe {
+        let (handle, allocation_handle) = unsafe {
             alloc_access
-                .vma_allocator()
-                .create_image(&properties.create_info(), &allocation_info)
+                .memory_allocator()
+                .vma_create_image(&properties.create_info(), &allocation_info)
         }?;
 
-        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
+        let memory_allocation =
+            MemoryAllocation::from_vma_allocation(allocation_handle, alloc_access);
 
         Ok(Self {
             handle,
@@ -47,13 +48,14 @@ impl Image {
     ) -> VkResult<Self> {
         let properties = ImageProperties::from_create_info(&image_create_info);
 
-        let (handle, vma_allocation) = unsafe {
+        let (handle, allocation_handle) = unsafe {
             alloc_access
-                .vma_allocator()
-                .create_image(&image_create_info, &allocation_info)
+                .memory_allocator()
+                .vma_create_image(&image_create_info, &allocation_info)
         }?;
 
-        let memory_allocation = MemoryAllocation::from_vma_allocation(vma_allocation, alloc_access);
+        let memory_allocation =
+            MemoryAllocation::from_vma_allocation(allocation_handle, alloc_access);
 
         Ok(Self {
             handle,
@@ -128,8 +130,8 @@ impl Drop for Image {
         unsafe {
             self.allocator_access()
                 .clone()
-                .vma_allocator()
-                .destroy_image(self.handle, self.memory_allocation.inner_mut());
+                .memory_allocator()
+                .vma_destroy_image(self.handle, self.memory_allocation.handle());
         }
     }
 }

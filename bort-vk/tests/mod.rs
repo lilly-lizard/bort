@@ -1,11 +1,13 @@
 extern crate ash;
+extern crate bort_vk;
 extern crate bort_vma;
 
 use ash::{
     ext::debug_utils,
     vk::{self, EXT_DEBUG_UTILS_NAME},
 };
-use bort_vma::{Alloc, AllocatorPool};
+use bort_vk::{Device, Instance, PhysicalDevice};
+use bort_vma::ffi;
 use std::{os::raw::c_void, sync::Arc};
 
 fn extension_names() -> Vec<*const i8> {
@@ -27,10 +29,9 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 pub struct TestHarness {
-    pub entry: ash::Entry,
-    pub instance: ash::Instance,
-    pub device: ash::Device,
-    pub physical_device: ash::vk::PhysicalDevice,
+    pub instance: Instance,
+    pub device: Device,
+    pub physical_device: PhysicalDevice,
     pub debug_callback: ash::vk::DebugUtilsMessengerEXT,
     pub debug_report_loader: debug_utils::Instance,
 }
@@ -139,10 +140,10 @@ impl TestHarness {
         }
     }
 
-    pub fn create_allocator(&self) -> bort_vma::Allocator {
+    pub fn create_allocator(&self) -> ffi::VmaAllocator {
         let create_info =
             bort_vma::AllocatorCreateInfo::new(&self.instance, &self.device, self.physical_device);
-        bort_vma::Allocator::new(create_info).unwrap()
+        unsafe { new_vma_allocator(create_info).unwrap() }
     }
 }
 
@@ -168,7 +169,7 @@ fn create_gpu_buffer() {
 
     unsafe {
         let (buffer, mut allocation) = allocator
-            .create_buffer(
+            .vma_create_buffer(
                 &ash::vk::BufferCreateInfo::default().size(16 * 1024).usage(
                     ash::vk::BufferUsageFlags::VERTEX_BUFFER
                         | ash::vk::BufferUsageFlags::TRANSFER_DST,
