@@ -153,10 +153,6 @@ impl Drop for MemoryPool {
     }
 }
 
-// `bort_vma::PoolCreateInfo` would have been pretty good here (unlike the ash create_infos and
-// their dangling pnext pointers) but that would require explicit lifetime specifiers for
-// `MemoryPool` which propogates up every stuct containing it which is kinda a pain in the ass
-// for goshenite...
 #[derive(Clone, Copy)]
 pub struct MemoryPoolPropeties {
     /// Use combination of `VmaPoolCreateFlagBits`.
