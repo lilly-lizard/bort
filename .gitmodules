@@ -1,3 +1,6 @@
 [submodule "Vulkan-Headers"]
 	path = bort-vma/vendor/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers
+[submodule "bort-vma/vendor/VulkanMemoryAllocator"]
+	path = bort-vma/vendor/VulkanMemoryAllocator
+	url = https://github.com/lilly-lizard/VulkanMemoryAllocator-fork
