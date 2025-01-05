@@ -22,6 +22,8 @@ pub trait DeviceOwned {
 pub struct Device {
     inner: ash::Device,
     debug_callback_ref: Option<Arc<DebugCallback>>,
+    enabled_extensions: Vec<CString>,
+    enabled_layers: Vec<CString>,
 
     // dependencies
     physical_device: Arc<PhysicalDevice>,
@@ -99,19 +101,19 @@ impl Device {
             mut features_1_3,
         } = features;
 
-        if max_api_version <= ApiVersion::new(1, 0) {
+        if max_api_version <= ApiVersion::V1_0 {
             device_create_info = device_create_info.enabled_features(&features_1_0);
         } else {
             features_2 = features_2.features(features_1_0);
             device_create_info = device_create_info.push_next(&mut features_2);
 
-            if max_api_version >= ApiVersion::new(1, 1) {
+            if max_api_version >= ApiVersion::V1_1 {
                 device_create_info = device_create_info.push_next(&mut features_1_1)
             }
-            if max_api_version >= ApiVersion::new(1, 2) {
+            if max_api_version >= ApiVersion::V1_2 {
                 device_create_info = device_create_info.push_next(&mut features_1_2);
             }
-            if max_api_version >= ApiVersion::new(1, 3) {
+            if max_api_version >= ApiVersion::V1_3 {
                 device_create_info = device_create_info.push_next(&mut features_1_3);
             }
         }
@@ -120,7 +122,13 @@ impl Device {
             device_create_info = device_create_info.push_next(p_next_struct);
         }
 
-        Self::new_from_create_info(physical_device, device_create_info, debug_callback_ref)
+        Self::new_from_create_info(
+            physical_device,
+            device_create_info,
+            debug_callback_ref,
+            extension_names,
+            layer_names,
+        )
     }
 
     /// # Safety
@@ -129,6 +137,8 @@ impl Device {
         physical_device: Arc<PhysicalDevice>,
         create_info: vk::DeviceCreateInfo,
         debug_callback_ref: Option<Arc<DebugCallback>>,
+        enabled_extensions: Vec<CString>,
+        enabled_layers: Vec<CString>,
     ) -> Result<Self, DeviceError> {
         let inner = unsafe {
             physical_device.instance().inner().create_device(
@@ -143,6 +153,8 @@ impl Device {
             inner,
             debug_callback_ref,
             physical_device,
+            enabled_extensions,
+            enabled_layers,
         })
     }
 
@@ -218,6 +230,16 @@ impl Device {
     #[inline]
     pub fn debug_callback_ref(&self) -> &Option<Arc<DebugCallback>> {
         &self.debug_callback_ref
+    }
+
+    #[inline]
+    pub fn enabled_extensions(&self) -> &Vec<CString> {
+        &self.enabled_extensions
+    }
+
+    #[inline]
+    pub fn enabled_layers(&self) -> &Vec<CString> {
+        &self.enabled_layers
     }
 }
 

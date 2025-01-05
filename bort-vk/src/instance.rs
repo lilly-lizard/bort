@@ -20,14 +20,17 @@ use std::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ApiVersion {
+    // note: deriving Ord means that the first struct member declared takes precidence, so major is declared first
     pub major: u32,
     pub minor: u32,
 }
 
 impl ApiVersion {
-    pub const fn new(major: u32, minor: u32) -> Self {
-        Self { major, minor }
-    }
+    pub const V1_0: Self = Self { major: 1, minor: 0 };
+    pub const V1_1: Self = Self { major: 1, minor: 1 };
+    pub const V1_2: Self = Self { major: 1, minor: 2 };
+    pub const V1_3: Self = Self { major: 1, minor: 3 };
+    pub const V1_4: Self = Self { major: 1, minor: 4 };
 
     pub const fn as_vk_uint(&self) -> u32 {
         make_api_version(0, self.major, self.minor, 0)
@@ -36,7 +39,7 @@ impl ApiVersion {
 
 pub struct Instance {
     inner: ash::Instance,
-    /// The highest version of vulkan that the application is designed to use.
+    /// The maximum version of vulkan that the application is designed to use.
     /// [More info here](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkApplicationInfo.html)
     max_api_version: ApiVersion,
 
@@ -222,7 +225,7 @@ impl Instance {
         &self,
         physical_device: &PhysicalDevice,
     ) -> Option<vk::PhysicalDeviceVulkan11Features> {
-        if self.max_api_version < ApiVersion::new(1, 1) {
+        if self.max_api_version < ApiVersion::V1_1 {
             return None;
         }
 
@@ -241,7 +244,7 @@ impl Instance {
         &self,
         physical_device: &PhysicalDevice,
     ) -> Option<vk::PhysicalDeviceVulkan12Features> {
-        if self.max_api_version < ApiVersion::new(1, 2) {
+        if self.max_api_version < ApiVersion::V1_2 {
             return None;
         }
 
@@ -260,7 +263,7 @@ impl Instance {
         &self,
         physical_device: &PhysicalDevice,
     ) -> Option<vk::PhysicalDeviceVulkan13Features> {
-        if self.max_api_version < ApiVersion::new(1, 3) {
+        if self.max_api_version < ApiVersion::V1_3 {
             return None;
         }
 

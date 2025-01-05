@@ -48,6 +48,8 @@ pub trait AllocatorAccess: Send + Sync {
 
     /// Helps to find memory type index, given buffer info and allocation info.
     ///
+    /// Requirements for use: Vulkan 1.3 or VK_KHR_maintenance4 device extension
+    ///
     /// It can be useful e.g. to determine value to be used as `AllocatorPoolCreateInfo::memory_type_index`.
     /// It internally creates a temporary, dummy buffer that never has memory bound.
     /// It is just a convenience function, equivalent to calling:
@@ -76,6 +78,8 @@ pub trait AllocatorAccess: Send + Sync {
     }
 
     /// Helps to find memory type index, given image info and allocation info.
+    ///
+    /// Requirements for use: Vulkan 1.3 or VK_KHR_maintenance4 device extension
     ///
     /// It can be useful e.g. to determine value to be used as `AllocatorPoolCreateInfo::memory_type_index`.
     /// It internally creates a temporary, dummy image that never has memory bound.

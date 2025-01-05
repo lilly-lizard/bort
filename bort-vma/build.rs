@@ -7,9 +7,6 @@ use std::env;
 fn main() {
     let mut build = cc::Build::new();
 
-    build.include("vendor/VulkanMemoryAllocator/include");
-    build.include("vendor/Vulkan-Headers/include");
-
     // Disable VMA_ASSERT when rust assertions are disabled
     #[cfg(not(debug_assertions))]
     build.define("NDEBUG", "");
@@ -27,6 +24,8 @@ fn main() {
 
     // feature flags
 
+    #[cfg(feature = "vulkan-1-4")]
+    build.define("VMA_VULKAN_VERSION", "1004000");
     #[cfg(feature = "vulkan-1-3")]
     build.define("VMA_VULKAN_VERSION", "1003000");
     #[cfg(feature = "vulkan-1-2")]
@@ -50,6 +49,9 @@ fn main() {
 
     #[cfg(feature = "debug-dont-exceed-max-memory-allocation-count")]
     build.define("VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT", "1");
+
+    build.include("vendor/VulkanMemoryAllocator/include");
+    build.include("vendor/Vulkan-Headers/include");
 
     // Add the files we build
     build.file("wrapper/vma_lib.cpp");

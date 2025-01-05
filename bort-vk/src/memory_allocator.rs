@@ -1,8 +1,15 @@
 //! See [here](https://asawicki.info/news_1740_vulkan_memory_types_on_pc_and_how_to_use_them) for advice
 //! on vulkan memory types on PC.
 
-use crate::{device::Device, AllocationInfo, AllocatorAccess, DefragmentationContext};
-use ash::{prelude::VkResult, vk};
+use crate::{device::Device, AllocationInfo, AllocatorAccess, ApiVersion, DefragmentationContext};
+use ash::{
+    khr::{dedicated_allocation, maintenance4},
+    prelude::VkResult,
+    vk::{
+        self, PFN_vkGetDeviceBufferMemoryRequirements, PFN_vkGetDeviceImageMemoryRequirements,
+        KHR_MAINTENANCE4_NAME,
+    },
+};
 use bort_vma::{ffi, AllocatorCreateInfo};
 use std::{mem, sync::Arc};
 
@@ -21,6 +28,7 @@ pub struct MemoryAllocator {
 
 /// Constructor a new `Allocator` using the provided options.
 pub(crate) fn new_vma_allocator(
+    device: &Device,
     mut create_info: AllocatorCreateInfo,
 ) -> VkResult<ffi::VmaAllocator> {
     unsafe extern "system" fn get_instance_proc_addr_stub(
@@ -38,57 +46,75 @@ pub(crate) fn new_vma_allocator(
     }
 
     #[cfg(feature = "loaded")]
-    let routed_functions = ffi::VmaVulkanFunctions {
-        vkGetInstanceProcAddr: get_instance_proc_addr_stub,
-        vkGetDeviceProcAddr: get_get_device_proc_stub,
-        vkGetPhysicalDeviceProperties: create_info
-            .instance
-            .fp_v1_0()
-            .get_physical_device_properties,
-        vkGetPhysicalDeviceMemoryProperties: create_info
-            .instance
-            .fp_v1_0()
-            .get_physical_device_memory_properties,
-        vkAllocateMemory: create_info.device.fp_v1_0().allocate_memory,
-        vkFreeMemory: create_info.device.fp_v1_0().free_memory,
-        vkMapMemory: create_info.device.fp_v1_0().map_memory,
-        vkUnmapMemory: create_info.device.fp_v1_0().unmap_memory,
-        vkFlushMappedMemoryRanges: create_info.device.fp_v1_0().flush_mapped_memory_ranges,
-        vkInvalidateMappedMemoryRanges: create_info
-            .device
-            .fp_v1_0()
-            .invalidate_mapped_memory_ranges,
-        vkBindBufferMemory: create_info.device.fp_v1_0().bind_buffer_memory,
-        vkBindImageMemory: create_info.device.fp_v1_0().bind_image_memory,
-        vkGetBufferMemoryRequirements: create_info.device.fp_v1_0().get_buffer_memory_requirements,
-        vkGetImageMemoryRequirements: create_info.device.fp_v1_0().get_image_memory_requirements,
-        vkCreateBuffer: create_info.device.fp_v1_0().create_buffer,
-        vkDestroyBuffer: create_info.device.fp_v1_0().destroy_buffer,
-        vkCreateImage: create_info.device.fp_v1_0().create_image,
-        vkDestroyImage: create_info.device.fp_v1_0().destroy_image,
-        vkCmdCopyBuffer: create_info.device.fp_v1_0().cmd_copy_buffer,
-        vkGetBufferMemoryRequirements2KHR: create_info
-            .device
-            .fp_v1_1()
-            .get_buffer_memory_requirements2,
-        vkGetImageMemoryRequirements2KHR: create_info
-            .device
-            .fp_v1_1()
-            .get_image_memory_requirements2,
-        vkBindBufferMemory2KHR: create_info.device.fp_v1_1().bind_buffer_memory2,
-        vkBindImageMemory2KHR: create_info.device.fp_v1_1().bind_image_memory2,
-        vkGetPhysicalDeviceMemoryProperties2KHR: create_info
-            .instance
-            .fp_v1_1()
-            .get_physical_device_memory_properties2,
-        vkGetDeviceBufferMemoryRequirements: create_info
-            .device
-            .fp_v1_3()
-            .get_device_buffer_memory_requirements,
-        vkGetDeviceImageMemoryRequirements: create_info
-            .device
-            .fp_v1_3()
-            .get_device_image_memory_requirements,
+    let routed_functions = {
+        let (get_device_buffer_memory_requirements, get_device_image_memory_requirements) =
+            get_fns_maintenance4(device, &create_info);
+
+        let (get_buffer_memory_requirements2, get_image_memory_requirements2) =
+            if device.instance().max_api_version() < ApiVersion::V1_3
+                && device
+                    .enabled_extensions()
+                    .contains(&KHR_MAINTENANCE4_NAME.to_owned())
+            {
+                let extension_device =
+                    dedicated_allocation::Device::new(device.instance().inner(), device.inner());
+                (
+                    extension_device.fp().get_buffer_memory_requirements2_khr,
+                    extension_device.fp().get_image_memory_requirements2_khr,
+                )
+            } else {
+                (
+                    create_info.device.fp_v1_1().get_buffer_memory_requirements2,
+                    create_info.device.fp_v1_1().get_image_memory_requirements2,
+                )
+            };
+
+        ffi::VmaVulkanFunctions {
+            vkGetInstanceProcAddr: get_instance_proc_addr_stub,
+            vkGetDeviceProcAddr: get_get_device_proc_stub,
+            vkGetPhysicalDeviceProperties: create_info
+                .instance
+                .fp_v1_0()
+                .get_physical_device_properties,
+            vkGetPhysicalDeviceMemoryProperties: create_info
+                .instance
+                .fp_v1_0()
+                .get_physical_device_memory_properties,
+            vkAllocateMemory: create_info.device.fp_v1_0().allocate_memory,
+            vkFreeMemory: create_info.device.fp_v1_0().free_memory,
+            vkMapMemory: create_info.device.fp_v1_0().map_memory,
+            vkUnmapMemory: create_info.device.fp_v1_0().unmap_memory,
+            vkFlushMappedMemoryRanges: create_info.device.fp_v1_0().flush_mapped_memory_ranges,
+            vkInvalidateMappedMemoryRanges: create_info
+                .device
+                .fp_v1_0()
+                .invalidate_mapped_memory_ranges,
+            vkBindBufferMemory: create_info.device.fp_v1_0().bind_buffer_memory,
+            vkBindImageMemory: create_info.device.fp_v1_0().bind_image_memory,
+            vkGetBufferMemoryRequirements: create_info
+                .device
+                .fp_v1_0()
+                .get_buffer_memory_requirements,
+            vkGetImageMemoryRequirements: create_info
+                .device
+                .fp_v1_0()
+                .get_image_memory_requirements,
+            vkCreateBuffer: create_info.device.fp_v1_0().create_buffer,
+            vkDestroyBuffer: create_info.device.fp_v1_0().destroy_buffer,
+            vkCreateImage: create_info.device.fp_v1_0().create_image,
+            vkDestroyImage: create_info.device.fp_v1_0().destroy_image,
+            vkCmdCopyBuffer: create_info.device.fp_v1_0().cmd_copy_buffer,
+            vkGetBufferMemoryRequirements2KHR: get_buffer_memory_requirements2,
+            vkGetImageMemoryRequirements2KHR: get_image_memory_requirements2,
+            vkBindBufferMemory2KHR: create_info.device.fp_v1_1().bind_buffer_memory2,
+            vkBindImageMemory2KHR: create_info.device.fp_v1_1().bind_image_memory2,
+            vkGetPhysicalDeviceMemoryProperties2KHR: create_info
+                .instance
+                .fp_v1_1()
+                .get_physical_device_memory_properties2,
+            vkGetDeviceBufferMemoryRequirements: get_device_buffer_memory_requirements,
+            vkGetDeviceImageMemoryRequirements: get_device_image_memory_requirements,
+        }
     };
     #[cfg(feature = "loaded")]
     {
@@ -99,6 +125,42 @@ pub(crate) fn new_vma_allocator(
         ffi::vmaCreateAllocator(&create_info.inner as *const _, &mut handle).result()?;
 
         Ok(handle)
+    }
+}
+
+fn get_fns_maintenance4(
+    device: &Device,
+    create_info: &AllocatorCreateInfo<'_>,
+) -> (
+    PFN_vkGetDeviceBufferMemoryRequirements,
+    PFN_vkGetDeviceImageMemoryRequirements,
+) {
+    // if using vulkan version less than 1.3, need to pull these functions from the VK_KHR_maintenance4 extension
+    if device.instance().max_api_version() < ApiVersion::V1_3
+        && device
+            .enabled_extensions()
+            .contains(&KHR_MAINTENANCE4_NAME.to_owned())
+    {
+        let extension_device = maintenance4::Device::new(device.instance().inner(), device.inner());
+        (
+            extension_device
+                .fp()
+                .get_device_buffer_memory_requirements_khr,
+            extension_device
+                .fp()
+                .get_device_image_memory_requirements_khr,
+        )
+    } else {
+        (
+            create_info
+                .device
+                .fp_v1_3()
+                .get_device_buffer_memory_requirements,
+            create_info
+                .device
+                .fp_v1_3()
+                .get_device_image_memory_requirements,
+        )
     }
 }
 
@@ -121,7 +183,7 @@ impl MemoryAllocator {
         device: Arc<Device>,
         create_info: AllocatorCreateInfo,
     ) -> VkResult<Self> {
-        let handle = new_vma_allocator(create_info)?;
+        let handle = new_vma_allocator(&device, create_info)?;
         Ok(Self { handle, device })
     }
 
