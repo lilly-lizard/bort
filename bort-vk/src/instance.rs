@@ -383,7 +383,5 @@ impl error::Error for InstanceError {
 
 #[test]
 fn api_version_ordering() {
-    let ver_1_1 = ApiVersion::new(1, 1);
-    let ver_1_2 = ApiVersion::new(1, 2);
-    assert!(ver_1_1 < ver_1_2);
+    assert!(ApiVersion::V1_1 < ApiVersion::V1_2);
 }

@@ -2,12 +2,10 @@ extern crate ash;
 extern crate bort_vk;
 extern crate bort_vma;
 
-use ash::{
-    ext::debug_utils,
-    vk::{self, EXT_DEBUG_UTILS_NAME},
-};
+use ash::vk::{self, EXT_DEBUG_UTILS_NAME};
 use bort_vk::{
-    ApiVersion, DebugCallback, DebugCallbackProperties, Device, Instance, PhysicalDevice,
+    ApiVersion, DebugCallback, DebugCallbackProperties, Device, Instance, MemoryAllocator,
+    PhysicalDevice,
 };
 use bort_vma::ffi;
 use std::{
@@ -126,10 +124,8 @@ impl TestHarness {
         }
     }
 
-    pub fn create_allocator(&self) -> ffi::VmaAllocator {
-        let create_info =
-            bort_vma::AllocatorCreateInfo::new(&self.instance, &self.device, self.physical_device);
-        unsafe { new_vma_allocator(create_info).unwrap() }
+    pub fn create_allocator(&self) -> MemoryAllocator {
+        MemoryAllocator::new(self.device.clone()).unwrap()
     }
 }
 
