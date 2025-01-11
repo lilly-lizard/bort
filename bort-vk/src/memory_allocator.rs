@@ -3,11 +3,14 @@
 
 use crate::{device::Device, AllocationInfo, AllocatorAccess, ApiVersion, DefragmentationContext};
 use ash::{
-    khr::{dedicated_allocation, maintenance4},
+    khr::{bind_memory2, get_memory_requirements2, get_physical_device_properties2, maintenance4},
     prelude::VkResult,
     vk::{
-        self, PFN_vkGetDeviceBufferMemoryRequirements, PFN_vkGetDeviceImageMemoryRequirements,
-        KHR_MAINTENANCE4_NAME,
+        self, PFN_vkBindBufferMemory2, PFN_vkBindImageMemory2, PFN_vkGetBufferMemoryRequirements2,
+        PFN_vkGetDeviceBufferMemoryRequirements, PFN_vkGetDeviceImageMemoryRequirements,
+        PFN_vkGetImageMemoryRequirements2, PFN_vkGetPhysicalDeviceMemoryProperties2,
+        KHR_BIND_MEMORY2_NAME, KHR_GET_MEMORY_REQUIREMENTS2_NAME,
+        KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_NAME, KHR_MAINTENANCE4_NAME,
     },
 };
 use bort_vma::{ffi, AllocatorCreateInfo};
@@ -47,27 +50,13 @@ pub(crate) fn new_vma_allocator(
 
     #[cfg(feature = "loaded")]
     let routed_functions = {
+        let (get_buffer_memory_requirements2, get_image_memory_requirements2) =
+            get_fns_get_memory_requirements2(device, &create_info);
+        let (bind_buffer_memory2, bind_image_memory2) = get_fns_bind_memory2(device, &create_info);
+        let get_physical_device_memory_properties2 =
+            get_fns_get_physical_device_properties2(device, &create_info);
         let (get_device_buffer_memory_requirements, get_device_image_memory_requirements) =
             get_fns_maintenance4(device, &create_info);
-
-        let (get_buffer_memory_requirements2, get_image_memory_requirements2) =
-            if device.instance().max_api_version() < ApiVersion::V1_3
-                && device
-                    .enabled_extensions()
-                    .contains(&KHR_MAINTENANCE4_NAME.to_owned())
-            {
-                let extension_device =
-                    dedicated_allocation::Device::new(device.instance().inner(), device.inner());
-                (
-                    extension_device.fp().get_buffer_memory_requirements2_khr,
-                    extension_device.fp().get_image_memory_requirements2_khr,
-                )
-            } else {
-                (
-                    create_info.device.fp_v1_1().get_buffer_memory_requirements2,
-                    create_info.device.fp_v1_1().get_image_memory_requirements2,
-                )
-            };
 
         ffi::VmaVulkanFunctions {
             vkGetInstanceProcAddr: get_instance_proc_addr_stub,
@@ -106,12 +95,9 @@ pub(crate) fn new_vma_allocator(
             vkCmdCopyBuffer: create_info.device.fp_v1_0().cmd_copy_buffer,
             vkGetBufferMemoryRequirements2KHR: get_buffer_memory_requirements2,
             vkGetImageMemoryRequirements2KHR: get_image_memory_requirements2,
-            vkBindBufferMemory2KHR: create_info.device.fp_v1_1().bind_buffer_memory2,
-            vkBindImageMemory2KHR: create_info.device.fp_v1_1().bind_image_memory2,
-            vkGetPhysicalDeviceMemoryProperties2KHR: create_info
-                .instance
-                .fp_v1_1()
-                .get_physical_device_memory_properties2,
+            vkBindBufferMemory2KHR: bind_buffer_memory2,
+            vkBindImageMemory2KHR: bind_image_memory2,
+            vkGetPhysicalDeviceMemoryProperties2KHR: get_physical_device_memory_properties2,
             vkGetDeviceBufferMemoryRequirements: get_device_buffer_memory_requirements,
             vkGetDeviceImageMemoryRequirements: get_device_image_memory_requirements,
         }
@@ -128,6 +114,78 @@ pub(crate) fn new_vma_allocator(
     }
 }
 
+fn get_fns_get_memory_requirements2(
+    device: &Device,
+    create_info: &AllocatorCreateInfo<'_>,
+) -> (
+    PFN_vkGetBufferMemoryRequirements2,
+    PFN_vkGetImageMemoryRequirements2,
+) {
+    if device.instance().max_api_version() < ApiVersion::V1_1
+        && device
+            .enabled_extensions()
+            .contains(&KHR_GET_MEMORY_REQUIREMENTS2_NAME.to_owned())
+    {
+        let extension_device =
+            get_memory_requirements2::Device::new(device.instance().inner(), device.inner());
+        (
+            extension_device.fp().get_buffer_memory_requirements2_khr,
+            extension_device.fp().get_image_memory_requirements2_khr,
+        )
+    } else {
+        (
+            create_info.device.fp_v1_1().get_buffer_memory_requirements2,
+            create_info.device.fp_v1_1().get_image_memory_requirements2,
+        )
+    }
+}
+
+fn get_fns_bind_memory2(
+    device: &Device,
+    create_info: &AllocatorCreateInfo<'_>,
+) -> (PFN_vkBindBufferMemory2, PFN_vkBindImageMemory2) {
+    if device.instance().max_api_version() < ApiVersion::V1_1
+        && device
+            .enabled_extensions()
+            .contains(&KHR_BIND_MEMORY2_NAME.to_owned())
+    {
+        let extension_device = bind_memory2::Device::new(device.instance().inner(), device.inner());
+        (
+            extension_device.fp().bind_buffer_memory2_khr,
+            extension_device.fp().bind_image_memory2_khr,
+        )
+    } else {
+        (
+            create_info.device.fp_v1_1().bind_buffer_memory2,
+            create_info.device.fp_v1_1().bind_image_memory2,
+        )
+    }
+}
+
+fn get_fns_get_physical_device_properties2(
+    device: &Device,
+    create_info: &AllocatorCreateInfo<'_>,
+) -> PFN_vkGetPhysicalDeviceMemoryProperties2 {
+    if device.instance().max_api_version() < ApiVersion::V1_1
+        && device
+            .enabled_extensions()
+            .contains(&KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_NAME.to_owned())
+    {
+        let extension_device = get_physical_device_properties2::Instance::new(
+            device.instance().entry(),
+            device.instance().inner(),
+        );
+        extension_device
+            .fp()
+            .get_physical_device_memory_properties2_khr
+    } else {
+        create_info
+            .instance
+            .fp_v1_1()
+            .get_physical_device_memory_properties2
+    }
+}
+
 fn get_fns_maintenance4(
     device: &Device,
     create_info: &AllocatorCreateInfo<'_>,
@@ -135,7 +193,6 @@ fn get_fns_maintenance4(
     PFN_vkGetDeviceBufferMemoryRequirements,
     PFN_vkGetDeviceImageMemoryRequirements,
 ) {
-    // if using vulkan version less than 1.3, need to pull these functions from the VK_KHR_maintenance4 extension
     if device.instance().max_api_version() < ApiVersion::V1_3
         && device
             .enabled_extensions()
