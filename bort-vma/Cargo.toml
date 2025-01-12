@@ -1,3 +1,13 @@
+# forked from https://github.com/gwihlidal/vk-mem-rs
+
+# requirements:
+# vma requires the following extensions to be enabled when using vulkan 1.0:
+# - KHR_GET_MEMORY_REQUIREMENTS2
+# - KHR_BIND_MEMORY2
+# - KHR_GET_PHYSICAL_DEVICE_PROPERTIES2
+# vma requires the following extensions to be enabled when using vulkan < 3.0:
+# - KHR_GET_MEMORY_REQUIREMENTS2
+
 [package]
 name = "bort-vma"
 version = "0.3.5"
@@ -12,16 +22,16 @@ categories = ["api-bindings", "rendering", "rendering::engine", "rendering::grap
 license = "MIT/Apache-2.0"
 build = "build.rs"
 include = [
-    "src/*.rs",
-    "gen/bindings.rs",
-    "build.rs",
-    "Cargo.toml",
-    "vendor/VulkanMemoryAllocator/include/vk_mem_alloc.h",
-    "vendor/Vulkan-Headers/include/vk_video/*",
-    "vendor/Vulkan-Headers/include/vulkan/vulkan_core.h",
-    "vendor/Vulkan-Headers/include/vulkan/vulkan.h",
-    "vendor/Vulkan-Headers/include/vulkan/vk_platform.h",
-    "wrapper/vma_lib.cpp",
+	"src/*.rs",
+	"gen/bindings.rs",
+	"build.rs",
+	"Cargo.toml",
+	"vendor/VulkanMemoryAllocator/include/vk_mem_alloc.h",
+	"vendor/Vulkan-Headers/include/vk_video/*",
+	"vendor/Vulkan-Headers/include/vulkan/vulkan_core.h",
+	"vendor/Vulkan-Headers/include/vulkan/vulkan.h",
+	"vendor/Vulkan-Headers/include/vulkan/vk_platform.h",
+	"wrapper/vma_lib.cpp",
 ]
 edition = "2021"
 

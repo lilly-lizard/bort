@@ -42,6 +42,8 @@ pub struct Instance {
     /// The maximum version of vulkan that the application is designed to use.
     /// [More info here](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkApplicationInfo.html)
     max_api_version: ApiVersion,
+    enabled_extensions: Vec<CString>,
+    enabled_layers: Vec<CString>,
 
     // dependencies
     entry: Arc<Entry>,
@@ -56,14 +58,16 @@ impl Instance {
         max_api_version: ApiVersion,
         display_handle: RawDisplayHandle,
         layer_names: Vec<CString>,
-        mut extension_names: Vec<CString>,
+        other_extension_names: Vec<CString>,
     ) -> Result<Self, InstanceError> {
         let display_extension_name_cstrs = Self::required_surface_extensions(display_handle)?;
-        let display_extension_names: Vec<CString> = display_extension_name_cstrs
+        let mut display_extension_names: Vec<CString> = display_extension_name_cstrs
             .iter()
             .map(|&cstr| cstr.to_owned())
             .collect();
-        extension_names.extend_from_slice(&display_extension_names);
+
+        let mut extension_names = other_extension_names;
+        extension_names.append(&mut display_extension_names);
 
         let unsupported_display_extensions =
             Self::any_unsupported_extensions(&entry, None, extension_names.clone())
@@ -105,6 +109,8 @@ impl Instance {
             entry,
             inner: instance_inner,
             max_api_version,
+            enabled_extensions: extension_names,
+            enabled_layers: layer_names,
         })
     }
 
@@ -113,6 +119,8 @@ impl Instance {
     pub unsafe fn new_from_create_info(
         entry: Arc<Entry>,
         create_info: vk::InstanceCreateInfo,
+        enabled_extensions: Vec<CString>,
+        enabled_layers: Vec<CString>,
     ) -> Result<Self, InstanceError> {
         let instance_inner =
             unsafe { entry.create_instance(&create_info, ALLOCATION_CALLBACK_NONE) }
@@ -132,6 +140,8 @@ impl Instance {
             inner: instance_inner,
             max_api_version,
             entry,
+            enabled_extensions,
+            enabled_layers,
         })
     }
 
@@ -329,6 +339,16 @@ impl Instance {
     #[inline]
     pub fn entry(&self) -> &Arc<Entry> {
         &self.entry
+    }
+
+    #[inline]
+    pub fn enabled_extensions(&self) -> &Vec<CString> {
+        &self.enabled_extensions
+    }
+
+    #[inline]
+    pub fn enabled_layers(&self) -> &Vec<CString> {
+        &self.enabled_layers
     }
 }
 
