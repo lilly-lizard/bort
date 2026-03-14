@@ -14,59 +14,59 @@ use std::sync::Arc;
 pub struct Image {
     handle: vk::Image,
     properties: ImageProperties,
-    memory_allocation: MemoryAllocation,
+    allocation: MemoryAllocation,
 }
 
 impl Image {
+    /// `allocator` can be a reference to `MemoryAllocator` or `MemoryPool`
     pub fn new(
-        alloc_access: Arc<dyn AllocatorAccess>,
+        allocator: Arc<dyn AllocatorAccess>,
         properties: ImageProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let (handle, allocation_handle) = unsafe {
-            alloc_access
-                .memory_allocator()
+            allocator
+                .allocator()
                 .vma_create_image(&properties.create_info(), &allocation_info)
         }?;
 
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(allocation_handle, alloc_access);
+        let allocation = MemoryAllocation::from_vma_allocation(allocation_handle, allocator);
 
         Ok(Self {
             handle,
             properties,
-            memory_allocation,
+            allocation,
         })
     }
 
+    /// `allocator` can be a reference to `MemoryAllocator` or `MemoryPool`
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        alloc_access: Arc<dyn AllocatorAccess>,
+        allocator: Arc<dyn AllocatorAccess>,
         image_create_info: vk::ImageCreateInfo,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let properties = ImageProperties::from_create_info(&image_create_info);
 
         let (handle, allocation_handle) = unsafe {
-            alloc_access
-                .memory_allocator()
+            allocator
+                .allocator()
                 .vma_create_image(&image_create_info, &allocation_info)
         }?;
 
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(allocation_handle, alloc_access);
+        let allocation = MemoryAllocation::from_vma_allocation(allocation_handle, allocator);
 
         Ok(Self {
             handle,
             properties,
-            memory_allocation,
+            allocation,
         })
     }
 
     /// Create a (preferably) lazily-allocated transient attachment image.
     pub fn new_tranient(
-        memory_allocator: Arc<MemoryAllocator>,
+        allocator: Arc<MemoryAllocator>,
         dimensions: ImageDimensions,
         format: vk::Format,
         additional_usage: vk::ImageUsageFlags,
@@ -74,7 +74,7 @@ impl Image {
         let (properties, allocation_info) =
             transient_image_info(dimensions, format, additional_usage);
 
-        Self::new(memory_allocator, properties, allocation_info)
+        Self::new(allocator, properties, allocation_info)
     }
 
     // Getters
@@ -85,13 +85,13 @@ impl Image {
     }
 
     #[inline]
-    pub fn allocator_access(&self) -> &Arc<dyn AllocatorAccess> {
-        self.memory_allocation.allocator_access()
+    pub fn allocator(&self) -> &Arc<dyn AllocatorAccess> {
+        self.allocation.allocator()
     }
 
     #[inline]
-    pub fn memory_allocation(&self) -> &MemoryAllocation {
-        &self.memory_allocation
+    pub fn allocation(&self) -> &MemoryAllocation {
+        &self.allocation
     }
 }
 
@@ -108,15 +108,15 @@ impl ImageAccess for Image {
 }
 
 impl AllocationAccess for Image {
-    fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation {
-        &mut self.memory_allocation
+    fn allocation_mut(&mut self) -> &mut MemoryAllocation {
+        &mut self.allocation
     }
 }
 
 impl DeviceOwned for Image {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        self.memory_allocation.device()
+        self.allocation.device()
     }
 
     #[inline]
@@ -128,10 +128,10 @@ impl DeviceOwned for Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            self.allocator_access()
+            self.allocator()
                 .clone()
-                .memory_allocator()
-                .vma_destroy_image(self.handle, self.memory_allocation.handle());
+                .allocator()
+                .vma_destroy_image(self.handle, self.allocation.handle());
         }
     }
 }

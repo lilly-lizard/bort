@@ -4,10 +4,9 @@ extern crate bort_vma;
 
 use ash::vk::{self, EXT_DEBUG_UTILS_NAME};
 use bort_vk::{
-    ApiVersion, DebugCallback, DebugCallbackProperties, Device, Instance, MemoryAllocator,
-    PhysicalDevice,
+    ApiVersion, Buffer, BufferProperties, DebugCallback, DebugCallbackProperties, Device, Instance,
+    MemoryAllocator, PhysicalDevice,
 };
-use bort_vma::ffi;
 use std::{
     ffi::{CStr, CString},
     os::raw::c_void,
@@ -143,26 +142,20 @@ fn create_allocator() {
 #[test]
 fn create_gpu_buffer() {
     let harness = TestHarness::new();
-    let allocator = harness.create_allocator();
+    let allocator = Arc::new(harness.create_allocator());
+
     let allocation_info = bort_vma::AllocationCreateInfo {
         usage: bort_vma::MemoryUsage::Auto,
         ..Default::default()
     };
+    let buffer_properties = BufferProperties::new_default(
+        16 * 1024,
+        ash::vk::BufferUsageFlags::VERTEX_BUFFER | ash::vk::BufferUsageFlags::TRANSFER_DST,
+    );
+    let buffer = Buffer::new(allocator.clone(), buffer_properties, allocation_info).unwrap();
 
-    unsafe {
-        let (buffer, mut allocation) = allocator
-            .vma_create_buffer(
-                &ash::vk::BufferCreateInfo::default().size(16 * 1024).usage(
-                    ash::vk::BufferUsageFlags::VERTEX_BUFFER
-                        | ash::vk::BufferUsageFlags::TRANSFER_DST,
-                ),
-                &allocation_info,
-            )
-            .unwrap();
-        let allocation_info = allocator.get_allocation_info(&allocation);
-        assert_eq!(allocation_info.mapped_data, std::ptr::null_mut());
-        allocator.destroy_buffer(buffer, &mut allocation);
-    }
+    let allocation_info = allocator.get_allocation_info(buffer.allocation());
+    assert_eq!(allocation_info.mapped_data, std::ptr::null_mut());
 }
 
 #[test]

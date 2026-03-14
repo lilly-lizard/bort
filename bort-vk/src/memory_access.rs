@@ -8,9 +8,10 @@ use std::sync::Arc;
 // ~~ Allocator Access ~~
 
 /// Unifies different types of vma allocators
+/// Implimented by `MemoryAllocator` and `MemoryPool`
 pub trait AllocatorAccess: Send + Sync {
     fn device(&self) -> &Arc<Device>;
-    fn memory_allocator(&self) -> &MemoryAllocator;
+    fn allocator(&self) -> &MemoryAllocator;
     fn memory_pool_handle(&self) -> ffi::VmaPool;
 
     /// Helps to find memory type index, given memory type bits and allocation info.
@@ -36,7 +37,7 @@ pub trait AllocatorAccess: Send + Sync {
         let mut allocation_info: ffi::VmaAllocationCreateInfo = allocation_info.into();
         allocation_info.pool = self.memory_pool_handle();
         ffi::vmaFindMemoryTypeIndex(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             memory_type_bits,
             &allocation_info,
             &mut memory_type_index,
@@ -67,7 +68,7 @@ pub trait AllocatorAccess: Send + Sync {
         allocation_info.pool = self.memory_pool_handle();
         let mut memory_type_index: u32 = 0;
         ffi::vmaFindMemoryTypeIndexForBufferInfo(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             buffer_info,
             &allocation_info,
             &mut memory_type_index,
@@ -98,7 +99,7 @@ pub trait AllocatorAccess: Send + Sync {
         allocation_info.pool = self.memory_pool_handle();
         let mut memory_type_index: u32 = 0;
         ffi::vmaFindMemoryTypeIndexForImageInfo(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             &image_info,
             &allocation_info,
             &mut memory_type_index,
@@ -123,7 +124,7 @@ pub trait AllocatorAccess: Send + Sync {
         create_info.pool = self.memory_pool_handle();
         let mut allocation_handle: ffi::VmaAllocation = std::mem::zeroed();
         ffi::vmaAllocateMemory(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             memory_requirements,
             &create_info,
             &mut allocation_handle,
@@ -154,7 +155,7 @@ pub trait AllocatorAccess: Send + Sync {
         let mut allocation_handles: Vec<ffi::VmaAllocation> =
             vec![std::mem::zeroed(); allocation_count];
         ffi::vmaAllocateMemoryPages(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             memory_requirements,
             &create_info,
             allocation_count,
@@ -179,7 +180,7 @@ pub trait AllocatorAccess: Send + Sync {
         let mut allocation_handle: ffi::VmaAllocation = std::mem::zeroed();
         let mut allocation_info: ffi::VmaAllocationInfo = std::mem::zeroed();
         ffi::vmaAllocateMemoryForBuffer(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             buffer,
             &create_info,
             &mut allocation_handle,
@@ -202,7 +203,7 @@ pub trait AllocatorAccess: Send + Sync {
         create_info.pool = self.memory_pool_handle();
         let mut allocation_handle: ffi::VmaAllocation = std::mem::zeroed();
         ffi::vmaAllocateMemoryForImage(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             image,
             &create_info,
             &mut allocation_handle,
@@ -236,7 +237,7 @@ pub trait AllocatorAccess: Send + Sync {
         let mut buffer = vk::Buffer::null();
         let mut allocation_handle: ffi::VmaAllocation = std::mem::zeroed();
         ffi::vmaCreateBuffer(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             buffer_info,
             &create_info,
             &mut buffer,
@@ -264,7 +265,7 @@ pub trait AllocatorAccess: Send + Sync {
         let mut buffer = vk::Buffer::null();
         let mut allocation_handle: ffi::VmaAllocation = std::mem::zeroed();
         ffi::vmaCreateBufferWithAlignment(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             buffer_info,
             &create_info,
             min_alignment,
@@ -304,7 +305,7 @@ pub trait AllocatorAccess: Send + Sync {
         let mut image = vk::Image::null();
         let mut allocation_handle: ffi::VmaAllocation = std::mem::zeroed();
         ffi::vmaCreateImage(
-            self.memory_allocator().handle(),
+            self.allocator().handle(),
             image_info,
             &create_info,
             &mut image,
@@ -321,7 +322,7 @@ pub trait AllocatorAccess: Send + Sync {
 
 /// Allows any struct containing a memory allocation to "inherit" the read/write functions
 pub trait AllocationAccess {
-    fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation;
+    fn allocation_mut(&mut self) -> &mut MemoryAllocation;
 
     #[cfg(feature = "bytemuck")]
     fn write_into_bytes<T>(
@@ -332,7 +333,7 @@ pub trait AllocationAccess {
     where
         T: NoUninit,
     {
-        self.memory_allocation_mut()
+        self.allocation_mut()
             .write_into_bytes(write_data, allocation_offset)
     }
 
@@ -345,7 +346,7 @@ pub trait AllocationAccess {
     where
         T: NoUninit,
     {
-        self.memory_allocation_mut()
+        self.allocation_mut()
             .write_slice(write_data, allocation_offset)
     }
 
@@ -354,7 +355,7 @@ pub trait AllocationAccess {
         write_bytes: &[u8],
         allocation_offset: usize,
     ) -> Result<(), MemoryError> {
-        self.memory_allocation_mut()
+        self.allocation_mut()
             .write_bytes(write_bytes, allocation_offset)
     }
 
@@ -363,7 +364,7 @@ pub trait AllocationAccess {
         write_data: T,
         allocation_offset: usize,
     ) -> Result<(), MemoryError> {
-        self.memory_allocation_mut()
+        self.allocation_mut()
             .write_struct(write_data, allocation_offset)
     }
 
@@ -376,7 +377,7 @@ pub trait AllocationAccess {
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
     {
-        self.memory_allocation_mut()
+        self.allocation_mut()
             .write_iter(write_data, allocation_offset)
     }
 
@@ -389,11 +390,11 @@ pub trait AllocationAccess {
     where
         T: Pod,
     {
-        self.memory_allocation_mut()
+        self.allocation_mut()
             .read_vec(element_count, allocation_offset)
     }
 
     fn read_struct<T>(&mut self, allocation_offset: usize) -> Result<T, MemoryError> {
-        self.memory_allocation_mut().read_struct(allocation_offset)
+        self.allocation_mut().read_struct(allocation_offset)
     }
 }
