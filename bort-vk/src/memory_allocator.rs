@@ -14,7 +14,7 @@ use ash::{
     },
 };
 use bort_vma::{ffi, AllocatorCreateInfo};
-use log::warn;
+use log::error;
 use std::{mem, sync::Arc};
 
 /// so it's easy to find all allocation callback args, just in case I want to use them in the future.
@@ -47,10 +47,10 @@ pub(crate) fn new_vma_allocator(
                 .enabled_extensions()
                 .contains(&KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_NAME.to_owned()))
     {
-        warn!("vma requires the following extensions to be enabled when using vulkan 1.0:");
-        warn!("\tKHR_GET_MEMORY_REQUIREMENTS2");
-        warn!("\tKHR_BIND_MEMORY2");
-        warn!("\tKHR_GET_PHYSICAL_DEVICE_PROPERTIES2");
+        error!("vma requires the following extensions to be enabled when using vulkan 1.0:");
+        error!("\tKHR_GET_MEMORY_REQUIREMENTS2");
+        error!("\tKHR_BIND_MEMORY2");
+        error!("\tKHR_GET_PHYSICAL_DEVICE_PROPERTIES2");
     }
 
     if device.instance().max_api_version() < ApiVersion::V1_3
@@ -58,8 +58,8 @@ pub(crate) fn new_vma_allocator(
             .enabled_extensions()
             .contains(&KHR_MAINTENANCE4_NAME.to_owned())
     {
-        warn!("vma requires the following extensions to be enabled when using vulkan < 3.0:");
-        warn!("\tKHR_GET_MEMORY_REQUIREMENTS2");
+        error!("vma requires the following extensions to be enabled when using vulkan < 3.0:");
+        error!("\tKHR_GET_MEMORY_REQUIREMENTS2");
     }
 
     unsafe extern "system" fn get_instance_proc_addr_stub(

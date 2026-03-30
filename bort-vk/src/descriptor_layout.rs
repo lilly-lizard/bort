@@ -112,7 +112,7 @@ impl DescriptorSetLayoutProperties {
         &'a self,
         vk_layout_bindings_storage: &'a mut Vec<vk::DescriptorSetLayoutBinding<'a>>,
         vk_immutable_samplers_storage: &'a mut Vec<Vec<vk::Sampler>>,
-    ) -> vk::DescriptorSetLayoutCreateInfo {
+    ) -> vk::DescriptorSetLayoutCreateInfo<'a> {
         *vk_layout_bindings_storage = self.vk_layout_bindings(vk_immutable_samplers_storage);
         vk::DescriptorSetLayoutCreateInfo::default()
             .flags(self.flags)

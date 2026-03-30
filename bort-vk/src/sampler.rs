@@ -121,10 +121,10 @@ impl Default for SamplerProperties {
 }
 
 impl SamplerProperties {
-    pub fn write_create_info<'a>(
+    pub fn write_create_info<'a, 'b>(
         &'a self,
-        create_info: vk::SamplerCreateInfo<'a>,
-    ) -> vk::SamplerCreateInfo {
+        create_info: vk::SamplerCreateInfo<'b>,
+    ) -> vk::SamplerCreateInfo<'b> {
         create_info
             .flags(self.flags)
             .mag_filter(self.mag_filter)

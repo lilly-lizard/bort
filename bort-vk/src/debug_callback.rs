@@ -101,10 +101,10 @@ impl Default for DebugCallbackProperties {
 }
 
 impl DebugCallbackProperties {
-    pub fn write_create_info<'a>(
+    pub fn write_create_info<'a, 'b>(
         &'a self,
-        create_info: vk::DebugUtilsMessengerCreateInfoEXT<'a>,
-    ) -> vk::DebugUtilsMessengerCreateInfoEXT {
+        create_info: vk::DebugUtilsMessengerCreateInfoEXT<'b>,
+    ) -> vk::DebugUtilsMessengerCreateInfoEXT<'b> {
         create_info
             .message_severity(self.message_severity)
             .message_type(self.message_type)

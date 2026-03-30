@@ -140,11 +140,11 @@ impl ImageViewProperties {
         }
     }
 
-    pub fn write_create_info<'a>(
+    pub fn write_create_info<'a, 'b>(
         &'a self,
-        create_info: vk::ImageViewCreateInfo<'a>,
+        create_info: vk::ImageViewCreateInfo<'b>,
         image_handle: vk::Image,
-    ) -> vk::ImageViewCreateInfo {
+    ) -> vk::ImageViewCreateInfo<'b> {
         create_info
             .flags(self.flags)
             .image(image_handle)

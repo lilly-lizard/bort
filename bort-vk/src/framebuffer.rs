@@ -138,7 +138,7 @@ impl FramebufferProperties {
         create_info: vk::FramebufferCreateInfo<'a>,
         vk_attchment_image_view_handles: &'a [vk::ImageView],
         render_pass: &RenderPass,
-    ) -> vk::FramebufferCreateInfo {
+    ) -> vk::FramebufferCreateInfo<'a> {
         create_info
             .flags(self.flags)
             .attachments(vk_attchment_image_view_handles)

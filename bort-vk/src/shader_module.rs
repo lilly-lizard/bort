@@ -119,7 +119,7 @@ impl<'a> ShaderStage<'a> {
     pub fn write_create_info<'b>(
         &'b self,
         create_info: vk::PipelineShaderStageCreateInfo<'b>,
-    ) -> vk::PipelineShaderStageCreateInfo {
+    ) -> vk::PipelineShaderStageCreateInfo<'b> {
         let create_info = create_info
             .flags(self.flags)
             .module(self.module.handle())
