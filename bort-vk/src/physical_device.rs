@@ -102,6 +102,10 @@ impl PhysicalDevice {
         &self.properties
     }
 
+    pub fn limits(&self) -> vk::PhysicalDeviceLimits {
+        self.properties.limits
+    }
+
     pub fn name(&self) -> String {
         self.name.clone()
     }
