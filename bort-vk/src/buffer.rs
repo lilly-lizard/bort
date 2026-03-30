@@ -11,55 +11,55 @@ use std::sync::Arc;
 pub struct Buffer {
     handle: vk::Buffer,
     properties: BufferProperties,
-    memory_allocation: MemoryAllocation,
+    allocation: MemoryAllocation,
 }
 
 impl Buffer {
+    /// `allocator` can be a reference to `MemoryAllocator` or `MemoryPool`
     pub fn new(
-        alloc_access: Arc<dyn AllocatorAccess>,
+        allocator: Arc<dyn AllocatorAccess>,
         properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let create_info = properties.create_info();
 
-        let (handle, memory_allocation_handle) = unsafe {
-            alloc_access
-                .memory_allocator()
+        let (handle, allocation_handle) = unsafe {
+            allocator
+                .allocator()
                 .vma_create_buffer(&create_info, &allocation_info)
         }?;
 
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(memory_allocation_handle, alloc_access);
+        let allocation = MemoryAllocation::from_vma_allocation(allocation_handle, allocator);
 
         Ok(Self {
             handle,
             properties,
-            memory_allocation,
+            allocation,
         })
     }
 
+    /// `allocator` can be a reference to `MemoryAllocator` or `MemoryPool`
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        alloc_access: Arc<dyn AllocatorAccess>,
+        allocator: Arc<dyn AllocatorAccess>,
         buffer_create_info: vk::BufferCreateInfo,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
         let properties = BufferProperties::from_create_info(&buffer_create_info);
 
-        let (handle, memory_allocation_handle) = unsafe {
-            alloc_access
-                .memory_allocator()
+        let (handle, allocation_handle) = unsafe {
+            allocator
+                .allocator()
                 .vma_create_buffer(&buffer_create_info, &allocation_info)
         }?;
 
-        let memory_allocation =
-            MemoryAllocation::from_vma_allocation(memory_allocation_handle, alloc_access);
+        let allocation = MemoryAllocation::from_vma_allocation(allocation_handle, allocator);
 
         Ok(Self {
             handle,
             properties,
-            memory_allocation,
+            allocation,
         })
     }
 
@@ -76,26 +76,26 @@ impl Buffer {
     }
 
     #[inline]
-    pub fn allocator_access(&self) -> &Arc<dyn AllocatorAccess> {
-        self.memory_allocation.allocator_access()
+    pub fn allocator(&self) -> &Arc<dyn AllocatorAccess> {
+        self.allocation.allocator()
     }
 
     #[inline]
-    pub fn memory_allocation(&self) -> &MemoryAllocation {
-        &self.memory_allocation
+    pub fn allocation(&self) -> &MemoryAllocation {
+        &self.allocation
     }
 }
 
 impl AllocationAccess for Buffer {
-    fn memory_allocation_mut(&mut self) -> &mut MemoryAllocation {
-        &mut self.memory_allocation
+    fn allocation_mut(&mut self) -> &mut MemoryAllocation {
+        &mut self.allocation
     }
 }
 
 impl DeviceOwned for Buffer {
     #[inline]
     fn device(&self) -> &Arc<Device> {
-        self.allocator_access().device()
+        self.allocator().device()
     }
 
     #[inline]
@@ -107,10 +107,10 @@ impl DeviceOwned for Buffer {
 impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe {
-            self.allocator_access()
+            self.allocator()
                 .clone()
-                .memory_allocator()
-                .vma_destroy_buffer(self.handle, self.memory_allocation.handle());
+                .allocator()
+                .vma_destroy_buffer(self.handle, self.allocation.handle());
         }
     }
 }
@@ -150,10 +150,10 @@ impl BufferProperties {
         }
     }
 
-    pub fn write_create_info<'a>(
-        &'a self,
-        create_info: vk::BufferCreateInfo<'a>,
-    ) -> vk::BufferCreateInfo<'a> {
+    pub fn write_create_info<'s>(
+        &'s self,
+        create_info: vk::BufferCreateInfo<'s>,
+    ) -> vk::BufferCreateInfo<'s> {
         create_info
             .flags(self.flags)
             .size(self.size)
@@ -162,7 +162,7 @@ impl BufferProperties {
             .queue_family_indices(&self.queue_family_indices)
     }
 
-    pub fn create_info(&self) -> vk::BufferCreateInfo {
+    pub fn create_info<'s>(&'s self) -> vk::BufferCreateInfo<'s> {
         self.write_create_info(vk::BufferCreateInfo::default())
     }
 

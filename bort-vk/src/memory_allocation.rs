@@ -39,9 +39,7 @@ impl MemoryAllocation {
         handle: ffi::VmaAllocation,
         allocator_access: Arc<dyn AllocatorAccess>,
     ) -> Self {
-        let memory_info = allocator_access
-            .memory_allocator()
-            .vma_get_allocation_info(handle);
+        let memory_info = allocator_access.allocator().vma_get_allocation_info(handle);
 
         let size = memory_info.size;
 
@@ -232,7 +230,7 @@ impl MemoryAllocation {
     /// See docs for [`bort_vma::allocator::Allocator::map_memory`]
     pub unsafe fn map_memory(&mut self) -> Result<*mut u8, MemoryError> {
         self.allocator_access
-            .memory_allocator()
+            .allocator()
             .vma_map_memory(self.handle)
             .map_err(MemoryError::Mapping)
     }
@@ -241,7 +239,7 @@ impl MemoryAllocation {
     /// See docs for [`bort_vma::allocator::Allocator::unmap_memory`]
     pub unsafe fn unmap_memory(&mut self) {
         self.allocator_access
-            .memory_allocator()
+            .allocator()
             .vma_unmap_memory(self.handle)
     }
 
@@ -270,7 +268,7 @@ impl MemoryAllocation {
         data_size: usize,
     ) -> Result<(), MemoryError> {
         self.allocator_access
-            .memory_allocator()
+            .allocator()
             .vma_flush_allocation(self.handle, allocation_offset, data_size)
             .map_err(MemoryError::Flushing)
     }
@@ -290,7 +288,7 @@ impl MemoryAllocation {
 
     /// Returns self as a dynamic allocation type.
     #[inline]
-    pub fn allocator_access(&self) -> &Arc<dyn AllocatorAccess> {
+    pub fn allocator(&self) -> &Arc<dyn AllocatorAccess> {
         &self.allocator_access
     }
 

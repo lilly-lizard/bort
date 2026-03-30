@@ -1,7 +1,10 @@
 //! See [here](https://asawicki.info/news_1740_vulkan_memory_types_on_pc_and_how_to_use_them) for advice
 //! on vulkan memory types on PC.
 
-use crate::{device::Device, AllocationInfo, AllocatorAccess, ApiVersion, DefragmentationContext};
+use crate::{
+    device::Device, AllocationInfo, AllocatorAccess, ApiVersion, DefragmentationContext,
+    MemoryAllocation,
+};
 use ash::{
     khr::{bind_memory2, get_memory_requirements2, get_physical_device_properties2, maintenance4},
     prelude::VkResult,
@@ -350,6 +353,24 @@ impl MemoryAllocator {
             allocation_handles.len(),
             allocation_handles.as_mut_ptr(),
         );
+    }
+
+    /// Returns current information about specified allocation and atomically marks it as used in current frame.
+    ///
+    /// Current parameters of given allocation are returned in the result object, available through accessors.
+    ///
+    /// This function also atomically "touches" allocation - marks it as used in current frame,
+    /// just like `Allocator::touch_allocation`.
+    ///
+    /// If the allocation is in lost state, `allocation.get_device_memory` returns `ash::vk::DeviceMemory::null()`.
+    ///
+    /// Although this function uses atomics and doesn't lock any mutex, so it should be quite efficient,
+    /// you can avoid calling it too often.
+    ///
+    /// If you just want to check if allocation is not lost, `Allocator::touch_allocation` will work faster.
+    #[inline]
+    pub fn get_allocation_info(&self, allocation: &MemoryAllocation) -> AllocationInfo {
+        self.vma_get_allocation_info(allocation.handle())
     }
 
     /// Returns current information about specified allocation and atomically marks it as used in current frame.
@@ -739,7 +760,7 @@ impl AllocatorAccess for MemoryAllocator {
     }
 
     #[inline]
-    fn memory_allocator(&self) -> &MemoryAllocator {
+    fn allocator(&self) -> &MemoryAllocator {
         &self
     }
 

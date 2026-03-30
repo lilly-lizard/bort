@@ -135,7 +135,7 @@ impl AllocatorAccess for MemoryPool {
     }
 
     #[inline]
-    fn memory_allocator(&self) -> &MemoryAllocator {
+    fn allocator(&self) -> &MemoryAllocator {
         self.memory_allocator.as_ref()
     }
 
