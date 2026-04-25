@@ -5,7 +5,13 @@ use std::{error, fmt};
 // ~~ Image Access ~~
 
 /// Unifies different types of images
+#[cfg(not(feature = "rc"))]
 pub trait ImageAccess: DeviceOwned + Send + Sync {
+    fn handle(&self) -> vk::Image;
+    fn dimensions(&self) -> ImageDimensions;
+}
+#[cfg(feature = "rc")]
+pub trait ImageAccess: DeviceOwned {
     fn handle(&self) -> vk::Image;
     fn dimensions(&self) -> ImageDimensions;
 }

@@ -7,7 +7,7 @@ pub use raw_window_handle_05 as raw_window_handle;
 pub use raw_window_handle_06 as raw_window_handle;
 
 #[cfg(feature = "rc")]
-pub type Ref = std::rc::Rc;
+pub type Refc<T> = std::rc::Rc<T>;
 #[cfg(not(feature = "rc"))]
 pub type Refc<T> = std::sync::Arc<T>;
 

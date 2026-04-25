@@ -5,7 +5,13 @@ use ash::{
 };
 
 /// Unifies image views with different types of images
+#[cfg(not(feature = "rc"))]
 pub trait ImageViewAccess: DeviceOwned + Send + Sync {
+    fn handle(&self) -> vk::ImageView;
+    fn image_access(&self) -> Refc<dyn ImageAccess>;
+}
+#[cfg(feature = "rc")]
+pub trait ImageViewAccess: DeviceOwned {
     fn handle(&self) -> vk::ImageView;
     fn image_access(&self) -> Refc<dyn ImageAccess>;
 }
