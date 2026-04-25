@@ -1,20 +1,19 @@
-use crate::{Device, DeviceOwned, Sampler, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, Refc, Sampler, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct DescriptorSetLayout {
     handle: vk::DescriptorSetLayout,
     properties: DescriptorSetLayoutProperties,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl DescriptorSetLayout {
-    pub fn new(device: Arc<Device>, properties: DescriptorSetLayoutProperties) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>, properties: DescriptorSetLayoutProperties) -> VkResult<Self> {
         let mut vk_layout_bindings_storage: Vec<vk::DescriptorSetLayoutBinding> = Vec::new();
         let mut vk_immutable_samplers_storage: Vec<Vec<vk::Sampler>> = Vec::new();
         let create_info = properties.create_info(
@@ -37,7 +36,7 @@ impl DescriptorSetLayout {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::DescriptorSetLayoutCreateInfo,
     ) -> VkResult<Self> {
         let properties = DescriptorSetLayoutProperties::from_create_info(&create_info);
@@ -68,7 +67,7 @@ impl DescriptorSetLayout {
 
 impl DeviceOwned for DescriptorSetLayout {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 
@@ -166,7 +165,7 @@ pub struct DescriptorSetLayoutBinding {
     pub descriptor_type: vk::DescriptorType,
     pub descriptor_count: u32,
     pub stage_flags: vk::ShaderStageFlags,
-    pub immutable_samplers: Vec<Arc<Sampler>>,
+    pub immutable_samplers: Vec<Refc<Sampler>>,
 }
 
 impl DescriptorSetLayoutBinding {

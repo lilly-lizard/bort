@@ -1,6 +1,6 @@
 use crate::{
     default_component_mapping, default_subresource_range, extent_2d_from_width_height, Device,
-    DeviceOwned, Fence, ImageAccess, ImageDimensions, ImageViewProperties, Queue, Semaphore,
+    DeviceOwned, Fence, ImageAccess, ImageDimensions, ImageViewProperties, Queue, Refc, Semaphore,
     Surface, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
@@ -11,7 +11,6 @@ use ash::{
 use std::{
     cmp::{max, min},
     error, fmt,
-    sync::Arc,
 };
 
 // Swapchain
@@ -20,17 +19,17 @@ pub struct Swapchain {
     handle: vk::SwapchainKHR,
     swapchain_fns: khr::swapchain::Device,
     properties: SwapchainProperties,
-    swapchain_images: Vec<Arc<SwapchainImage>>,
+    swapchain_images: Vec<Refc<SwapchainImage>>,
 
     // dependencies
-    device: Arc<Device>,
-    surface: Arc<Surface>,
+    device: Refc<Device>,
+    surface: Refc<Surface>,
 }
 
 impl Swapchain {
     pub fn new(
-        device: Arc<Device>,
-        surface: Arc<Surface>,
+        device: Refc<Device>,
+        surface: Refc<Surface>,
         properties: SwapchainProperties,
     ) -> Result<Self, SwapchainError> {
         let swapchain_fns = khr::swapchain::Device::new(device.instance().inner(), device.inner());
@@ -45,10 +44,10 @@ impl Swapchain {
         let vk_swapchain_images = unsafe { swapchain_fns.get_swapchain_images(handle) }
             .map_err(SwapchainError::GetSwapchainImages)?;
 
-        let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
+        let swapchain_images: Vec<Refc<SwapchainImage>> = vk_swapchain_images
             .into_iter()
             .map(|image_handle| unsafe {
-                Arc::new(SwapchainImage::from_image_handle(
+                Refc::new(SwapchainImage::from_image_handle(
                     device.clone(),
                     image_handle,
                     &properties,
@@ -119,12 +118,12 @@ impl Swapchain {
     /// up, it must be dropped which requires any resources depending on the swapchain/swapchain images
     /// to be dropped e.g. swapchain image views and framebuffers...
     pub fn recreate_replace(
-        self: &Arc<Self>,
+        self: &Refc<Self>,
         properties: SwapchainProperties,
-    ) -> Result<Arc<Self>, SwapchainError> {
+    ) -> Result<Refc<Self>, SwapchainError> {
         let (new_handle, swapchain_images) = self.recreate_common(&properties)?;
 
-        Ok(Arc::new(Self {
+        Ok(Refc::new(Self {
             handle: new_handle,
             swapchain_fns: self.swapchain_fns.clone(),
             properties,
@@ -137,7 +136,7 @@ impl Swapchain {
     fn recreate_common(
         &self,
         properties: &SwapchainProperties,
-    ) -> Result<(vk::SwapchainKHR, Vec<Arc<SwapchainImage>>), SwapchainError> {
+    ) -> Result<(vk::SwapchainKHR, Vec<Refc<SwapchainImage>>), SwapchainError> {
         let swapchain_create_info = properties.create_info(self.surface.handle(), self.handle);
 
         let new_handle = unsafe {
@@ -149,10 +148,10 @@ impl Swapchain {
         let vk_swapchain_images = unsafe { self.swapchain_fns.get_swapchain_images(new_handle) }
             .map_err(SwapchainError::GetSwapchainImages)?;
 
-        let swapchain_images: Vec<Arc<SwapchainImage>> = vk_swapchain_images
+        let swapchain_images: Vec<Refc<SwapchainImage>> = vk_swapchain_images
             .into_iter()
             .map(|image_handle| unsafe {
-                Arc::new(SwapchainImage::from_image_handle(
+                Refc::new(SwapchainImage::from_image_handle(
                     self.device.clone(),
                     image_handle,
                     properties,
@@ -216,19 +215,19 @@ impl Swapchain {
     }
 
     #[inline]
-    pub fn surface(&self) -> &Arc<Surface> {
+    pub fn surface(&self) -> &Refc<Surface> {
         &self.surface
     }
 
     #[inline]
-    pub fn swapchain_images(&self) -> &Vec<Arc<SwapchainImage>> {
+    pub fn swapchain_images(&self) -> &Vec<Refc<SwapchainImage>> {
         &self.swapchain_images
     }
 }
 
 impl DeviceOwned for Swapchain {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 
@@ -402,13 +401,13 @@ pub struct SwapchainImage {
     dimensions: ImageDimensions,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl SwapchainImage {
     /// # Safety make sure image 'handle' was retreived from 'swapchain'
     pub(crate) unsafe fn from_image_handle(
-        device: Arc<Device>,
+        device: Refc<Device>,
         handle: vk::Image,
         swapchain_properties: &SwapchainProperties,
     ) -> Self {
@@ -441,7 +440,7 @@ impl ImageAccess for SwapchainImage {
 
 impl DeviceOwned for SwapchainImage {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
@@ -10,16 +8,16 @@ pub struct Fence {
     handle: vk::Fence,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl Fence {
-    pub fn new_signalled(device: Arc<Device>) -> VkResult<Self> {
+    pub fn new_signalled(device: Refc<Device>) -> VkResult<Self> {
         let create_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
         unsafe { Self::new_from_create_info(device, create_info) }
     }
 
-    pub fn new_unsignalled(device: Arc<Device>) -> VkResult<Self> {
+    pub fn new_unsignalled(device: Refc<Device>) -> VkResult<Self> {
         let create_info = vk::FenceCreateInfo::default();
         unsafe { Self::new_from_create_info(device, create_info) }
     }
@@ -27,7 +25,7 @@ impl Fence {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::FenceCreateInfo,
     ) -> VkResult<Self> {
         let handle = unsafe {
@@ -63,7 +61,7 @@ impl Fence {
 
 impl DeviceOwned for Fence {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

@@ -1,17 +1,16 @@
-use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::prelude::VkResult;
 use ash::vk::{self, Handle};
-use std::sync::Arc;
 
 pub struct Semaphore {
     handle: vk::Semaphore,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl Semaphore {
-    pub fn new(device: Arc<Device>) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>) -> VkResult<Self> {
         let create_info = vk::SemaphoreCreateInfo::default();
         unsafe { Self::new_from_create_info(device, create_info) }
     }
@@ -19,7 +18,7 @@ impl Semaphore {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::SemaphoreCreateInfo,
     ) -> VkResult<Self> {
         let handle = unsafe {
@@ -41,7 +40,7 @@ impl Semaphore {
 
 impl DeviceOwned for Semaphore {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

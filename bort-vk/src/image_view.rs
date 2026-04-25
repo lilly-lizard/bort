@@ -1,14 +1,13 @@
-use crate::{Device, DeviceOwned, ImageAccess, ImageProperties, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, ImageAccess, ImageProperties, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 /// Unifies image views with different types of images
 pub trait ImageViewAccess: DeviceOwned + Send + Sync {
     fn handle(&self) -> vk::ImageView;
-    fn image_access(&self) -> Arc<dyn ImageAccess>;
+    fn image_access(&self) -> Refc<dyn ImageAccess>;
 }
 
 pub struct ImageView<I: ImageAccess + 'static> {
@@ -16,11 +15,11 @@ pub struct ImageView<I: ImageAccess + 'static> {
     properties: ImageViewProperties,
 
     // dependencies
-    image: Arc<I>,
+    image: Refc<I>,
 }
 
 impl<I: ImageAccess + 'static> ImageView<I> {
-    pub fn new(image: Arc<I>, properties: ImageViewProperties) -> VkResult<Self> {
+    pub fn new(image: Refc<I>, properties: ImageViewProperties) -> VkResult<Self> {
         let create_info = properties.create_info(image.handle());
 
         let handle = unsafe {
@@ -40,7 +39,7 @@ impl<I: ImageAccess + 'static> ImageView<I> {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        image: Arc<I>,
+        image: Refc<I>,
         create_info: vk::ImageViewCreateInfo,
     ) -> VkResult<Self> {
         let properties = ImageViewProperties::from_create_info(&create_info);
@@ -65,7 +64,7 @@ impl<I: ImageAccess + 'static> ImageView<I> {
         &self.properties
     }
 
-    pub fn image(&self) -> &Arc<I> {
+    pub fn image(&self) -> &Refc<I> {
         &self.image
     }
 }
@@ -75,14 +74,14 @@ impl<I: ImageAccess + 'static> ImageViewAccess for ImageView<I> {
         self.handle
     }
 
-    fn image_access(&self) -> Arc<dyn ImageAccess> {
+    fn image_access(&self) -> Refc<dyn ImageAccess> {
         self.image.clone()
     }
 }
 
 impl<I: ImageAccess + 'static> DeviceOwned for ImageView<I> {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.image.device()
     }
 

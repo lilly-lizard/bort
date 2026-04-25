@@ -1,9 +1,8 @@
-use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct RenderPass {
@@ -11,12 +10,12 @@ pub struct RenderPass {
     properties: RenderPassProperties,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl RenderPass {
     pub fn new(
-        device: Arc<Device>,
+        device: Refc<Device>,
         attachment_descriptions: Vec<vk::AttachmentDescription>,
         subpasses: Vec<Subpass>,
         subpass_dependencies: Vec<vk::SubpassDependency>,
@@ -55,7 +54,7 @@ impl RenderPass {
     /// - if `subpass_description.p_input_attachments` is not null it must point to an array with
     ///   `subpass_description.input_attachment_count` many elements.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::RenderPassCreateInfo,
     ) -> VkResult<Self> {
         let properties = unsafe { RenderPassProperties::from_create_info(&create_info) };
@@ -88,7 +87,7 @@ impl RenderPass {
 
 impl DeviceOwned for RenderPass {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

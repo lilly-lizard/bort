@@ -1,4 +1,4 @@
-use crate::{PhysicalDevice, PhysicalDeviceFeatures, ALLOCATION_CALLBACK_NONE};
+use crate::{PhysicalDevice, PhysicalDeviceFeatures, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     ext::metal_surface,
     khr::{android_surface, surface, wayland_surface, win32_surface, xcb_surface, xlib_surface},
@@ -15,7 +15,6 @@ use std::{
     ffi::{CStr, CString},
     fmt,
     os::raw::c_char,
-    sync::Arc,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -46,7 +45,7 @@ pub struct Instance {
     enabled_layers: Vec<CString>,
 
     // dependencies
-    entry: Arc<Entry>,
+    entry: Refc<Entry>,
 }
 
 impl Instance {
@@ -54,7 +53,7 @@ impl Instance {
     /// e.g. VK_KHR_surface and platform specific ones like VK_KHR_win32_surface. Will also check
     /// if the display extensions and extension_names are supported.
     pub fn new_with_display_extensions(
-        entry: Arc<Entry>,
+        entry: Refc<Entry>,
         max_api_version: ApiVersion,
         display_handle: RawDisplayHandle,
         layer_names: Vec<CString>,
@@ -83,7 +82,7 @@ impl Instance {
 
     /// Doesn't check for extension/layer support.
     pub fn new(
-        entry: Arc<Entry>,
+        entry: Refc<Entry>,
         max_api_version: ApiVersion,
         layer_names: Vec<CString>,
         extension_names: Vec<CString>,
@@ -117,7 +116,7 @@ impl Instance {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        entry: Arc<Entry>,
+        entry: Refc<Entry>,
         create_info: vk::InstanceCreateInfo,
         enabled_extensions: Vec<CString>,
         enabled_layers: Vec<CString>,
@@ -337,7 +336,7 @@ impl Instance {
     }
 
     #[inline]
-    pub fn entry(&self) -> &Arc<Entry> {
+    pub fn entry(&self) -> &Refc<Entry> {
         &self.entry
     }
 

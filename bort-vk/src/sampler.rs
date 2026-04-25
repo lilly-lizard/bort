@@ -1,9 +1,8 @@
-use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Sampler {
@@ -11,11 +10,11 @@ pub struct Sampler {
     properties: SamplerProperties,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl Sampler {
-    pub fn new(device: Arc<Device>, properties: SamplerProperties) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>, properties: SamplerProperties) -> VkResult<Self> {
         let handle = unsafe {
             device
                 .inner()
@@ -32,7 +31,7 @@ impl Sampler {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::SamplerCreateInfo,
     ) -> VkResult<Self> {
         let properties = SamplerProperties::from_create_info(&create_info);
@@ -65,7 +64,7 @@ impl Sampler {
 
 impl DeviceOwned for Sampler {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

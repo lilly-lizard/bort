@@ -1,4 +1,4 @@
-use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     util::read_spv,
     vk::{self, Handle},
@@ -8,18 +8,17 @@ use std::{
     ffi::CString,
     fmt, fs,
     io::{self, Cursor},
-    sync::Arc,
 };
 
 pub struct ShaderModule {
     handle: vk::ShaderModule,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl ShaderModule {
-    pub fn new_from_file(device: Arc<Device>, file_path: &str) -> Result<Self, ShaderError> {
+    pub fn new_from_file(device: Refc<Device>, file_path: &str) -> Result<Self, ShaderError> {
         let bytes = fs::read(file_path).map_err(|e| ShaderError::FileRead {
             e,
             path: file_path.to_string(),
@@ -30,7 +29,7 @@ impl ShaderModule {
     }
 
     pub fn new_from_spirv<R: io::Read + io::Seek>(
-        device: Arc<Device>,
+        device: Refc<Device>,
         spirv: &mut R,
     ) -> Result<Self, ShaderError> {
         let code = read_spv(spirv).map_err(ShaderError::SpirVDecode)?;
@@ -42,7 +41,7 @@ impl ShaderModule {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::ShaderModuleCreateInfo,
     ) -> Result<Self, ShaderError> {
         let handle = unsafe {
@@ -65,7 +64,7 @@ impl ShaderModule {
 
 impl DeviceOwned for ShaderModule {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 
@@ -93,7 +92,7 @@ impl Drop for ShaderModule {
 pub struct ShaderStage<'a> {
     pub flags: vk::PipelineShaderStageCreateFlags,
     pub stage: vk::ShaderStageFlags,
-    pub module: Arc<ShaderModule>,
+    pub module: Refc<ShaderModule>,
     pub entry_point: CString,
     pub write_specialization_info: bool,
     pub specialization_info: vk::SpecializationInfo<'a>,
@@ -102,7 +101,7 @@ pub struct ShaderStage<'a> {
 impl<'a> ShaderStage<'a> {
     pub fn new(
         stage: vk::ShaderStageFlags,
-        module: Arc<ShaderModule>,
+        module: Refc<ShaderModule>,
         entry_point: CString,
         specialization_info: Option<vk::SpecializationInfo<'a>>,
     ) -> Self {

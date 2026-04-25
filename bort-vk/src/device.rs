@@ -1,6 +1,6 @@
 use crate::{
     ApiVersion, DebugCallback, Fence, Instance, PhysicalDevice, PhysicalDeviceFeatures, Queue,
-    ALLOCATION_CALLBACK_NONE,
+    Refc, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
@@ -11,34 +11,33 @@ use std::{
     ffi::{CString, NulError},
     fmt,
     os::raw::c_char,
-    sync::Arc,
 };
 
 pub trait DeviceOwned {
-    fn device(&self) -> &Arc<Device>;
+    fn device(&self) -> &Refc<Device>;
     fn handle_raw(&self) -> u64;
 }
 
 pub struct Device {
     inner: ash::Device,
-    debug_callback_ref: Option<Arc<DebugCallback>>,
+    debug_callback_ref: Option<Refc<DebugCallback>>,
     enabled_extensions: Vec<CString>,
     enabled_layers: Vec<CString>,
 
     // dependencies
-    physical_device: Arc<PhysicalDevice>,
+    physical_device: Refc<PhysicalDevice>,
 }
 
 impl Device {
     /// `features_1_1`, `features_1_2` and `features_1_3` might get ignored depending on the
     /// `instance` api version.
     pub fn new<'a>(
-        physical_device: Arc<PhysicalDevice>,
+        physical_device: Refc<PhysicalDevice>,
         queue_create_infos: impl IntoIterator<Item = vk::DeviceQueueCreateInfo<'a>>,
         features: PhysicalDeviceFeatures,
         extension_names: Vec<CString>,
         layer_names: Vec<CString>,
-        debug_callback_ref: Option<Arc<DebugCallback>>,
+        debug_callback_ref: Option<Refc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
         let queue_create_infos_built: Vec<DeviceQueueCreateInfo> = queue_create_infos
             .into_iter()
@@ -68,12 +67,12 @@ impl Device {
     /// # Safety
     /// No busted pointers in the last element of `p_next_structs`.
     pub unsafe fn new_with_p_next_chain(
-        physical_device: Arc<PhysicalDevice>,
+        physical_device: Refc<PhysicalDevice>,
         queue_create_infos: &[vk::DeviceQueueCreateInfo],
         features: PhysicalDeviceFeatures,
         extension_names: Vec<CString>,
         layer_names: Vec<CString>,
-        debug_callback_ref: Option<Arc<DebugCallback>>,
+        debug_callback_ref: Option<Refc<DebugCallback>>,
         mut p_next_structs: Vec<impl ExtendsDeviceCreateInfo>,
     ) -> Result<Self, DeviceError> {
         let instance = physical_device.instance();
@@ -134,9 +133,9 @@ impl Device {
     /// # Safety
     /// No busted pointers in `create_info` or its referenced structs (e.g. p_next chain).
     pub unsafe fn new_from_create_info(
-        physical_device: Arc<PhysicalDevice>,
+        physical_device: Refc<PhysicalDevice>,
         create_info: vk::DeviceCreateInfo,
-        debug_callback_ref: Option<Arc<DebugCallback>>,
+        debug_callback_ref: Option<Refc<DebugCallback>>,
         enabled_extensions: Vec<CString>,
         enabled_layers: Vec<CString>,
     ) -> Result<Self, DeviceError> {
@@ -161,7 +160,7 @@ impl Device {
     /// Store a reference to a debug callback. The means that the debug callback won't be dropped
     /// (and destroyed) until this device is! Handy to make sure that you still get validation
     /// while device resources are being dropped/destroyed.
-    pub fn set_debug_callback_ref(&mut self, debug_callback_ref: Option<Arc<DebugCallback>>) {
+    pub fn set_debug_callback_ref(&mut self, debug_callback_ref: Option<Refc<DebugCallback>>) {
         self.debug_callback_ref = debug_callback_ref;
     }
 
@@ -218,17 +217,17 @@ impl Device {
     }
 
     #[inline]
-    pub fn physical_device(&self) -> &Arc<PhysicalDevice> {
+    pub fn physical_device(&self) -> &Refc<PhysicalDevice> {
         &self.physical_device
     }
 
     #[inline]
-    pub fn instance(&self) -> &Arc<Instance> {
+    pub fn instance(&self) -> &Refc<Instance> {
         self.physical_device.instance()
     }
 
     #[inline]
-    pub fn debug_callback_ref(&self) -> &Option<Arc<DebugCallback>> {
+    pub fn debug_callback_ref(&self) -> &Option<Refc<DebugCallback>> {
         &self.debug_callback_ref
     }
 

@@ -1,20 +1,19 @@
-use crate::{DescriptorSetLayout, Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{DescriptorSetLayout, Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct PipelineLayout {
     handle: vk::PipelineLayout,
     properties: PipelineLayoutProperties,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl PipelineLayout {
-    pub fn new(device: Arc<Device>, properties: PipelineLayoutProperties) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>, properties: PipelineLayoutProperties) -> VkResult<Self> {
         let mut vk_set_layouts_storage: Vec<vk::DescriptorSetLayout> = Vec::new();
         let create_info = properties.create_info(&mut vk_set_layouts_storage);
         let handle = unsafe {
@@ -43,7 +42,7 @@ impl PipelineLayout {
 
 impl DeviceOwned for PipelineLayout {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 
@@ -66,13 +65,13 @@ impl Drop for PipelineLayout {
 #[derive(Default, Clone)]
 pub struct PipelineLayoutProperties {
     pub flags: vk::PipelineLayoutCreateFlags,
-    pub set_layouts: Vec<Arc<DescriptorSetLayout>>,
+    pub set_layouts: Vec<Refc<DescriptorSetLayout>>,
     pub push_constant_ranges: Vec<vk::PushConstantRange>,
 }
 
 impl PipelineLayoutProperties {
     pub fn new(
-        set_layouts: Vec<Arc<DescriptorSetLayout>>,
+        set_layouts: Vec<Refc<DescriptorSetLayout>>,
         push_constant_ranges: Vec<vk::PushConstantRange>,
     ) -> Self {
         Self {

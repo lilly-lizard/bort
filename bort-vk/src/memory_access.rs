@@ -1,16 +1,15 @@
-use crate::{Device, MemoryAllocation, MemoryAllocator, MemoryError};
+use crate::{Device, MemoryAllocation, MemoryAllocator, MemoryError, Refc};
 use ash::{prelude::VkResult, vk};
 use bort_vma::{ffi, AllocationCreateInfo};
 #[cfg(feature = "bytemuck")]
 use bytemuck::{NoUninit, Pod};
-use std::sync::Arc;
 
 // ~~ Allocator Access ~~
 
 /// Unifies different types of vma allocators
 /// Implimented by `MemoryAllocator` and `MemoryPool`
 pub trait AllocatorAccess: Send + Sync {
-    fn device(&self) -> &Arc<Device>;
+    fn device(&self) -> &Refc<Device>;
     fn allocator(&self) -> &MemoryAllocator;
     fn memory_pool_handle(&self) -> ffi::VmaPool;
 

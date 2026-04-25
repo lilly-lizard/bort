@@ -1,7 +1,9 @@
 //! Uses code from `ash-window` for surface creation from raw window handle.
 //! Original source found (here)[https://github.com/ash-rs/ash/blob/master/ash-window/src/lib.rs]
 
-use crate::{is_format_linear, is_format_srgb, Instance, PhysicalDevice, ALLOCATION_CALLBACK_NONE};
+use crate::{
+    is_format_linear, is_format_srgb, Instance, PhysicalDevice, Refc, ALLOCATION_CALLBACK_NONE,
+};
 #[cfg(feature = "raw-window-handle-06")]
 use ash::vk::{HINSTANCE, HWND};
 use ash::{
@@ -13,20 +15,20 @@ use ash::{
 use raw_window_handle_05::{RawDisplayHandle, RawWindowHandle};
 #[cfg(feature = "raw-window-handle-06")]
 use raw_window_handle_06::{RawDisplayHandle, RawWindowHandle};
-use std::{error, fmt, sync::Arc};
+use std::{error, fmt};
 
 pub struct Surface {
     handle: vk::SurfaceKHR,
     surface_fns: khr::surface::Instance,
 
     // dependencies
-    instance: Arc<Instance>,
+    instance: Refc<Instance>,
 }
 
 impl Surface {
     pub fn new(
         entry: &Entry,
-        instance: Arc<Instance>,
+        instance: Refc<Instance>,
         raw_display_handle: RawDisplayHandle,
         raw_window_handle: RawWindowHandle,
     ) -> Result<Self, SurfaceCreationError> {
@@ -104,7 +106,7 @@ impl Surface {
         &self.surface_fns
     }
 
-    pub fn instance(&self) -> &Arc<Instance> {
+    pub fn instance(&self) -> &Refc<Instance> {
         &self.instance
     }
 }

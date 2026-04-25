@@ -1,20 +1,21 @@
-use crate::{DescriptorSet, DescriptorSetLayout, Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{
+    DescriptorSet, DescriptorSetLayout, Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE,
+};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct DescriptorPool {
     handle: vk::DescriptorPool,
     properties: DescriptorPoolProperties,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl DescriptorPool {
-    pub fn new(device: Arc<Device>, properties: DescriptorPoolProperties) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>, properties: DescriptorPoolProperties) -> VkResult<Self> {
         let create_info = properties.create_info();
 
         let handle = unsafe {
@@ -33,7 +34,7 @@ impl DescriptorPool {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::DescriptorPoolCreateInfo,
     ) -> VkResult<Self> {
         let properties = DescriptorPoolProperties::from_create_info(&create_info);
@@ -52,8 +53,8 @@ impl DescriptorPool {
     }
 
     pub fn allocate_descriptor_set(
-        self: &Arc<Self>,
-        layout: Arc<DescriptorSetLayout>,
+        self: &Refc<Self>,
+        layout: Refc<DescriptorSetLayout>,
     ) -> VkResult<DescriptorSet> {
         let layout_handles = [layout.handle()];
         let create_info = vk::DescriptorSetAllocateInfo::default()
@@ -67,8 +68,8 @@ impl DescriptorPool {
     }
 
     pub fn allocate_descriptor_sets(
-        self: &Arc<Self>,
-        layouts: Vec<Arc<DescriptorSetLayout>>,
+        self: &Refc<Self>,
+        layouts: Vec<Refc<DescriptorSetLayout>>,
     ) -> VkResult<Vec<DescriptorSet>> {
         let layout_handles: Vec<vk::DescriptorSetLayout> =
             layouts.iter().map(|l| l.handle()).collect();
@@ -109,7 +110,7 @@ impl DescriptorPool {
 
 impl DeviceOwned for DescriptorPool {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

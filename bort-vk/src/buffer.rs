@@ -1,10 +1,9 @@
-use crate::{AllocationAccess, AllocatorAccess, Device, DeviceOwned, MemoryAllocation};
+use crate::{AllocationAccess, AllocatorAccess, Device, DeviceOwned, MemoryAllocation, Refc};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
 use bort_vma::AllocationCreateInfo;
-use std::sync::Arc;
 
 /// Contains a [VkBuffer](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkBuffer.html)
 /// and a memory allocation.
@@ -17,7 +16,7 @@ pub struct Buffer {
 impl Buffer {
     /// `allocator` can be a reference to `MemoryAllocator` or `MemoryPool`
     pub fn new(
-        allocator: Arc<dyn AllocatorAccess>,
+        allocator: Refc<dyn AllocatorAccess>,
         properties: BufferProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -42,7 +41,7 @@ impl Buffer {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        allocator: Arc<dyn AllocatorAccess>,
+        allocator: Refc<dyn AllocatorAccess>,
         buffer_create_info: vk::BufferCreateInfo,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -76,7 +75,7 @@ impl Buffer {
     }
 
     #[inline]
-    pub fn allocator(&self) -> &Arc<dyn AllocatorAccess> {
+    pub fn allocator(&self) -> &Refc<dyn AllocatorAccess> {
         self.allocation.allocator()
     }
 
@@ -94,7 +93,7 @@ impl AllocationAccess for Buffer {
 
 impl DeviceOwned for Buffer {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.allocator().device()
     }
 

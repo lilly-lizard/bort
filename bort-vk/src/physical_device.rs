@@ -1,11 +1,10 @@
-use crate::{c_string_to_string, ApiVersion, Instance};
+use crate::{c_string_to_string, ApiVersion, Instance, Refc};
 use ash::vk::{self, api_version_major, api_version_minor};
 use std::{
     error,
     ffi::{CStr, CString},
     fmt,
     str::Utf8Error,
-    sync::Arc,
 };
 
 #[derive(Clone)]
@@ -19,12 +18,12 @@ pub struct PhysicalDevice {
     extension_properties: Vec<ExtensionProperties>,
 
     // dependencies
-    instance: Arc<Instance>,
+    instance: Refc<Instance>,
 }
 
 impl PhysicalDevice {
     pub fn new(
-        instance: Arc<Instance>,
+        instance: Refc<Instance>,
         handle: vk::PhysicalDevice,
     ) -> Result<Self, PhysicalDeviceError> {
         let properties = unsafe { instance.inner().get_physical_device_properties(handle) };
@@ -122,7 +121,7 @@ impl PhysicalDevice {
         &self.extension_properties
     }
 
-    pub fn instance(&self) -> &Arc<Instance> {
+    pub fn instance(&self) -> &Refc<Instance> {
         &self.instance
     }
 }

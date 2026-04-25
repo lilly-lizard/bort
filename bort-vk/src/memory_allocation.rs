@@ -1,9 +1,9 @@
-use crate::{device::Device, AllocatorAccess};
+use crate::{device::Device, AllocatorAccess, Refc};
 use ash::vk;
 use bort_vma::{ffi, AllocationCreateInfo};
 #[cfg(feature = "bytemuck")]
 use bytemuck::{NoUninit, Pod, PodCastError};
-use std::{error, fmt, mem, ptr, sync::Arc};
+use std::{error, fmt, mem, ptr};
 
 // ~~ Memory Allocation ~~
 
@@ -31,13 +31,13 @@ pub struct MemoryAllocation {
     size: vk::DeviceSize,
 
     // dependencies
-    allocator_access: Arc<dyn AllocatorAccess>,
+    allocator_access: Refc<dyn AllocatorAccess>,
 }
 
 impl MemoryAllocation {
     pub(crate) fn from_vma_allocation(
         handle: ffi::VmaAllocation,
-        allocator_access: Arc<dyn AllocatorAccess>,
+        allocator_access: Refc<dyn AllocatorAccess>,
     ) -> Self {
         let memory_info = allocator_access.allocator().vma_get_allocation_info(handle);
 
@@ -288,7 +288,7 @@ impl MemoryAllocation {
 
     /// Returns self as a dynamic allocation type.
     #[inline]
-    pub fn allocator(&self) -> &Arc<dyn AllocatorAccess> {
+    pub fn allocator(&self) -> &Refc<dyn AllocatorAccess> {
         &self.allocator_access
     }
 
@@ -298,7 +298,7 @@ impl MemoryAllocation {
     }
 
     #[inline]
-    pub fn device(&self) -> &Arc<Device> {
+    pub fn device(&self) -> &Refc<Device> {
         self.allocator_access.device()
     }
 }

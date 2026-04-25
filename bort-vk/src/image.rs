@@ -1,13 +1,12 @@
 use crate::{
     AllocationAccess, AllocatorAccess, Device, DeviceOwned, ImageAccess, ImageDimensions,
-    MemoryAllocation, MemoryAllocator, PhysicalDevice,
+    MemoryAllocation, MemoryAllocator, PhysicalDevice, Refc,
 };
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
 use bort_vma::AllocationCreateInfo;
-use std::sync::Arc;
 
 // ~~ Image ~~
 
@@ -20,7 +19,7 @@ pub struct Image {
 impl Image {
     /// `allocator` can be a reference to `MemoryAllocator` or `MemoryPool`
     pub fn new(
-        allocator: Arc<dyn AllocatorAccess>,
+        allocator: Refc<dyn AllocatorAccess>,
         properties: ImageProperties,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -43,7 +42,7 @@ impl Image {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        allocator: Arc<dyn AllocatorAccess>,
+        allocator: Refc<dyn AllocatorAccess>,
         image_create_info: vk::ImageCreateInfo,
         allocation_info: AllocationCreateInfo,
     ) -> VkResult<Self> {
@@ -66,7 +65,7 @@ impl Image {
 
     /// Create a (preferably) lazily-allocated transient attachment image.
     pub fn new_tranient(
-        allocator: Arc<MemoryAllocator>,
+        allocator: Refc<MemoryAllocator>,
         dimensions: ImageDimensions,
         format: vk::Format,
         additional_usage: vk::ImageUsageFlags,
@@ -85,7 +84,7 @@ impl Image {
     }
 
     #[inline]
-    pub fn allocator(&self) -> &Arc<dyn AllocatorAccess> {
+    pub fn allocator(&self) -> &Refc<dyn AllocatorAccess> {
         self.allocation.allocator()
     }
 
@@ -115,7 +114,7 @@ impl AllocationAccess for Image {
 
 impl DeviceOwned for Image {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.allocation.device()
     }
 

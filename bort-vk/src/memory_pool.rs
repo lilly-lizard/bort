@@ -1,19 +1,19 @@
-use crate::{AllocatorAccess, Device, MemoryAllocator};
+use crate::{AllocatorAccess, Device, MemoryAllocator, Refc};
 use ash::{prelude::VkResult, vk};
 use bort_vma::ffi;
-use std::{ffi::CStr, sync::Arc};
+use std::ffi::CStr;
 
 pub struct MemoryPool {
     handle: ffi::VmaPool,
     properties: MemoryPoolPropeties,
 
     // dependencies
-    memory_allocator: Arc<MemoryAllocator>,
+    memory_allocator: Refc<MemoryAllocator>,
 }
 
 impl MemoryPool {
     pub fn new(
-        memory_allocator: Arc<MemoryAllocator>,
+        memory_allocator: Refc<MemoryAllocator>,
         properties: MemoryPoolPropeties,
     ) -> VkResult<Self> {
         unsafe { Self::new_with_pnext_chain(memory_allocator, properties, None) }
@@ -22,7 +22,7 @@ impl MemoryPool {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_with_pnext_chain(
-        memory_allocator: Arc<MemoryAllocator>,
+        memory_allocator: Refc<MemoryAllocator>,
         properties: MemoryPoolPropeties,
         memory_allocate_next: Option<&mut ash::vk::MemoryAllocateInfo>,
     ) -> VkResult<Self> {
@@ -130,7 +130,7 @@ unsafe impl Sync for MemoryPool {}
 
 impl AllocatorAccess for MemoryPool {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.memory_allocator.device()
     }
 

@@ -1,9 +1,8 @@
-use crate::{Device, DeviceError, DeviceOwned, Fence};
+use crate::{Device, DeviceError, DeviceOwned, Fence, Refc};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct Queue {
     handle: vk::Queue,
@@ -11,13 +10,13 @@ pub struct Queue {
     queue_index: u32,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl Queue {
     /// Uses vkGetDeviceQueue
     pub fn new(
-        device: Arc<Device>,
+        device: Refc<Device>,
         family_index: u32,
         queue_index: u32,
     ) -> Result<Self, QueueError> {
@@ -39,7 +38,7 @@ impl Queue {
     }
 
     /// Uses vkGetDeviceQueue2
-    pub fn new_v2(device: Arc<Device>, queue_info: vk::DeviceQueueInfo2) -> Self {
+    pub fn new_v2(device: Refc<Device>, queue_info: vk::DeviceQueueInfo2) -> Self {
         let handle = unsafe { device.inner().get_device_queue2(&queue_info) };
 
         Self {
@@ -86,7 +85,7 @@ impl Queue {
 
 impl DeviceOwned for Queue {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

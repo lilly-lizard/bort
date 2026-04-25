@@ -1,25 +1,24 @@
 use crate::{
-    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, ShaderStage,
+    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, Refc, ShaderStage,
     ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct ComputePipeline {
     handle: vk::Pipeline,
     properties: ComputePipelineProperties,
 
     // dependencies
-    pipeline_layout: Arc<PipelineLayout>,
+    pipeline_layout: Refc<PipelineLayout>,
     // note: we don't need to store references to `ShaderModule` or `PipelineCache` as per https://registry.khronos.org/vulkan/specs/1.0/html/vkspec.html#fundamentals-objectmodel-lifetime
 }
 
 impl ComputePipeline {
     pub fn new(
-        pipeline_layout: Arc<PipelineLayout>,
+        pipeline_layout: Refc<PipelineLayout>,
         properties: ComputePipelineProperties,
         shader_stage: &ShaderStage,
         pipeline_cache: Option<&PipelineCache>,
@@ -62,7 +61,7 @@ impl PipelineAccess for ComputePipeline {
         self.handle
     }
 
-    fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
+    fn pipeline_layout(&self) -> &Refc<PipelineLayout> {
         &self.pipeline_layout
     }
 
@@ -73,7 +72,7 @@ impl PipelineAccess for ComputePipeline {
 
 impl DeviceOwned for ComputePipeline {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.pipeline_layout.device()
     }
 

@@ -1,23 +1,22 @@
 use crate::{
-    render_pass::RenderPass, Device, DeviceOwned, ImageDimensions, ImageViewAccess,
+    render_pass::RenderPass, Device, DeviceOwned, ImageDimensions, ImageViewAccess, Refc,
     ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct Framebuffer {
     handle: vk::Framebuffer,
     properties: FramebufferProperties,
 
     // dependencies
-    render_pass: Arc<RenderPass>,
+    render_pass: Refc<RenderPass>,
 }
 
 impl Framebuffer {
-    pub fn new(render_pass: Arc<RenderPass>, properties: FramebufferProperties) -> VkResult<Self> {
+    pub fn new(render_pass: Refc<RenderPass>, properties: FramebufferProperties) -> VkResult<Self> {
         let vk_attachment_image_view_handles = properties.vk_attachment_image_view_handles();
         let create_info = properties.write_create_info(
             vk::FramebufferCreateInfo::default(),
@@ -45,7 +44,7 @@ impl Framebuffer {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        render_pass: Arc<RenderPass>,
+        render_pass: Refc<RenderPass>,
         create_info: vk::FramebufferCreateInfo,
     ) -> VkResult<Self> {
         let properties = FramebufferProperties::from_create_info(&create_info);
@@ -93,7 +92,7 @@ impl Framebuffer {
 
 impl DeviceOwned for Framebuffer {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.render_pass.device()
     }
 
@@ -117,13 +116,13 @@ impl Drop for Framebuffer {
 #[derive(Clone, Default)]
 pub struct FramebufferProperties {
     pub flags: vk::FramebufferCreateFlags,
-    pub attachments: Vec<Arc<dyn ImageViewAccess>>,
+    pub attachments: Vec<Refc<dyn ImageViewAccess>>,
     pub dimensions: ImageDimensions,
 }
 
 impl FramebufferProperties {
     pub fn new_default(
-        attachments: Vec<Arc<dyn ImageViewAccess>>,
+        attachments: Vec<Refc<dyn ImageViewAccess>>,
         dimensions: ImageDimensions,
     ) -> Self {
         Self {

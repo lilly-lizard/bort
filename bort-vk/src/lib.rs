@@ -6,6 +6,11 @@ pub use raw_window_handle_05 as raw_window_handle;
 #[cfg(feature = "raw-window-handle-06")]
 pub use raw_window_handle_06 as raw_window_handle;
 
+#[cfg(feature = "rc")]
+pub type Ref = std::rc::Rc;
+#[cfg(not(feature = "rc"))]
+pub type Refc<T> = std::sync::Arc<T>;
+
 mod buffer;
 mod command_buffer;
 mod command_pool;

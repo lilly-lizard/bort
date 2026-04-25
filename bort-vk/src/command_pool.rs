@@ -1,20 +1,19 @@
-use crate::{CommandBuffer, Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{CommandBuffer, Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct CommandPool {
     handle: vk::CommandPool,
     properties: CommandPoolProperties,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl CommandPool {
-    pub fn new(device: Arc<Device>, properties: CommandPoolProperties) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>, properties: CommandPoolProperties) -> VkResult<Self> {
         let create_info = properties.create_info();
 
         let handle = unsafe {
@@ -33,7 +32,7 @@ impl CommandPool {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: vk::CommandPoolCreateInfo,
     ) -> VkResult<Self> {
         let properties = CommandPoolProperties::from_create_info(&create_info);
@@ -52,7 +51,7 @@ impl CommandPool {
     }
 
     pub fn allocate_command_buffers(
-        self: &Arc<Self>,
+        self: &Refc<Self>,
         level: vk::CommandBufferLevel,
         command_buffer_count: u32,
     ) -> VkResult<Vec<CommandBuffer>> {
@@ -66,7 +65,7 @@ impl CommandPool {
 
     #[inline]
     pub fn allocate_command_buffer(
-        self: &Arc<Self>,
+        self: &Refc<Self>,
         level: vk::CommandBufferLevel,
     ) -> VkResult<CommandBuffer> {
         let mut vec = self.allocate_command_buffers(level, 1)?;
@@ -76,7 +75,7 @@ impl CommandPool {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn allocate_command_buffers_from_allocate_info(
-        self: &Arc<Self>,
+        self: &Refc<Self>,
         allocate_info: vk::CommandBufferAllocateInfo,
     ) -> VkResult<Vec<CommandBuffer>> {
         let level = allocate_info.level;
@@ -115,7 +114,7 @@ impl CommandPool {
 
 impl DeviceOwned for CommandPool {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

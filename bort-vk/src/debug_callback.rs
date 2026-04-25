@@ -1,6 +1,5 @@
-use crate::{Instance, ALLOCATION_CALLBACK_NONE};
+use crate::{Instance, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{ext::debug_utils, prelude::VkResult, vk};
-use std::sync::Arc;
 
 pub struct DebugCallback {
     handle: vk::DebugUtilsMessengerEXT,
@@ -8,12 +7,12 @@ pub struct DebugCallback {
     properties: DebugCallbackProperties,
 
     // dependencies
-    instance: Arc<Instance>,
+    instance: Refc<Instance>,
 }
 
 impl DebugCallback {
     pub fn new(
-        instance: Arc<Instance>,
+        instance: Refc<Instance>,
         debug_callback: vk::PFN_vkDebugUtilsMessengerCallbackEXT,
         properties: DebugCallbackProperties,
     ) -> VkResult<Self> {
@@ -34,7 +33,7 @@ impl DebugCallback {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        instance: Arc<Instance>,
+        instance: Refc<Instance>,
         create_info: vk::DebugUtilsMessengerCreateInfoEXT,
     ) -> VkResult<Self> {
         let debug_utils_loader = debug_utils::Instance::new(instance.entry(), &instance.inner());
@@ -64,7 +63,7 @@ impl DebugCallback {
     }
 
     #[inline]
-    pub fn instance(&self) -> &Arc<Instance> {
+    pub fn instance(&self) -> &Refc<Instance> {
         &self.instance
     }
 }

@@ -1,23 +1,22 @@
-use crate::{DescriptorPool, DescriptorSetLayout, Device, DeviceOwned};
+use crate::{DescriptorPool, DescriptorSetLayout, Device, DeviceOwned, Refc};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 // Note: no destructor needed. Just drop pool.
 pub struct DescriptorSet {
     handle: vk::DescriptorSet,
-    layout: Arc<DescriptorSetLayout>,
+    layout: Refc<DescriptorSetLayout>,
 
     // dependencies
-    descriptor_pool: Arc<DescriptorPool>,
+    descriptor_pool: Refc<DescriptorPool>,
 }
 
 impl DescriptorSet {
     pub fn new(
-        descriptor_pool: Arc<DescriptorPool>,
-        layout: Arc<DescriptorSetLayout>,
+        descriptor_pool: Refc<DescriptorPool>,
+        layout: Refc<DescriptorSetLayout>,
     ) -> VkResult<Self> {
         descriptor_pool.allocate_descriptor_set(layout)
     }
@@ -25,8 +24,8 @@ impl DescriptorSet {
     /// Safetey: make sure `handle` was allocated from `descriptor_pool` using `layout`.
     pub(crate) unsafe fn from_handle(
         handle: vk::DescriptorSet,
-        layout: Arc<DescriptorSetLayout>,
-        descriptor_pool: Arc<DescriptorPool>,
+        layout: Refc<DescriptorSetLayout>,
+        descriptor_pool: Refc<DescriptorPool>,
     ) -> Self {
         Self {
             handle,
@@ -41,12 +40,12 @@ impl DescriptorSet {
         self.handle
     }
 
-    pub fn layout(&self) -> &Arc<DescriptorSetLayout> {
+    pub fn layout(&self) -> &Refc<DescriptorSetLayout> {
         &self.layout
     }
 
     #[inline]
-    pub fn descriptor_pool(&self) -> &Arc<DescriptorPool> {
+    pub fn descriptor_pool(&self) -> &Refc<DescriptorPool> {
         &self.descriptor_pool
     }
 }
@@ -73,7 +72,7 @@ impl Drop for DescriptorSet {
 
 impl DeviceOwned for DescriptorSet {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.descriptor_pool.device()
     }
 

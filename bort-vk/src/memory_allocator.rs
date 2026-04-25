@@ -3,7 +3,7 @@
 
 use crate::{
     device::Device, AllocationInfo, AllocatorAccess, ApiVersion, DefragmentationContext,
-    MemoryAllocation,
+    MemoryAllocation, Refc,
 };
 use ash::{
     khr::{bind_memory2, get_memory_requirements2, get_physical_device_properties2, maintenance4},
@@ -18,7 +18,7 @@ use ash::{
 };
 use bort_vma::{ffi, AllocatorCreateInfo};
 use log::error;
-use std::{mem, sync::Arc};
+use std::mem;
 
 /// so it's easy to find all allocation callback args, just in case I want to use them in the future.
 pub const ALLOCATION_CALLBACK_NONE: Option<&ash::vk::AllocationCallbacks> = None;
@@ -30,7 +30,7 @@ pub struct MemoryAllocator {
     handle: ffi::VmaAllocator,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 /// Constructor a new `Allocator` using the provided options.
@@ -253,7 +253,7 @@ fn get_fns_maintenance4(
 }
 
 impl MemoryAllocator {
-    pub fn new(device: Arc<Device>) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>) -> VkResult<Self> {
         let api_version_uint = device.instance().max_api_version().as_vk_uint();
         let allocator_info = AllocatorCreateInfo::new(
             device.instance().inner(),
@@ -268,7 +268,7 @@ impl MemoryAllocator {
     /// # Safety
     /// Make sure your `p_next` chain contains valid pointers.
     pub unsafe fn new_from_create_info(
-        device: Arc<Device>,
+        device: Refc<Device>,
         create_info: AllocatorCreateInfo,
     ) -> VkResult<Self> {
         let handle = new_vma_allocator(&device, create_info)?;
@@ -755,7 +755,7 @@ unsafe impl Sync for MemoryAllocator {}
 
 impl AllocatorAccess for MemoryAllocator {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

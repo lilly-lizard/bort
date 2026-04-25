@@ -1,25 +1,24 @@
 use crate::{
-    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, RenderPass, ShaderStage,
-    ALLOCATION_CALLBACK_NONE,
+    Device, DeviceOwned, PipelineAccess, PipelineCache, PipelineLayout, Refc, RenderPass,
+    ShaderStage, ALLOCATION_CALLBACK_NONE,
 };
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct GraphicsPipeline {
     handle: vk::Pipeline,
     properties: GraphicsPipelineProperties,
 
     // dependencies
-    pipeline_layout: Arc<PipelineLayout>,
+    pipeline_layout: Refc<PipelineLayout>,
     // note: we don't need to store references to `ShaderModule`, `RenderPass` or `PipelineCache` as per https://registry.khronos.org/vulkan/specs/1.0/html/vkspec.html#fundamentals-objectmodel-lifetime
 }
 
 impl GraphicsPipeline {
     pub fn new(
-        pipeline_layout: Arc<PipelineLayout>,
+        pipeline_layout: Refc<PipelineLayout>,
         properties: GraphicsPipelineProperties,
         shader_stages: &[ShaderStage],
         render_pass: &RenderPass,
@@ -73,7 +72,7 @@ impl GraphicsPipeline {
     ///   - [`ColorBlendState::from_create_info`]
     ///   - [`DynamicState::from_create_info`]
     pub unsafe fn new_from_create_info(
-        pipeline_layout: Arc<PipelineLayout>,
+        pipeline_layout: Refc<PipelineLayout>,
         create_info: vk::GraphicsPipelineCreateInfo,
         pipeline_cache: Option<&PipelineCache>,
     ) -> VkResult<Self> {
@@ -197,7 +196,7 @@ impl PipelineAccess for GraphicsPipeline {
     }
 
     #[inline]
-    fn pipeline_layout(&self) -> &Arc<PipelineLayout> {
+    fn pipeline_layout(&self) -> &Refc<PipelineLayout> {
         &self.pipeline_layout
     }
 
@@ -209,7 +208,7 @@ impl PipelineAccess for GraphicsPipeline {
 
 impl DeviceOwned for GraphicsPipeline {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.pipeline_layout.device()
     }
 
@@ -963,7 +962,7 @@ impl ViewportState {
 /// Per-pipeline creation arguments
 #[derive(Clone)]
 pub struct PerPipelineCreationParams<'a> {
-    pipeline_layout: Arc<PipelineLayout>,
+    pipeline_layout: Refc<PipelineLayout>,
     properties: GraphicsPipelineProperties,
     shader_stages: Vec<ShaderStage<'a>>,
     render_pass: &'a RenderPass,

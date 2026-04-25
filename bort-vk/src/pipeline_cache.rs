@@ -1,19 +1,18 @@
-use crate::{Device, DeviceOwned, ALLOCATION_CALLBACK_NONE};
+use crate::{Device, DeviceOwned, Refc, ALLOCATION_CALLBACK_NONE};
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::sync::Arc;
 
 pub struct PipelineCache {
     handle: vk::PipelineCache,
 
     // dependencies
-    device: Arc<Device>,
+    device: Refc<Device>,
 }
 
 impl PipelineCache {
-    pub fn new(device: Arc<Device>, create_info: vk::PipelineCacheCreateInfo) -> VkResult<Self> {
+    pub fn new(device: Refc<Device>, create_info: vk::PipelineCacheCreateInfo) -> VkResult<Self> {
         let handle = unsafe {
             device
                 .inner()
@@ -32,7 +31,7 @@ impl PipelineCache {
 
 impl DeviceOwned for PipelineCache {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         &self.device
     }
 

@@ -1,24 +1,24 @@
 use crate::{
     Buffer, CommandPool, DescriptorSet, Device, DeviceOwned, ImageAccess, PipelineAccess,
-    PipelineLayout,
+    PipelineLayout, Refc,
 };
 use ash::{
     prelude::VkResult,
     vk::{self, Handle},
 };
-use std::{error::Error, sync::Arc};
+use std::error::Error;
 
 pub struct CommandBuffer {
     handle: vk::CommandBuffer,
     level: vk::CommandBufferLevel,
 
     // dependencies
-    command_pool: Arc<CommandPool>,
+    command_pool: Refc<CommandPool>,
 }
 
 impl CommandBuffer {
     /// Allocates a single command buffer. To allocate multiple at a time, use `CommandPool::allocate_command_buffers`.
-    pub fn new(command_pool: Arc<CommandPool>, level: vk::CommandBufferLevel) -> VkResult<Self> {
+    pub fn new(command_pool: Refc<CommandPool>, level: vk::CommandBufferLevel) -> VkResult<Self> {
         let mut command_buffers = command_pool.allocate_command_buffers(level, 1)?;
         Ok(command_buffers.remove(0))
     }
@@ -27,7 +27,7 @@ impl CommandBuffer {
     pub(crate) unsafe fn from_handle(
         handle: vk::CommandBuffer,
         level: vk::CommandBufferLevel,
-        command_pool: Arc<CommandPool>,
+        command_pool: Refc<CommandPool>,
     ) -> Self {
         Self {
             handle,
@@ -59,7 +59,7 @@ impl CommandBuffer {
     }
 
     #[inline]
-    pub fn command_pool(&self) -> &Arc<CommandPool> {
+    pub fn command_pool(&self) -> &Refc<CommandPool> {
         &self.command_pool
     }
 
@@ -349,7 +349,7 @@ impl Drop for CommandBuffer {
 
 impl DeviceOwned for CommandBuffer {
     #[inline]
-    fn device(&self) -> &Arc<Device> {
+    fn device(&self) -> &Refc<Device> {
         self.command_pool.device()
     }
 
