@@ -221,7 +221,7 @@ impl ImageProperties {
         }
     }
 
-    pub fn create_info(&self) -> vk::ImageCreateInfo {
+    pub fn create_info(&self) -> vk::ImageCreateInfo<'_> {
         vk::ImageCreateInfo::default()
             .flags(self.flags)
             .image_type(self.dimensions.image_type())

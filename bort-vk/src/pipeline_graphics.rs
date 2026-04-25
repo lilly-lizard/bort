@@ -304,7 +304,7 @@ impl GraphicsPipelineProperties {
 
     /// Returns a set of vk::*CreateInfo structs populated by the members of `self`.
     /// Use this with `Self::write_create_info` to populate a `GraphicsPipelineCreateInfo`.
-    pub fn vk_create_infos(&self) -> GraphicsPipelinePropertiesCreateInfosVk {
+    pub fn vk_create_infos(&self) -> GraphicsPipelinePropertiesCreateInfosVk<'_> {
         GraphicsPipelinePropertiesCreateInfosVk {
             // write vk create-info for each member to `properties_vk`
             vertex_input_state_vk: self.vertex_input_state.create_info(),
@@ -428,7 +428,7 @@ impl ColorBlendState {
             .blend_constants(self.blend_constants)
     }
 
-    pub fn create_info(&self) -> vk::PipelineColorBlendStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineColorBlendStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineColorBlendStateCreateInfo::default())
     }
 
@@ -543,7 +543,7 @@ impl DepthStencilState {
             .max_depth_bounds(self.max_depth_bounds)
     }
 
-    pub fn create_info(&self) -> vk::PipelineDepthStencilStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineDepthStencilStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineDepthStencilStateCreateInfo::default())
     }
 }
@@ -595,7 +595,7 @@ impl DynamicState {
             .dynamic_states(&self.dynamic_states)
     }
 
-    pub fn create_info(&self) -> vk::PipelineDynamicStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineDynamicStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineDynamicStateCreateInfo::default())
     }
 
@@ -642,7 +642,7 @@ impl InputAssemblyState {
             .primitive_restart_enable(self.primitive_restart_enable)
     }
 
-    pub fn create_info(&self) -> vk::PipelineInputAssemblyStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineInputAssemblyStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineInputAssemblyStateCreateInfo::default())
     }
 }
@@ -695,7 +695,7 @@ impl MultisampleState {
             .alpha_to_one_enable(self.alpha_to_one_enable)
     }
 
-    pub fn create_info(&self) -> vk::PipelineMultisampleStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineMultisampleStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineMultisampleStateCreateInfo::default())
     }
 
@@ -778,7 +778,7 @@ impl RasterizationState {
             .line_width(self.line_width)
     }
 
-    pub fn create_info(&self) -> vk::PipelineRasterizationStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineRasterizationStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineRasterizationStateCreateInfo::default())
     }
 }
@@ -824,7 +824,7 @@ impl TessellationState {
             .patch_control_points(self.patch_control_points)
     }
 
-    pub fn create_info(&self) -> vk::PipelineTessellationStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineTessellationStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineTessellationStateCreateInfo::default())
     }
 }
@@ -864,7 +864,7 @@ impl VertexInputState {
             .vertex_attribute_descriptions(&self.vertex_attribute_descriptions)
     }
 
-    pub fn create_info(&self) -> vk::PipelineVertexInputStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineVertexInputStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineVertexInputStateCreateInfo::default())
     }
 
@@ -929,7 +929,7 @@ impl ViewportState {
             .scissors(&self.scissors)
     }
 
-    pub fn create_info(&self) -> vk::PipelineViewportStateCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineViewportStateCreateInfo<'_> {
         self.write_create_info(vk::PipelineViewportStateCreateInfo::default())
     }
 

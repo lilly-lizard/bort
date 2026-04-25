@@ -112,7 +112,7 @@ impl DebugCallbackProperties {
     pub fn create_info(
         &self,
         debug_callback: vk::PFN_vkDebugUtilsMessengerCallbackEXT,
-    ) -> vk::DebugUtilsMessengerCreateInfoEXT {
+    ) -> vk::DebugUtilsMessengerCreateInfoEXT<'_> {
         let create_info =
             vk::DebugUtilsMessengerCreateInfoEXT::default().pfn_user_callback(debug_callback);
         self.write_create_info(create_info)

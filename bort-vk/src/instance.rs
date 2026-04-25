@@ -3,7 +3,7 @@ use ash::{
     ext::metal_surface,
     khr::{android_surface, surface, wayland_surface, win32_surface, xcb_surface, xlib_surface},
     prelude::VkResult,
-    vk::{self, make_api_version, PhysicalDeviceLimits},
+    vk::{self, make_api_version},
     Entry,
 };
 #[cfg(feature = "raw-window-handle-05")]
@@ -203,7 +203,7 @@ impl Instance {
     pub fn physical_device_features(
         &self,
         physical_device: &PhysicalDevice,
-    ) -> PhysicalDeviceFeatures {
+    ) -> PhysicalDeviceFeatures<'_> {
         PhysicalDeviceFeatures {
             features_1_0: self.physical_device_features_1_0(physical_device),
             features_1_1: self
@@ -233,7 +233,7 @@ impl Instance {
     pub fn physical_device_features_1_1(
         &self,
         physical_device: &PhysicalDevice,
-    ) -> Option<vk::PhysicalDeviceVulkan11Features> {
+    ) -> Option<vk::PhysicalDeviceVulkan11Features<'_>> {
         if self.max_api_version < ApiVersion::V1_1 {
             return None;
         }
@@ -252,7 +252,7 @@ impl Instance {
     pub fn physical_device_features_1_2(
         &self,
         physical_device: &PhysicalDevice,
-    ) -> Option<vk::PhysicalDeviceVulkan12Features> {
+    ) -> Option<vk::PhysicalDeviceVulkan12Features<'_>> {
         if self.max_api_version < ApiVersion::V1_2 {
             return None;
         }
@@ -271,7 +271,7 @@ impl Instance {
     pub fn physical_device_features_1_3(
         &self,
         physical_device: &PhysicalDevice,
-    ) -> Option<vk::PhysicalDeviceVulkan13Features> {
+    ) -> Option<vk::PhysicalDeviceVulkan13Features<'_>> {
         if self.max_api_version < ApiVersion::V1_3 {
             return None;
         }

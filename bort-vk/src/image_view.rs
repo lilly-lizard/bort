@@ -159,7 +159,7 @@ impl ImageViewProperties {
             .subresource_range(self.subresource_range)
     }
 
-    pub fn create_info(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfo {
+    pub fn create_info(&self, image_handle: vk::Image) -> vk::ImageViewCreateInfo<'_> {
         self.write_create_info(vk::ImageViewCreateInfo::default(), image_handle)
     }
 

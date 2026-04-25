@@ -98,7 +98,7 @@ pub struct ComputePipelineProperties {
 }
 
 impl ComputePipelineProperties {
-    pub fn create_info(&self) -> vk::ComputePipelineCreateInfo {
+    pub fn create_info(&self) -> vk::ComputePipelineCreateInfo<'_> {
         vk::ComputePipelineCreateInfo::default().flags(self.flags)
     }
 }

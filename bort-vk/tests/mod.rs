@@ -183,8 +183,7 @@ fn create_cpu_buffer_preferred() {
 #[test]
 fn create_gpu_buffer_pool() {
     let harness = TestHarness::new();
-    let allocator = harness.create_allocator();
-    let allocator = Arc::new(allocator);
+    let allocator = Arc::new(harness.create_allocator());
 
     let buffer_properties = BufferProperties::new_default(
         16 * 1024,
@@ -223,38 +222,33 @@ fn create_gpu_buffer_pool() {
 #[test]
 fn test_gpu_stats() {
     let harness = TestHarness::new();
-    let allocator = harness.create_allocator();
+    let allocator = Arc::new(harness.create_allocator());
     let allocation_info = bort_vma::AllocationCreateInfo {
         usage: bort_vma::MemoryUsage::Auto,
         ..Default::default()
     };
 
-    unsafe {
-        let stats_1 = allocator.calculate_statistics().unwrap();
-        assert_eq!(stats_1.total.statistics.blockCount, 0);
-        assert_eq!(stats_1.total.statistics.allocationCount, 0);
-        assert_eq!(stats_1.total.statistics.allocationBytes, 0);
+    let stats_1 = allocator.calculate_statistics().unwrap();
+    assert_eq!(stats_1.total.statistics.blockCount, 0);
+    assert_eq!(stats_1.total.statistics.allocationCount, 0);
+    assert_eq!(stats_1.total.statistics.allocationBytes, 0);
 
-        let (buffer, mut allocation) = allocator
-            .create_buffer(
-                &ash::vk::BufferCreateInfo::default().size(16 * 1024).usage(
-                    ash::vk::BufferUsageFlags::VERTEX_BUFFER
-                        | ash::vk::BufferUsageFlags::TRANSFER_DST,
-                ),
-                &allocation_info,
-            )
-            .unwrap();
+    {
+        let buffer_properties = BufferProperties::new_default(
+            16 * 1024,
+            ash::vk::BufferUsageFlags::VERTEX_BUFFER | ash::vk::BufferUsageFlags::TRANSFER_DST,
+        );
+        let _buffer = Buffer::new(allocator.clone(), buffer_properties, allocation_info);
 
         let stats_2 = allocator.calculate_statistics().unwrap();
         assert_eq!(stats_2.total.statistics.blockCount, 1);
         assert_eq!(stats_2.total.statistics.allocationCount, 1);
         assert_eq!(stats_2.total.statistics.allocationBytes, 16 * 1024);
-
-        allocator.destroy_buffer(buffer, &mut allocation);
-
-        let stats_3 = allocator.calculate_statistics().unwrap();
-        assert_eq!(stats_3.total.statistics.blockCount, 1);
-        assert_eq!(stats_3.total.statistics.allocationCount, 0);
-        assert_eq!(stats_3.total.statistics.allocationBytes, 0);
     }
+    // dropped -> buffer destroyed
+
+    let stats_3 = allocator.calculate_statistics().unwrap();
+    assert_eq!(stats_3.total.statistics.blockCount, 1);
+    assert_eq!(stats_3.total.statistics.allocationCount, 0);
+    assert_eq!(stats_3.total.statistics.allocationBytes, 0);
 }

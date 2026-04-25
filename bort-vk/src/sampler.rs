@@ -143,7 +143,7 @@ impl SamplerProperties {
             .unnormalized_coordinates(self.unnormalized_coordinates)
     }
 
-    pub fn create_info(&self) -> vk::SamplerCreateInfo {
+    pub fn create_info(&self) -> vk::SamplerCreateInfo<'_> {
         self.write_create_info(vk::SamplerCreateInfo::default())
     }
 

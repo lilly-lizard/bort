@@ -366,7 +366,7 @@ impl SwapchainProperties {
         &self,
         surface_handle: vk::SurfaceKHR,
         old_swapchain_handle: vk::SwapchainKHR,
-    ) -> vk::SwapchainCreateInfoKHR {
+    ) -> vk::SwapchainCreateInfoKHR<'_> {
         vk::SwapchainCreateInfoKHR::default()
             .flags(self.flags)
             .surface(surface_handle)

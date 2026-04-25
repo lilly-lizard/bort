@@ -160,7 +160,7 @@ impl CommandPoolProperties {
             .queue_family_index(self.queue_family_index)
     }
 
-    pub fn create_info(&self) -> vk::CommandPoolCreateInfo {
+    pub fn create_info(&self) -> vk::CommandPoolCreateInfo<'_> {
         self.write_create_info(vk::CommandPoolCreateInfo::default())
     }
 

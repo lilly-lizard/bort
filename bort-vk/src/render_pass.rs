@@ -216,7 +216,7 @@ impl Subpass {
         }
     }
 
-    pub fn subpass_description(&self) -> vk::SubpassDescription {
+    pub fn subpass_description(&self) -> vk::SubpassDescription<'_> {
         let mut subpass_description =
             vk::SubpassDescription::default().pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
 

@@ -131,7 +131,7 @@ impl<'a> ShaderStage<'a> {
         }
     }
 
-    pub fn create_info(&self) -> vk::PipelineShaderStageCreateInfo {
+    pub fn create_info(&self) -> vk::PipelineShaderStageCreateInfo<'_> {
         self.write_create_info(vk::PipelineShaderStageCreateInfo::default())
     }
 }

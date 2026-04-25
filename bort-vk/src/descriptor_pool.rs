@@ -157,7 +157,7 @@ impl DescriptorPoolProperties {
             .pool_sizes(&self.pool_sizes)
     }
 
-    pub fn create_info(&self) -> vk::DescriptorPoolCreateInfo {
+    pub fn create_info(&self) -> vk::DescriptorPoolCreateInfo<'_> {
         self.write_create_info(vk::DescriptorPoolCreateInfo::default())
     }
 
