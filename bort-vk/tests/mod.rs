@@ -4,8 +4,8 @@ extern crate bort_vma;
 
 use ash::vk::{self, EXT_DEBUG_UTILS_NAME};
 use bort_vk::{
-    ApiVersion, Buffer, BufferProperties, DebugCallback, DebugCallbackProperties, Device, Instance,
-    MemoryAllocator, PhysicalDevice,
+    AllocatorAccess, ApiVersion, Buffer, BufferProperties, DebugCallback, DebugCallbackProperties,
+    Device, Instance, MemoryAllocator, MemoryPool, MemoryPoolPropeties, PhysicalDevice,
 };
 use std::{
     ffi::{CStr, CString},
@@ -161,7 +161,8 @@ fn create_gpu_buffer() {
 #[test]
 fn create_cpu_buffer_preferred() {
     let harness = TestHarness::new();
-    let allocator = harness.create_allocator();
+    let allocator = Arc::new(harness.create_allocator());
+
     let allocation_info = bort_vma::AllocationCreateInfo {
         required_flags: ash::vk::MemoryPropertyFlags::HOST_VISIBLE,
         preferred_flags: ash::vk::MemoryPropertyFlags::HOST_COHERENT
@@ -169,20 +170,14 @@ fn create_cpu_buffer_preferred() {
         flags: bort_vma::AllocationCreateFlags::MAPPED,
         ..Default::default()
     };
-    unsafe {
-        let (buffer, mut allocation) = allocator
-            .create_buffer(
-                &ash::vk::BufferCreateInfo::default().size(16 * 1024).usage(
-                    ash::vk::BufferUsageFlags::VERTEX_BUFFER
-                        | ash::vk::BufferUsageFlags::TRANSFER_DST,
-                ),
-                &allocation_info,
-            )
-            .unwrap();
-        let allocation_info = allocator.get_allocation_info(&allocation);
-        assert_ne!(allocation_info.mapped_data, std::ptr::null_mut());
-        allocator.destroy_buffer(buffer, &mut allocation);
-    }
+    let buffer_properties = BufferProperties::new_default(
+        16 * 1024,
+        ash::vk::BufferUsageFlags::VERTEX_BUFFER | ash::vk::BufferUsageFlags::TRANSFER_DST,
+    );
+    let buffer = Buffer::new(allocator.clone(), buffer_properties, allocation_info).unwrap();
+
+    let allocation_info = allocator.get_allocation_info(buffer.allocation());
+    assert_eq!(allocation_info.mapped_data, std::ptr::null_mut());
 }
 
 #[test]
@@ -191,9 +186,10 @@ fn create_gpu_buffer_pool() {
     let allocator = harness.create_allocator();
     let allocator = Arc::new(allocator);
 
-    let buffer_info = ash::vk::BufferCreateInfo::default()
-        .size(16 * 1024)
-        .usage(ash::vk::BufferUsageFlags::UNIFORM_BUFFER | ash::vk::BufferUsageFlags::TRANSFER_DST);
+    let buffer_properties = BufferProperties::new_default(
+        16 * 1024,
+        ash::vk::BufferUsageFlags::UNIFORM_BUFFER | ash::vk::BufferUsageFlags::TRANSFER_DST,
+    );
 
     let allocation_info = bort_vma::AllocationCreateInfo {
         required_flags: ash::vk::MemoryPropertyFlags::HOST_VISIBLE,
@@ -205,21 +201,22 @@ fn create_gpu_buffer_pool() {
     };
     unsafe {
         let memory_type_index = allocator
-            .find_memory_type_index_for_buffer_info(&buffer_info, &allocation_info)
+            .find_memory_type_index_for_buffer_properties(&buffer_properties, &allocation_info)
             .unwrap();
 
         // Create a pool that can have at most 2 blocks, 128 MiB each.
-        let pool_info = bort_vma::PoolCreateInfo::new()
-            .memory_type_index(memory_type_index)
-            .block_size(128 * 1024 * 1024)
-            .max_block_count(2);
+        let pool_info = MemoryPoolPropeties {
+            memory_type_index: memory_type_index,
+            block_size: 128 * 1024 * 1024,
+            max_block_count: 2,
+            ..Default::default()
+        };
 
-        let pool = AllocatorPool::new(allocator.clone(), &pool_info).unwrap();
+        let pool = Arc::new(MemoryPool::new(allocator.clone(), pool_info).unwrap());
 
-        let (buffer, mut allocation) = pool.create_buffer(&buffer_info, &allocation_info).unwrap();
-        let allocation_info = allocator.get_allocation_info(&allocation);
+        let buffer = Buffer::new(pool.clone(), buffer_properties, allocation_info).unwrap();
+        let allocation_info = allocator.get_allocation_info(buffer.allocation());
         assert_ne!(allocation_info.mapped_data, std::ptr::null_mut());
-        allocator.destroy_buffer(buffer, &mut allocation);
     }
 }
 

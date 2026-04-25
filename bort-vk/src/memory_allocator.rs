@@ -724,7 +724,7 @@ impl MemoryAllocator {
     pub unsafe fn begin_defragmentation(
         &self,
         info: &ffi::VmaDefragmentationInfo,
-    ) -> VkResult<DefragmentationContext> {
+    ) -> VkResult<DefragmentationContext<'_>> {
         let mut handle: ffi::VmaDefragmentationContext = std::ptr::null_mut();
         ffi::vmaBeginDefragmentation(self.handle, info, &mut handle).result()?;
         Ok(DefragmentationContext::new(handle, self))
