@@ -1,6 +1,6 @@
 # Bort
 
-Bort is an unambitious, lightweight vulkan wrapper on top of [ash](https://github.com/ash-rs/ash) and [vulkan memory allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/) aiming to...
+Bort is a vulkan wrapper on top of [ash](https://github.com/ash-rs/ash) and [vulkan memory allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/) aiming to...
 - reduce some boilerplate
 - reference count resource dependencies (with `Arc` or `Rc` depending on the `rc` feature flag)
 - call destructors with `Drop` so you don't need to manage `destroy_x` functions
