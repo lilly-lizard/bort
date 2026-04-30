@@ -416,6 +416,13 @@ impl ColorBlendState {
         }
     }
 
+    pub fn new_disabled(framebuffer_count: usize) -> Self {
+        Self {
+            attachments: vec![ColorBlendState::blend_state_disabled(); framebuffer_count],
+            ..Default::default()
+        }
+    }
+
     pub fn write_create_info<'a>(
         &'a self,
         create_info: vk::PipelineColorBlendStateCreateInfo<'a>,
