@@ -26,6 +26,9 @@ Example: creating a descriptor set...
 	// new_from_set_layout is a convenience function that automatically creates a pool and layout
 	// the pool and layout are stored inside the `descriptor_set` struct
 	let descriptor_set = DescriptorSet::new_from_set_layout(device, camera_layout_properties)?;
+
+	info!("descriptor pool handle: {:?}", descriptor_set.pool().handle());
+	info!("descriptor layout create flags: {:?}" descriptor_set.layout().properties().flags);
 }
 // free_descriptor_sets is called upon drop
 ```
