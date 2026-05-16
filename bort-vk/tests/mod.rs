@@ -13,9 +13,6 @@ use std::{
     sync::Arc,
 };
 
-fn extension_names() -> Vec<*const i8> {
-    vec![EXT_DEBUG_UTILS_NAME.as_ptr()]
-}
 const VALIDATION_LAYER_NAME: &CStr =
     unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
 
@@ -110,7 +107,6 @@ impl TestHarness {
                 [queue_create_info],
                 Default::default(),
                 Vec::new(),
-                vec![],
                 debug_callback,
             )
             .unwrap(),

@@ -71,7 +71,6 @@ impl Device {
         queue_create_infos: &[vk::DeviceQueueCreateInfo],
         features: PhysicalDeviceFeatures,
         extension_names: Vec<CString>,
-        layer_names: Vec<CString>,
         debug_callback_ref: Option<Refc<DebugCallback>>,
         mut p_next_structs: Vec<impl ExtendsDeviceCreateInfo>,
     ) -> Result<Self, DeviceError> {
@@ -81,14 +80,13 @@ impl Device {
             .iter()
             .map(|cstring| cstring.as_ptr())
             .collect();
-        let layer_name_ptrs: Vec<*const c_char> =
-            layer_names.iter().map(|cstring| cstring.as_ptr()).collect();
 
         #[allow(deprecated)] // backward compatability
-        let mut device_create_info = vk::DeviceCreateInfo::default()
-            .queue_create_infos(queue_create_infos)
-            .enabled_extension_names(&extension_name_ptrs)
-            .enabled_layer_names(&layer_name_ptrs);
+        let mut device_create_info =
+            vk::DeviceCreateInfo::default().queue_create_infos(queue_create_infos);
+        if extension_name_ptrs.len() != 0 {
+            device_create_info = device_create_info.enabled_extension_names(&extension_name_ptrs);
+        }
 
         let mut features_2 = vk::PhysicalDeviceFeatures2::default();
         let max_api_version = instance.max_api_version();
