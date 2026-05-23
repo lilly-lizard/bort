@@ -22,7 +22,6 @@ pub struct Device {
     inner: ash::Device,
     debug_callback_ref: Option<Refc<DebugCallback>>,
     enabled_extensions: Vec<CString>,
-    enabled_layers: Vec<CString>,
 
     // dependencies
     physical_device: Refc<PhysicalDevice>,
@@ -36,7 +35,6 @@ impl Device {
         queue_create_infos: impl IntoIterator<Item = vk::DeviceQueueCreateInfo<'a>>,
         features: PhysicalDeviceFeatures,
         extension_names: Vec<CString>,
-        layer_names: Vec<CString>,
         debug_callback_ref: Option<Refc<DebugCallback>>,
     ) -> Result<Self, DeviceError> {
         let queue_create_infos_built: Vec<DeviceQueueCreateInfo> = queue_create_infos
@@ -49,7 +47,6 @@ impl Device {
                 &queue_create_infos_built,
                 features,
                 extension_names,
-                layer_names,
                 debug_callback_ref,
                 Vec::<vk::PhysicalDeviceFeatures2>::new(),
             )
@@ -124,7 +121,6 @@ impl Device {
             device_create_info,
             debug_callback_ref,
             extension_names,
-            layer_names,
         )
     }
 
@@ -135,7 +131,6 @@ impl Device {
         create_info: vk::DeviceCreateInfo,
         debug_callback_ref: Option<Refc<DebugCallback>>,
         enabled_extensions: Vec<CString>,
-        enabled_layers: Vec<CString>,
     ) -> Result<Self, DeviceError> {
         let inner = unsafe {
             physical_device.instance().inner().create_device(
@@ -151,7 +146,6 @@ impl Device {
             debug_callback_ref,
             physical_device,
             enabled_extensions,
-            enabled_layers,
         })
     }
 
@@ -232,11 +226,6 @@ impl Device {
     #[inline]
     pub fn enabled_extensions(&self) -> &Vec<CString> {
         &self.enabled_extensions
-    }
-
-    #[inline]
-    pub fn enabled_layers(&self) -> &Vec<CString> {
-        &self.enabled_layers
     }
 }
 
